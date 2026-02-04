@@ -1,0 +1,55 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: changeme
+      POSTGRES_DB: ecommerce
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d ecommerce"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./src/Ecommerce.API
+      dockerfile: Dockerfile
+    image: ecommerce-api:dev
+    working_dir: /src
+    volumes:
+      - ./src/Ecommerce.API:/src:delegated
+      - ./src/Ecommerce.Infrastructure:/src/Ecommerce.Infrastructure:delegated
+    env_file:
+      - .env.api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "5071:5071"
+    command: sh -c "cd /src && dotnet restore && dotnet run --urls 'http://0.0.0.0:5071'"
+
+  admin-frontend:
+    build:
+      context: ./admin-frontend
+      dockerfile: Dockerfile
+    image: ecommerce-admin-frontend:dev
+    working_dir: /workspace
+    volumes:
+      - ./admin-frontend:/workspace:delegated
+    env_file:
+      - admin-frontend/.env.local
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "3003:3003"
+    command: sh -c "npm ci && npm run build && npx next start -p 3003"
+
+volumes:
+  postgres_data:

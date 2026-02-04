@@ -1,0 +1,89 @@
+name: CI Integration
+on: [push, pull_request]
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: changeme
+          POSTGRES_DB: ecommerce
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U admin -d ecommerce" --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      API_URL: http://localhost:5071
+      FRONTEND_PORT: 3003
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Restore dotnet tools
+        run: dotnet tool restore
+
+      - name: Check OpenTelemetry guard
+        run: |
+          chmod +x scripts/check-otel-ci.sh || true
+          scripts/check-otel-ci.sh
+
+      - name: Restore and run migrations
+        run: |
+          cd src/Ecommerce.Infrastructure
+          dotnet restore
+          dotnet ef database update --startup-project "../Ecommerce.API/Ecommerce.API.csproj" --connection "Host=localhost;Port=5433;Database=ecommerce;Username=admin;Password=changeme;SslMode=Disable;"
+
+      - name: Build backend
+        run: |
+          cd src/Ecommerce.API
+          dotnet build --no-restore
+
+      - name: Build admin frontend
+        run: |
+          cd admin-frontend
+          npm ci
+          npm run build
+
+      - name: Start services (background)
+        run: |
+          # Start API in background
+          cd src/Ecommerce.API
+          nohup dotnet run --urls "http://0.0.0.0:5071" >/tmp/api.log 2>&1 &
+          sleep 10
+          # Start frontend on 3003
+          cd ../../admin-frontend
+          nohup npm run start:prod >/tmp/frontend.log 2>&1 &
+          sleep 10
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Run Playwright E2E
+        env:
+          FRONTEND_PORT: 3003
+        run: |
+          cd admin-frontend
+          npm run test:e2e
+
+      - name: Upload Playwright artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            admin-frontend/test-results
+            admin-frontend/playwright-report
+            /tmp

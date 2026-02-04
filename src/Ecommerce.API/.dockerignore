@@ -1,0 +1,9 @@
+bin/
+obj/
+**/node_modules
+**/.next
+**/publish
+**/*.log
+**/*.user
+**/*.suo
+.env*
