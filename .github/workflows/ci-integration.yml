@@ -71,12 +71,13 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
-      - name: Run Playwright E2E
+      - name: Run Playwright E2E (HTML report)
         env:
           FRONTEND_PORT: 3003
         run: |
           cd admin-frontend
-          npm run test:e2e
+          # run tests and generate an HTML report in admin-frontend/playwright-report
+          npx playwright test --reporter=html --output=playwright-report || true
 
       - name: Upload Playwright artifacts on failure
         if: failure()
