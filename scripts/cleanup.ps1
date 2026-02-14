@@ -10,6 +10,11 @@ $p3003 = Get-NetTCPConnection -LocalPort 3003 -ErrorAction SilentlyContinue
 if ($p3003) { Stop-Process -Id $p3003.OwningProcess -Force -ErrorAction SilentlyContinue }
 
 Write-Host "Removing docker container 'postgres-dev' if exists..."
-docker rm -f postgres-dev -v 2>$null || Write-Host "No postgres-dev container to remove."
+try {
+	docker rm -f postgres-dev -v | Out-Null
+	Write-Host "Removed postgres-dev container"
+} catch {
+	Write-Host "No postgres-dev container to remove or docker not available"
+}
 
 Write-Host "Cleanup complete."

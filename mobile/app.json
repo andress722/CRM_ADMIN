@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "Ecommerce Mobile",
+    "slug": "ecommerce-mobile",
+    "version": "1.0.0",
+    "scheme": "ecommerce",
+    "orientation": "portrait",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {},
+    "web": {},
+    "extra": {
+      "API_URL": "http://localhost:5071"
+    }
+  }
+}

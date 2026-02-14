@@ -1,0 +1,47 @@
+name: Integration — Postgres & E2E
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  integration-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        ports:
+          - 5433:5432
+        env:
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: changeme
+          POSTGRES_DB: ecommerce
+        options: >-
+          --health-cmd="pg_isready -U admin -d ecommerce" --health-interval=5s --health-timeout=5s --health-retries=10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Wait for Postgres
+        run: |
+          for i in {1..30}; do
+            pg_isready -h 127.0.0.1 -p 5433 -U admin && break || sleep 2
+          done
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Build and run migrations
+        env:
+          ConnectionStrings__DefaultConnection: "Host=127.0.0.1;Port=5433;Database=ecommerce;Username=admin;Password=changeme;"
+        run: |
+          dotnet build src/Ecommerce.API -c Release
+          dotnet ef database update --project src/Ecommerce.API --startup-project src/Ecommerce.API
+
+      - name: Run backend tests
+        run: |
+          dotnet test tests/Ecommerce.API.Tests -v minimal

@@ -1,0 +1,79 @@
+name: E2E — Playwright tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'storefront/**'
+      - 'src/**'
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: changeme
+          POSTGRES_DB: ecommerce
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd="pg_isready -U admin -d ecommerce" --health-interval=5s --health-timeout=5s --health-retries=10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Wait for Postgres
+        run: |
+          for i in {1..30}; do
+            pg_isready -h 127.0.0.1 -p 5433 -U admin && break || sleep 2
+          done
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Apply migrations
+        env:
+          ConnectionStrings__DefaultConnection: "Host=127.0.0.1;Port=5433;Database=ecommerce;Username=admin;Password=changeme;"
+        run: |
+          dotnet build src/Ecommerce.API -c Release
+          dotnet ef database update --project src/Ecommerce.API --startup-project src/Ecommerce.API
+
+      - name: Start API
+        run: |
+          dotnet run --project src/Ecommerce.API --urls http://0.0.0.0:5071 &
+          # wait for API
+          for i in {1..30}; do
+            curl -sS http://127.0.0.1:5071/health || true
+            if curl -sS http://127.0.0.1:5071/health | grep -q ""; then break; fi
+            sleep 2
+          done
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install storefront deps
+        run: |
+          if [ -f storefront/package.json ]; then
+            cd storefront && npm ci
+          else
+            echo "No storefront found; skipping"
+            exit 0
+          fi
+
+      - name: Install Playwright browsers
+        run: |
+          cd storefront
+          npx playwright install --with-deps
+
+      - name: Run Playwright tests
+        run: |
+          cd storefront
+          npx playwright test --reporter=list

@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   postgres:
     image: postgres:15
@@ -18,13 +17,13 @@ services:
 
   api:
     build:
-      context: ./src/Ecommerce.API
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: src/Ecommerce.API/Dockerfile
+      target: build
     image: ecommerce-api:dev
-    working_dir: /src
+    working_dir: /src/Ecommerce.API
     volumes:
-      - ./src/Ecommerce.API:/src:delegated
-      - ./src/Ecommerce.Infrastructure:/src/Ecommerce.Infrastructure:delegated
+      - ./src:/src:delegated
     env_file:
       - .env.api
     depends_on:
@@ -32,7 +31,7 @@ services:
         condition: service_healthy
     ports:
       - "5071:5071"
-    command: sh -c "cd /src && dotnet restore && dotnet run --urls 'http://0.0.0.0:5071'"
+    command: sh -c "dotnet restore && dotnet run --urls 'http://0.0.0.0:5071'"
 
   admin-frontend:
     build:
@@ -40,8 +39,6 @@ services:
       dockerfile: Dockerfile
     image: ecommerce-admin-frontend:dev
     working_dir: /workspace
-    volumes:
-      - ./admin-frontend:/workspace:delegated
     env_file:
       - admin-frontend/.env.local
     depends_on:
@@ -49,7 +46,7 @@ services:
         condition: service_started
     ports:
       - "3003:3003"
-    command: sh -c "npm ci && npm run build && npx next start -p 3003"
+    command: sh -c "npx next start -p 3003"
 
 volumes:
   postgres_data:

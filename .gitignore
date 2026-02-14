@@ -1,0 +1,37 @@
+# Node
+**/node_modules/
+**/.npm/
+**/.pnpm-store/
+**/.yarn/
+**/dist/
+**/build/
+**/.next/
+**/coverage/
+**/test-results/
+
+# .NET
+**/bin/
+**/obj/
+**/*.user
+**/*.suo
+
+# Python
+**/__pycache__/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+**/.venv/
+**/venv/
+
+# Go
+**/pkg/
+
+# Logs
+**/*.log
+
+# Local env
+.env.local
+
+# Artifacts
+automation.bundle
+automation_artifacts.zip
