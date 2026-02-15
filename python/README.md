@@ -66,6 +66,7 @@ client = CopilotClient({
     "cli_path": "copilot",  # Optional: path to CLI executable
     "cli_url": None,        # Optional: URL of existing server (e.g., "localhost:8080")
     "log_level": "info",    # Optional: log level (default: "info")
+    "log_handler": None,    # Optional: diagnostic logger callback
     "auto_start": True,     # Optional: auto-start server (default: True)
     "auto_restart": True,   # Optional: auto-restart on crash (default: True)
 })
@@ -93,8 +94,10 @@ await client.stop()
 - `port` (int): Server port for TCP mode (default: 0 for random)
 - `use_stdio` (bool): Use stdio transport instead of TCP (default: True)
 - `log_level` (str): Log level (default: "info")
+- `log_handler` (callable): Diagnostic logger callback `(level, message, details)`
 - `auto_start` (bool): Auto-start server on first use (default: True)
 - `auto_restart` (bool): Auto-restart on crash (default: True)
+- `connection_retry` (dict): Retry/backoff for start/connect with keys `max_attempts`, `base_delay_ms`, `max_delay_ms` (defaults: 3 attempts, 200ms base, 2000ms max)
 
 ### Tools
 

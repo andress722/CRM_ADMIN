@@ -27,6 +27,8 @@ type ClientOptions struct {
 	CLIUrl string
 	// LogLevel for the CLI server
 	LogLevel string
+	// Logger receives diagnostic events about the client lifecycle.
+	Logger DiagnosticLogger
 	// AutoStart automatically starts the CLI server on first use (default: true).
 	// Use Bool(false) to disable.
 	AutoStart *bool
@@ -35,6 +37,19 @@ type ClientOptions struct {
 	AutoRestart *bool
 	// Env is the environment variables for the CLI process (default: inherits from current process)
 	Env []string
+	// ConnectionRetry configures retry/backoff when starting or connecting to the CLI.
+	ConnectionRetry *RetryOptions
+}
+
+// DiagnosticLogger receives diagnostic events emitted by the client.
+// Level values align with CLI log levels: none, error, warning, info, debug, all.
+type DiagnosticLogger func(level string, message string, details map[string]interface{})
+
+// RetryOptions configures retry/backoff for connection attempts.
+type RetryOptions struct {
+	MaxAttempts int
+	BaseDelayMs int
+	MaxDelayMs  int
 }
 
 // Bool returns a pointer to the given bool value.

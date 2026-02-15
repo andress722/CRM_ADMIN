@@ -1,5 +1,6 @@
 // Painel de reviews e recomendações
 import React, { useEffect, useState } from 'react';
+import { LEGACY_API_URL } from '../lib/legacy-api';
 
 interface Review {
   id: string;
@@ -18,7 +19,7 @@ export default function ReviewsPanel() {
   const [statusFilter, setStatusFilter] = useState('');
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/reviews')
+    fetch(`${LEGACY_API_URL}/reviews`)
       .then((res) => res.json())
       .then((data) => {
         setReviews(data);

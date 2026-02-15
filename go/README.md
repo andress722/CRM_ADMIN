@@ -91,9 +91,11 @@ func main() {
 - `Port` (int): Server port for TCP mode (default: 0 for random)
 - `UseStdio` (bool): Use stdio transport instead of TCP (default: true)
 - `LogLevel` (string): Log level (default: "info")
+- `Logger` (DiagnosticLogger): Diagnostic logger callback `(level, message, details)`
 - `AutoStart` (\*bool): Auto-start server on first use (default: true). Use `Bool(false)` to disable.
 - `AutoRestart` (\*bool): Auto-restart on crash (default: true). Use `Bool(false)` to disable.
 - `Env` ([]string): Environment variables for CLI process (default: inherits from current process)
+- `ConnectionRetry` (*RetryOptions): Retry/backoff for start/connect (defaults: 3 attempts, 200ms base, 2000ms max)
 
 **ResumeSessionConfig:**
 

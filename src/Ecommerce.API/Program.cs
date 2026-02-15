@@ -18,6 +18,7 @@ using Ecommerce.Infrastructure.Email;
 using Ecommerce.Infrastructure.Payments;
 using Polly;
 using Polly.Extensions.Http;
+using Sentry;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,13 +30,44 @@ Log.Logger = new LoggerConfiguration()
     .CreateLogger();
 builder.Host.UseSerilog();
 
+var sentryDsn = builder.Configuration["Sentry:Dsn"];
+if (!string.IsNullOrWhiteSpace(sentryDsn))
+{
+    builder.WebHost.UseSentry(options =>
+    {
+        options.Dsn = sentryDsn;
+        options.Environment = builder.Environment.EnvironmentName;
+        options.TracesSampleRate = builder.Configuration.GetValue("Sentry:TracesSampleRate", 0.0);
+        options.SendDefaultPii = builder.Configuration.GetValue("Sentry:SendDefaultPii", false);
+        options.Debug = false;
+    });
+}
+
 // Add CORS
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+corsOrigins = corsOrigins?.Where(origin => !string.IsNullOrWhiteSpace(origin)).ToArray();
+if (corsOrigins == null || corsOrigins.Length == 0)
+{
+    corsOrigins = new[]
+    {
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3000",
+    };
+}
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
+        if (corsOrigins.Length == 1 && corsOrigins[0] == "*")
+        {
+            policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
+            return;
+        }
+
         policy
-            .WithOrigins("http://localhost:3000", "http://localhost:3001", "http://127.0.0.1:3000")
+            .WithOrigins(corsOrigins)
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials();

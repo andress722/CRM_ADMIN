@@ -1,5 +1,6 @@
 // Painel de configurações avançadas
 import React, { useEffect, useState } from 'react';
+import { LEGACY_API_URL } from '../lib/legacy-api';
 
 interface BusinessParams {
   minOrderValue: number;
@@ -22,9 +23,9 @@ export default function AdvancedSettingsPanel() {
 
   useEffect(() => {
     Promise.all([
-      fetch('http://localhost:5000/api/business-params').then(res => res.json()),
-      fetch('http://localhost:5000/api/integrations').then(res => res.json()),
-      fetch('http://localhost:5000/api/email-template').then(res => res.text())
+      fetch(`${LEGACY_API_URL}/business-params`).then(res => res.json()),
+      fetch(`${LEGACY_API_URL}/integrations`).then(res => res.json()),
+      fetch(`${LEGACY_API_URL}/email-template`).then(res => res.text())
     ]).then(([paramsData, integrationsData, emailData]) => {
       setParams(paramsData);
       setIntegrations(integrationsData);

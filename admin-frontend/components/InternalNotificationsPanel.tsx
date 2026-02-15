@@ -1,5 +1,6 @@
 // Painel de notificações internas (alertas)
 import React, { useEffect, useState } from 'react';
+import { LEGACY_API_URL } from '../lib/legacy-api';
 
 interface Notification {
   id: string;
@@ -15,7 +16,7 @@ export default function InternalNotificationsPanel() {
   const [typeFilter, setTypeFilter] = useState('');
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/notifications')
+    fetch(`${LEGACY_API_URL}/notifications`)
       .then((res) => res.json())
       .then((data) => {
         setNotifications(data);

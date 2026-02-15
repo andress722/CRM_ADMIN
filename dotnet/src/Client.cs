@@ -147,34 +147,102 @@ public partial class CopilotClient : IDisposable, IAsyncDisposable
     /// </example>
     public Task StartAsync(CancellationToken cancellationToken = default)
     {
-        return _connectionTask ??= StartCoreAsync(cancellationToken);
-
-        async Task<Connection> StartCoreAsync(CancellationToken ct)
+        if (_connectionTask is { IsFaulted: true } or { IsCanceled: true })
         {
-            _logger.LogDebug("Starting Copilot client");
-
-            Task<Connection> result;
-
-            if (_optionsHost is not null && _optionsPort is not null)
-            {
-                // External server (TCP)
-                result = ConnectToServerAsync(null, _optionsHost, _optionsPort, ct);
-            }
-            else
-            {
-                // Child process (stdio or TCP)
-                var (cliProcess, portOrNull) = await StartCliServerAsync(_options, _logger, ct);
-                result = ConnectToServerAsync(cliProcess, portOrNull is null ? null : "localhost", portOrNull, ct);
-            }
-
-            var connection = await result;
-
-            // Verify protocol version compatibility
-            await VerifyProtocolVersionAsync(connection, ct);
-
-            _logger.LogInformation("Copilot client connected");
-            return connection;
+            _connectionTask = null;
         }
+
+        return _connectionTask ??= StartWithRetryAsync(cancellationToken);
+    }
+
+    private async Task<Connection> StartWithRetryAsync(CancellationToken ct)
+    {
+        var retry = NormalizeRetryOptions(_options.ConnectionRetry);
+        var attempts = Math.Max(1, retry.MaxAttempts);
+        Exception? lastError = null;
+
+        for (var attempt = 1; attempt <= attempts; attempt++)
+        {
+            try
+            {
+                _logger.LogInformation(
+                    "Starting Copilot client (attempt {Attempt}/{Attempts})",
+                    attempt,
+                    attempts);
+                return await StartCoreAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                lastError = ex;
+                if (attempt >= attempts)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Copilot client start failed (attempt {Attempt}/{Attempts})",
+                        attempt,
+                        attempts);
+                    throw;
+                }
+
+                _logger.LogWarning(
+                    ex,
+                    "Copilot client start failed, retrying (attempt {Attempt}/{Attempts})",
+                    attempt,
+                    attempts);
+
+                try
+                {
+                    await ForceStopAsync();
+                }
+                catch (Exception stopError)
+                {
+                    _logger.LogWarning(stopError, "ForceStop failed after connection error");
+                }
+
+                var delayMs = Math.Min(retry.MaxDelayMs, retry.BaseDelayMs * (int)Math.Pow(2, attempt - 1));
+                await Task.Delay(delayMs, ct);
+            }
+        }
+
+        throw lastError ?? new InvalidOperationException("Failed to start the Copilot client.");
+    }
+
+    private static RetryOptions NormalizeRetryOptions(RetryOptions? retry)
+    {
+        var resolved = retry ?? new RetryOptions();
+        return new RetryOptions
+        {
+            MaxAttempts = resolved.MaxAttempts > 0 ? resolved.MaxAttempts : 3,
+            BaseDelayMs = resolved.BaseDelayMs > 0 ? resolved.BaseDelayMs : 200,
+            MaxDelayMs = resolved.MaxDelayMs > 0 ? resolved.MaxDelayMs : 2000,
+        };
+    }
+
+    private async Task<Connection> StartCoreAsync(CancellationToken ct)
+    {
+        _logger.LogDebug("Starting Copilot client");
+
+        Task<Connection> result;
+
+        if (_optionsHost is not null && _optionsPort is not null)
+        {
+            // External server (TCP)
+            result = ConnectToServerAsync(null, _optionsHost, _optionsPort, ct);
+        }
+        else
+        {
+            // Child process (stdio or TCP)
+            var (cliProcess, portOrNull) = await StartCliServerAsync(_options, _logger, ct);
+            result = ConnectToServerAsync(cliProcess, portOrNull is null ? null : "localhost", portOrNull, ct);
+        }
+
+        var connection = await result;
+
+        // Verify protocol version compatibility
+        await VerifyProtocolVersionAsync(connection, ct);
+
+        _logger.LogInformation("Copilot client connected");
+        return connection;
     }
 
     /// <summary>

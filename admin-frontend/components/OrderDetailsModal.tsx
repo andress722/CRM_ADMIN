@@ -1,5 +1,6 @@
 // Modal de detalhes do pedido com histórico de status
 import React, { useEffect, useState } from 'react';
+import { LEGACY_API_URL } from '../lib/legacy-api';
 
 interface StatusHistory {
   status: string;
@@ -20,7 +21,7 @@ export default function OrderDetailsModal({ orderId, onClose }: { orderId: strin
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`http://localhost:5000/api/orders/${orderId}`)
+    fetch(`${LEGACY_API_URL}/orders/${orderId}`)
       .then((res) => res.json())
       .then((data) => {
         setOrder(data);

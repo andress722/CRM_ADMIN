@@ -123,8 +123,10 @@ class CopilotClient:
             "port": opts.get("port", 0),
             "use_stdio": False if opts.get("cli_url") else opts.get("use_stdio", True),
             "log_level": opts.get("log_level", "info"),
+            "log_handler": opts.get("log_handler"),
             "auto_start": opts.get("auto_start", True),
             "auto_restart": opts.get("auto_restart", True),
+            "connection_retry": opts.get("connection_retry", {}),
         }
         if opts.get("cli_url"):
             self.options["cli_url"] = opts["cli_url"]
@@ -136,6 +138,23 @@ class CopilotClient:
         self._state: ConnectionState = "disconnected"
         self._sessions: dict[str, CopilotSession] = {}
         self._sessions_lock = threading.Lock()
+
+    def _log(self, level: str, message: str, details: Optional[dict[str, Any]] = None) -> None:
+        handler = self.options.get("log_handler")
+        if handler is None:
+            return
+        try:
+            handler(level, message, details)
+        except Exception:
+            return
+
+    def _get_retry_options(self) -> dict[str, int]:
+        retry = self.options.get("connection_retry", {})
+        return {
+            "max_attempts": max(1, int(retry.get("max_attempts", 3))),
+            "base_delay_ms": int(retry.get("base_delay_ms", 200)),
+            "max_delay_ms": int(retry.get("max_delay_ms", 2000)),
+        }
 
     def _parse_cli_url(self, url: str) -> tuple[str, int]:
         """
@@ -202,23 +221,63 @@ class CopilotClient:
         if self._state == "connected":
             return
 
+        retry = self._get_retry_options()
         self._state = "connecting"
 
-        try:
-            # Only start CLI server process if not connecting to external server
-            if not self._is_external_server:
-                await self._start_cli_server()
+        for attempt in range(1, retry["max_attempts"] + 1):
+            self._log(
+                "info",
+                "Starting Copilot client",
+                {
+                    "attempt": attempt,
+                    "attempts": retry["max_attempts"],
+                    "external_server": self._is_external_server,
+                },
+            )
+            try:
+                # Only start CLI server process if not connecting to external server
+                if not self._is_external_server:
+                    await self._start_cli_server()
 
-            # Connect to the server
-            await self._connect_to_server()
+                # Connect to the server
+                await self._connect_to_server()
 
-            # Verify protocol version compatibility
-            await self._verify_protocol_version()
+                # Verify protocol version compatibility
+                await self._verify_protocol_version()
 
-            self._state = "connected"
-        except Exception:
-            self._state = "error"
-            raise
+                self._state = "connected"
+                return
+            except Exception as exc:
+                self._state = "error"
+
+                if attempt >= retry["max_attempts"]:
+                    self._log(
+                        "error",
+                        "Copilot client start failed",
+                        {
+                            "attempt": attempt,
+                            "attempts": retry["max_attempts"],
+                            "error": str(exc),
+                        },
+                    )
+                    raise
+
+                self._log(
+                    "warning",
+                    "Copilot client start failed, retrying",
+                    {
+                        "attempt": attempt,
+                        "attempts": retry["max_attempts"],
+                        "error": str(exc),
+                    },
+                )
+                await self.force_stop()
+                delay_ms = min(
+                    retry["max_delay_ms"],
+                    retry["base_delay_ms"] * (2 ** (attempt - 1)),
+                )
+                self._state = "connecting"
+                await asyncio.sleep(delay_ms / 1000.0)
 
     async def stop(self) -> list[dict[str, str]]:
         """

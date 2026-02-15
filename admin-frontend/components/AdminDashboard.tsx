@@ -1,5 +1,6 @@
 // Dashboard geral do admin: KPIs, gráficos, atalhos
 import React, { useEffect, useState } from 'react';
+import { LEGACY_API_URL } from '../lib/legacy-api';
 
 interface Kpi {
   label: string;
@@ -21,8 +22,8 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     Promise.all([
-      fetch('http://localhost:5000/api/kpis').then(res => res.json()),
-      fetch('http://localhost:5000/api/charts').then(res => res.json())
+      fetch(`${LEGACY_API_URL}/kpis`).then(res => res.json()),
+      fetch(`${LEGACY_API_URL}/charts`).then(res => res.json())
     ]).then(([kpiData, chartData]) => {
       setKpis(kpiData);
       setCharts(chartData);

@@ -802,7 +802,9 @@ export const options = {
 };
 
 export default function () {
-  const baseUrl = 'https://api.loja.com.br/api/v1';
+  const rawBaseUrl = __ENV.API_BASE_URL || 'http://localhost:5071';
+  const apiBase = rawBaseUrl.replace(/\/+$/, '');
+  const baseUrl = apiBase.endsWith('/api/v1') ? apiBase : `${apiBase}/api/v1`;
   const authToken = __ENV.AUTH_TOKEN;
 
   // 1. Get cart
@@ -858,7 +860,7 @@ export default function () {
   sleep(2);
 }
 
-// Run: k6 run test/performance/checkout.js
+// Run: API_BASE_URL=http://localhost:5071 AUTH_TOKEN=... k6 run test/performance/checkout.js
 ```
 
 ---

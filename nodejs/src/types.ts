@@ -59,6 +59,11 @@ export interface CopilotClientOptions {
     logLevel?: "none" | "error" | "warning" | "info" | "debug" | "all";
 
     /**
+     * Optional diagnostic logger for SDK lifecycle events.
+     */
+    logger?: DiagnosticLogger;
+
+    /**
      * Auto-start the CLI server on first use
      * @default true
      */
@@ -74,6 +79,38 @@ export interface CopilotClientOptions {
      * Environment variables to pass to the CLI process. If not set, inherits process.env.
      */
     env?: Record<string, string | undefined>;
+
+    /**
+     * Connection retry options for starting or connecting to the CLI server.
+     * Defaults: maxAttempts=3, baseDelayMs=200, maxDelayMs=2000.
+     */
+    connectionRetry?: RetryOptions;
+}
+
+export type DiagnosticLogger = (
+    level: "debug" | "info" | "warn" | "error",
+    message: string,
+    meta?: Record<string, unknown>
+) => void;
+
+/**
+ * Retry options for CLI connection attempts.
+ */
+export interface RetryOptions {
+    /**
+     * Maximum number of attempts.
+     */
+    maxAttempts?: number;
+
+    /**
+     * Base delay in milliseconds for exponential backoff.
+     */
+    baseDelayMs?: number;
+
+    /**
+     * Max delay in milliseconds between attempts.
+     */
+    maxDelayMs?: number;
 }
 
 /**

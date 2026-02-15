@@ -9,6 +9,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@sentry/nextjs": "^7.120.0",
     "fuse.js": "^7.0.0",
     "i18next": "^23.12.2",
     "next": "^16.1.6",

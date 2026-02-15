@@ -1,5 +1,6 @@
 // Painel de logs estruturados
 import React, { useEffect, useState } from 'react';
+import { LEGACY_API_URL } from '../lib/legacy-api';
 
 interface Log {
   id: string;
@@ -15,7 +16,7 @@ export default function LogsPanel() {
   const [typeFilter, setTypeFilter] = useState('');
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/logs')
+    fetch(`${LEGACY_API_URL}/logs`)
       .then((res) => res.json())
       .then((data) => {
         setLogs(data);

@@ -35,6 +35,14 @@ public class CopilotClientOptions
     public bool AutoRestart { get; set; } = true;
     public IReadOnlyDictionary<string, string>? Environment { get; set; }
     public ILogger? Logger { get; set; }
+    public RetryOptions? ConnectionRetry { get; set; }
+}
+
+public class RetryOptions
+{
+    public int MaxAttempts { get; set; } = 3;
+    public int BaseDelayMs { get; set; } = 200;
+    public int MaxDelayMs { get; set; } = 2000;
 }
 
 public class ToolBinaryResult

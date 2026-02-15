@@ -24,6 +24,7 @@ import { CopilotSession } from "./session.js";
 import type {
     ConnectionState,
     CopilotClientOptions,
+    DiagnosticLogger,
     GetAuthStatusResponse,
     GetStatusResponse,
     ModelInfo,
@@ -106,6 +107,7 @@ export class CopilotClient {
     private options: Required<Omit<CopilotClientOptions, "cliUrl">> & { cliUrl?: string };
     private isExternalServer: boolean = false;
     private forceStopping: boolean = false;
+    private logger: DiagnosticLogger;
 
     /**
      * Creates a new CopilotClient instance.
@@ -153,7 +155,10 @@ export class CopilotClient {
             autoStart: options.autoStart ?? true,
             autoRestart: options.autoRestart ?? true,
             env: options.env ?? process.env,
+            connectionRetry: options.connectionRetry ?? {},
         };
+
+        this.logger = options.logger ?? (() => undefined);
     }
 
     /**
@@ -187,6 +192,19 @@ export class CopilotClient {
         return { host, port };
     }
 
+    private getRetryOptions(): { maxAttempts: number; baseDelayMs: number; maxDelayMs: number } {
+        const retry = this.options.connectionRetry ?? {};
+        return {
+            maxAttempts: retry.maxAttempts ?? 3,
+            baseDelayMs: retry.baseDelayMs ?? 200,
+            maxDelayMs: retry.maxDelayMs ?? 2000,
+        };
+    }
+
+    private async sleep(delayMs: number): Promise<void> {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+
     /**
      * Starts the CLI server and establishes a connection.
      *
@@ -209,25 +227,53 @@ export class CopilotClient {
         if (this.state === "connected") {
             return;
         }
+        const { maxAttempts, baseDelayMs, maxDelayMs } = this.getRetryOptions();
+        const attempts = Math.max(1, maxAttempts);
 
         this.state = "connecting";
 
-        try {
-            // Only start CLI server process if not connecting to external server
-            if (!this.isExternalServer) {
-                await this.startCLIServer();
+        for (let attempt = 1; attempt <= attempts; attempt++) {
+            this.logger("info", "Starting Copilot client", {
+                attempt,
+                attempts,
+                externalServer: this.isExternalServer,
+            });
+            try {
+                // Only start CLI server process if not connecting to external server
+                if (!this.isExternalServer) {
+                    await this.startCLIServer();
+                }
+
+                // Connect to the server
+                await this.connectToServer();
+
+                // Verify protocol version compatibility
+                await this.verifyProtocolVersion();
+
+                this.state = "connected";
+                return;
+            } catch (error) {
+                this.state = "error";
+
+                if (attempt >= attempts) {
+                    this.logger("error", "Copilot client start failed", {
+                        attempt,
+                        attempts,
+                        error: error instanceof Error ? error.message : String(error),
+                    });
+                    throw error;
+                }
+
+                this.logger("warn", "Copilot client start failed, retrying", {
+                    attempt,
+                    attempts,
+                    error: error instanceof Error ? error.message : String(error),
+                });
+                await this.forceStop();
+                const delayMs = Math.min(maxDelayMs, baseDelayMs * Math.pow(2, attempt - 1));
+                this.state = "connecting";
+                await this.sleep(delayMs);
             }
-
-            // Connect to the server
-            await this.connectToServer();
-
-            // Verify protocol version compatibility
-            await this.verifyProtocolVersion();
-
-            this.state = "connected";
-        } catch (error) {
-            this.state = "error";
-            throw error;
         }
     }
 

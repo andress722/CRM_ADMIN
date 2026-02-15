@@ -73,6 +73,8 @@ type Client struct {
 	conn             interface{} // stores net.Conn for external TCP connections
 	autoStart        bool        // resolved value from options
 	autoRestart      bool        // resolved value from options
+	connectionRetry  RetryOptions
+	logger          DiagnosticLogger
 }
 
 // NewClient creates a new Copilot CLI client with the given options.
@@ -107,6 +109,8 @@ func NewClient(options *ClientOptions) *Client {
 		isExternalServer: false,
 		autoStart:        true, // default
 		autoRestart:      true, // default
+		connectionRetry: RetryOptions{MaxAttempts: 3, BaseDelayMs: 200, MaxDelayMs: 2000},
+		logger:          func(string, string, map[string]interface{}) {},
 	}
 
 	if options != nil {
@@ -139,6 +143,10 @@ func NewClient(options *ClientOptions) *Client {
 		if options.LogLevel != "" {
 			opts.LogLevel = options.LogLevel
 		}
+		if options.Logger != nil {
+			opts.Logger = options.Logger
+			client.logger = options.Logger
+		}
 		if len(options.Env) > 0 {
 			opts.Env = options.Env
 		}
@@ -147,6 +155,17 @@ func NewClient(options *ClientOptions) *Client {
 		}
 		if options.AutoRestart != nil {
 			client.autoRestart = *options.AutoRestart
+		}
+		if options.ConnectionRetry != nil {
+			if options.ConnectionRetry.MaxAttempts > 0 {
+				client.connectionRetry.MaxAttempts = options.ConnectionRetry.MaxAttempts
+			}
+			if options.ConnectionRetry.BaseDelayMs > 0 {
+				client.connectionRetry.BaseDelayMs = options.ConnectionRetry.BaseDelayMs
+			}
+			if options.ConnectionRetry.MaxDelayMs > 0 {
+				client.connectionRetry.MaxDelayMs = options.ConnectionRetry.MaxDelayMs
+			}
 		}
 	}
 
@@ -157,6 +176,27 @@ func NewClient(options *ClientOptions) *Client {
 
 	client.options = opts
 	return client
+}
+
+func (c *Client) startOnce() error {
+	// Only start CLI server process if not connecting to external server
+	if !c.isExternalServer {
+		if err := c.startCLIServer(); err != nil {
+			return err
+		}
+	}
+
+	// Connect to the server
+	if err := c.connectToServer(); err != nil {
+		return err
+	}
+
+	// Verify protocol version compatibility
+	if err := c.verifyProtocolVersion(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // parseCliUrl parses a CLI URL into host and port components.
@@ -219,28 +259,47 @@ func (c *Client) Start() error {
 
 	c.state = StateConnecting
 
-	// Only start CLI server process if not connecting to external server
-	if !c.isExternalServer {
-		if err := c.startCLIServer(); err != nil {
+	attempts := c.connectionRetry.MaxAttempts
+	if attempts <= 0 {
+		attempts = 1
+	}
+
+	for attempt := 1; attempt <= attempts; attempt++ {
+		c.logger("info", "Starting Copilot client", map[string]interface{}{
+			"attempt":         attempt,
+			"attempts":        attempts,
+			"external_server": c.isExternalServer,
+		})
+		if err := c.startOnce(); err != nil {
 			c.state = StateError
-			return err
+			if attempt >= attempts {
+				c.logger("error", "Copilot client start failed", map[string]interface{}{
+					"attempt":  attempt,
+					"attempts": attempts,
+					"error":    err.Error(),
+				})
+				return err
+			}
+			c.logger("warning", "Copilot client start failed, retrying", map[string]interface{}{
+				"attempt":  attempt,
+				"attempts": attempts,
+				"error":    err.Error(),
+			})
+			c.ForceStop()
+			delayMs := c.connectionRetry.BaseDelayMs * (1 << (attempt - 1))
+			if delayMs > c.connectionRetry.MaxDelayMs {
+				delayMs = c.connectionRetry.MaxDelayMs
+			}
+			c.state = StateConnecting
+			time.Sleep(time.Duration(delayMs) * time.Millisecond)
+			continue
 		}
+
+		c.state = StateConnected
+		return nil
 	}
 
-	// Connect to the server
-	if err := c.connectToServer(); err != nil {
-		c.state = StateError
-		return err
-	}
-
-	// Verify protocol version compatibility
-	if err := c.verifyProtocolVersion(); err != nil {
-		c.state = StateError
-		return err
-	}
-
-	c.state = StateConnected
-	return nil
+	return fmt.Errorf("failed to start after %d attempts", attempts)
 }
 
 // Stop stops the CLI server and closes all active sessions.

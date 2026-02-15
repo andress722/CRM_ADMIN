@@ -68,6 +68,7 @@ new CopilotClient(CopilotClientOptions? options = null)
 - `Cwd` - Working directory for the CLI process
 - `Environment` - Environment variables to pass to the CLI process
 - `Logger` - `ILogger` instance for SDK logging
+- `ConnectionRetry` - Retry/backoff for start/connect (defaults: 3 attempts, 200ms base, 2000ms max)
 
 #### Methods
 

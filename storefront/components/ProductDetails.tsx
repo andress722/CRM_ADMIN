@@ -6,6 +6,7 @@ import ProductReviews from './ProductReviews';
 import { useNotification } from '../context/NotificationContext';
 import { useLocale } from '../context/LocaleContext';
 import SeoHead from './SeoHead';
+import { apiFetch } from '../utils/api';
 
 interface Product {
   id: string;
@@ -26,12 +27,15 @@ export default function ProductDetails({ id }: { id: string }) {
   const { notify } = useNotification();
 
   useEffect(() => {
-    const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5071';
-    const apiBase = rawApiUrl.replace(/\/+$/, '');
-    const apiUrl = apiBase.endsWith('/api/v1') ? apiBase : `${apiBase}/api/v1`;
-    fetch(`${apiUrl}/products/${id}`)
-      .then((res) => res.json())
+    let isActive = true;
+
+    apiFetch(`/products/${id}`, { skipAuth: true })
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to load product');
+        return res.json();
+      })
       .then((data) => {
+        if (!isActive) return;
         setProduct(data);
         setLoading(false);
         // Adiciona ao histórico de visualização
@@ -44,7 +48,13 @@ export default function ProductDetails({ id }: { id: string }) {
           localStorage.setItem('recentlyViewed', JSON.stringify(viewed));
         } catch {}
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        if (isActive) setLoading(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
   }, [id]);
 
   if (loading) return <div>{t('Loading product...')}</div>;

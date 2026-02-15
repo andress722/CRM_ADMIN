@@ -24,6 +24,9 @@ ConnectionState = Literal["disconnected", "connecting", "connected", "error"]
 LogLevel = Literal["none", "error", "warning", "info", "debug", "all"]
 
 
+LogHandler = Callable[[str, str, dict[str, Any] | None], None]
+
+
 # Attachment type
 class Attachment(TypedDict):
     type: Literal["file", "directory"]
@@ -45,10 +48,20 @@ class CopilotClientOptions(TypedDict, total=False):
     # Examples: "localhost:8080", "http://127.0.0.1:9000", "8080"
     # Mutually exclusive with cli_path, use_stdio
     log_level: LogLevel  # Log level
+    log_handler: LogHandler  # Optional diagnostic logger
     auto_start: bool  # Auto-start the CLI server on first use (default: True)
     # Auto-restart the CLI server if it crashes (default: True)
     auto_restart: bool
     env: dict[str, str]  # Environment variables for the CLI process
+    connection_retry: "RetryOptions"  # Retry options for CLI connection attempts
+
+
+class RetryOptions(TypedDict, total=False):
+    """Retry options for CLI connection attempts."""
+
+    max_attempts: int
+    base_delay_ms: int
+    max_delay_ms: int
 
 
 ToolResultType = Literal["success", "failure", "rejected", "denied"]

@@ -62,8 +62,10 @@ new CopilotClient(options?: CopilotClientOptions)
 - `port?: number` - Server port (default: 0 for random)
 - `useStdio?: boolean` - Use stdio transport instead of TCP (default: true)
 - `logLevel?: string` - Log level (default: "info")
+- `logger?: DiagnosticLogger` - Diagnostic logger callback `(level, message, details)`
 - `autoStart?: boolean` - Auto-start server (default: true)
 - `autoRestart?: boolean` - Auto-restart on crash (default: true)
+- `connectionRetry?: { maxAttempts?: number; baseDelayMs?: number; maxDelayMs?: number }` - Retry/backoff for start/connect (defaults: 3 attempts, 200ms base, 2000ms max)
 
 #### Methods
 

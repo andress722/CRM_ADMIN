@@ -1,5 +1,6 @@
 // Painel de cupons e promoções avançadas
 import React, { useEffect, useState } from 'react';
+import { LEGACY_API_URL } from '../lib/legacy-api';
 
 interface Coupon {
   id: string;
@@ -19,7 +20,7 @@ export default function CouponsPanel() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/coupons')
+    fetch(`${LEGACY_API_URL}/coupons`)
       .then((res) => res.json())
       .then((data) => {
         setCoupons(data);

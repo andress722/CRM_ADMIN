@@ -76,6 +76,15 @@
    **Tempo de leitura:** 10 minutos
    **Para:** Validação de completude
 
+### 8. **docs/SECURITY_GUIDE.md** (Segurança e Logging)
+   - Boas práticas de segurança
+   - Sanitização de logs
+   - Configuração segura de Sentry
+   - Checklist rápido
+   
+   **Tempo de leitura:** 8 minutos
+   **Para:** Operação segura
+
 ---
 
 ## 🎨 Documentação Visual
@@ -142,21 +151,28 @@ PENDENTES (documentos ainda não criados)
 
 ## 🚀 Guias de Desenvolvimento
 
-### 9. **GETTING_STARTED.md**
+### 9. **docs/development.md**
+   - Runbook de desenvolvimento
+   - Variaveis de ambiente
+   - Testes de performance
+
+   **Para:** DevOps e desenvolvimento diario
+
+### 10. **GETTING_STARTED.md**
    - Setup passo a passo
    - Primeiro produto criado
    - Primeiro pedido processado
    
    **Para:** Novos desenvolvedores
 
-### 10. **QUICK_REFERENCE.md**
+### 11. **QUICK_REFERENCE.md**
    - Referência rápida
    - Comandos mais comuns
    - Troubleshooting
    
    **Para:** Desenvolvedores experientes
 
-### 11. **ANALYSIS_COVERAGE.md**
+### 12. **ANALYSIS_COVERAGE.md**
    - Cobertura de especificações
    - Status de cada requisito
    - 87% completo
@@ -167,13 +183,13 @@ PENDENTES (documentos ainda não criados)
 
 ## 📋 Documentação de Projeto
 
-### 12. **README.md** (Raiz do projeto)
+### 13. **README.md** (Raiz do projeto)
    - Visão geral geral
    - Tech stack
    - Quick start
    - Contributing
 
-### 13. **admin-frontend/README.md**
+### 14. **admin-frontend/README.md**
    - Setup do dashboard
    - Estrutura de componentes
    - API endpoints
