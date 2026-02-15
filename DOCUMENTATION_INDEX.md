@@ -183,13 +183,19 @@ PENDENTES (documentos ainda não criados)
 
 ## 📋 Documentação de Projeto
 
-### 13. **README.md** (Raiz do projeto)
+### 13. **docs/PROD_CHECKLIST.md**
+   - Checklist de deploy/producao
+   - Validacoes essenciais
+
+   **Para:** DevOps e releases
+
+### 14. **README.md** (Raiz do projeto)
    - Visão geral geral
    - Tech stack
    - Quick start
    - Contributing
 
-### 14. **admin-frontend/README.md**
+### 15. **admin-frontend/README.md**
    - Setup do dashboard
    - Estrutura de componentes
    - API endpoints
@@ -222,7 +228,8 @@ PENDENTES (documentos ainda não criados)
 ### Para DevOps/Deployment
 1. ECOMMERCE_SETUP.md - Database section
 2. QUICK_COMMANDS.md - Deploy section
-3. CHECKLIST.md - Production readiness
+3. docs/PROD_CHECKLIST.md - Deploy checklist
+4. CHECKLIST.md - Production readiness
 4. Pronto! 🎉
 
 ---
