@@ -189,13 +189,19 @@ PENDENTES (documentos ainda não criados)
 
    **Para:** DevOps e releases
 
-### 14. **README.md** (Raiz do projeto)
+### 14. **docs/QA_CHECKLIST.md**
+   - Checklist de QA/testes
+   - Validacoes de build e E2E
+
+   **Para:** QA e release candidates
+
+### 15. **README.md** (Raiz do projeto)
    - Visão geral geral
    - Tech stack
    - Quick start
    - Contributing
 
-### 15. **admin-frontend/README.md**
+### 16. **admin-frontend/README.md**
    - Setup do dashboard
    - Estrutura de componentes
    - API endpoints
