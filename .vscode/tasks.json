@@ -1,0 +1,244 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "lint",
+			"type": "shell",
+			"command": "just",
+			"args": [
+				"lint"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "lint-all",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\"; Set-Location go; golangci-lint run ./...; Set-Location ..; Set-Location python; uv run ruff check .; uv run ty check copilot; Set-Location ..; Set-Location nodejs; npm run format:check; npm run lint; npm run typecheck; Set-Location ..; Set-Location dotnet; dotnet format src/GitHub.Copilot.SDK.csproj --verify-no-changes"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "lint-go",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\go\"; golangci-lint run ./..."
+			],
+			"isBackground": false
+		},
+		{
+			"label": "lint-python",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\python\"; uv run ruff check .; uv run ty check copilot"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "lint-python",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\python\"; uv run ruff check .; uv run ty check copilot"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "lint-python-ruff",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\python\"; uv run ruff check ."
+			],
+			"isBackground": false
+		},
+		{
+			"label": "lint-python",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\python\"; uv run ruff check .; uv run ty check copilot"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "lint-go",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\go\"; golangci-lint run ./..."
+			],
+			"isBackground": false
+		},
+		{
+			"label": "lint-nodejs",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\nodejs\"; npm run format:check; npm run lint; npm run typecheck"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "lint-dotnet",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\dotnet\"; dotnet format src/GitHub.Copilot.SDK.csproj --verify-no-changes"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "typecheck-nodejs",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\nodejs\"; npm run typecheck"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "lint-nodejs",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\nodejs\"; npm run format:check; npm run lint; npm run typecheck"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "build-nodejs",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\nodejs\"; npm run build"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "build-admin-frontend",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\admin-frontend\"; npm run build"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "build-storefront",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\storefront\"; npm run build"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "build-storefront",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\storefront\"; npm run build"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "build-storefront-debug",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\storefront\"; $env:NEXT_TELEMETRY_DISABLED=1; npm run build -- --debug"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "build-storefront",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\storefront\"; npm run build"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "typecheck-storefront",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\storefront\"; npx tsc --noEmit"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "typecheck-storefront",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\storefront\"; npx tsc --noEmit"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "typecheck-storefront-local",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\storefront\"; .\\node_modules\\.bin\\tsc --noEmit"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "typecheck-storefront-local",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\storefront\"; .\\node_modules\\.bin\\tsc --noEmit"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "typecheck-storefront-local",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\storefront\"; .\\node_modules\\.bin\\tsc --noEmit --pretty false"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "build-storefront",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\storefront\"; npm run build"
+			],
+			"isBackground": false
+		}
+	]
+}

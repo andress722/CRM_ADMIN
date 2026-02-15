@@ -34,6 +34,14 @@ class Attachment(TypedDict):
     displayName: NotRequired[str]
 
 
+class RetryOptions(TypedDict, total=False):
+    """Retry options for CLI connection attempts."""
+
+    max_attempts: int
+    base_delay_ms: int
+    max_delay_ms: int
+
+
 # Options for creating a CopilotClient
 class CopilotClientOptions(TypedDict, total=False):
     """Options for creating a CopilotClient"""
@@ -48,20 +56,12 @@ class CopilotClientOptions(TypedDict, total=False):
     # Examples: "localhost:8080", "http://127.0.0.1:9000", "8080"
     # Mutually exclusive with cli_path, use_stdio
     log_level: LogLevel  # Log level
-    log_handler: LogHandler  # Optional diagnostic logger
+    log_handler: LogHandler | None  # Optional diagnostic logger
     auto_start: bool  # Auto-start the CLI server on first use (default: True)
     # Auto-restart the CLI server if it crashes (default: True)
     auto_restart: bool
     env: dict[str, str]  # Environment variables for the CLI process
-    connection_retry: "RetryOptions"  # Retry options for CLI connection attempts
-
-
-class RetryOptions(TypedDict, total=False):
-    """Retry options for CLI connection attempts."""
-
-    max_attempts: int
-    base_delay_ms: int
-    max_delay_ms: int
+    connection_retry: RetryOptions  # Retry options for CLI connection attempts
 
 
 ToolResultType = Literal["success", "failure", "rejected", "denied"]

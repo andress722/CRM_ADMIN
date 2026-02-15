@@ -156,9 +156,10 @@ export class CopilotClient {
             autoRestart: options.autoRestart ?? true,
             env: options.env ?? process.env,
             connectionRetry: options.connectionRetry ?? {},
+            logger: options.logger ?? (() => undefined),
         };
 
-        this.logger = options.logger ?? (() => undefined);
+        this.logger = this.options.logger;
     }
 
     /**
