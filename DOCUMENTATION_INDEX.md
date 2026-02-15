@@ -195,13 +195,19 @@ PENDENTES (documentos ainda não criados)
 
    **Para:** QA e release candidates
 
-### 15. **README.md** (Raiz do projeto)
+### 15. **docs/SECURITY_CHECKLIST.md**
+   - Checklist de seguranca
+   - Validacoes criticas
+
+   **Para:** Seguranca e compliance
+
+### 16. **README.md** (Raiz do projeto)
    - Visão geral geral
    - Tech stack
    - Quick start
    - Contributing
 
-### 16. **admin-frontend/README.md**
+### 17. **admin-frontend/README.md**
    - Setup do dashboard
    - Estrutura de componentes
    - API endpoints
