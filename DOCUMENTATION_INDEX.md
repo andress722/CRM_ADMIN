@@ -201,13 +201,19 @@ PENDENTES (documentos ainda não criados)
 
    **Para:** Seguranca e compliance
 
-### 16. **README.md** (Raiz do projeto)
+### 16. **docs/LOCAL_ENV_CHECKLIST.md**
+   - Checklist de ambiente local
+   - Setup rapido para dev
+
+   **Para:** Devs e onboarding
+
+### 17. **README.md** (Raiz do projeto)
    - Visão geral geral
    - Tech stack
    - Quick start
    - Contributing
 
-### 17. **admin-frontend/README.md**
+### 18. **admin-frontend/README.md**
    - Setup do dashboard
    - Estrutura de componentes
    - API endpoints
