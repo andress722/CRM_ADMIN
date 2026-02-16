@@ -207,13 +207,19 @@ PENDENTES (documentos ainda não criados)
 
    **Para:** Devs e onboarding
 
-### 17. **README.md** (Raiz do projeto)
+### 17. **docs/QA_REPORT.md**
+   - Relatorio QA consolidado
+   - Resultados de lint/test/build
+
+   **Para:** QA e stakeholders
+
+### 18. **README.md** (Raiz do projeto)
    - Visão geral geral
    - Tech stack
    - Quick start
    - Contributing
 
-### 18. **admin-frontend/README.md**
+### 19. **admin-frontend/README.md**
    - Setup do dashboard
    - Estrutura de componentes
    - API endpoints
