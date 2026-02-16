@@ -9,6 +9,7 @@ public class EcommerceDbContext : DbContext
         : base(options) { }
 
     public DbSet<User> Users { get; set; }
+    public DbSet<UserAddress> UserAddresses { get; set; }
     public DbSet<Product> Products { get; set; }
     public DbSet<Order> Orders { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
@@ -64,6 +65,26 @@ public class EcommerceDbContext : DbContext
             entity.Property(e => e.FailedLoginAttempts).IsRequired().HasDefaultValue(0);
             entity.HasIndex(e => e.Email).IsUnique();
             entity.HasIndex(e => e.Role);
+        });
+
+        modelBuilder.Entity<UserAddress>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Label).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.RecipientName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Phone).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Line1).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.Line2).HasMaxLength(255);
+            entity.Property(e => e.City).IsRequired().HasMaxLength(120);
+            entity.Property(e => e.State).IsRequired().HasMaxLength(120);
+            entity.Property(e => e.PostalCode).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.Country).IsRequired().HasMaxLength(100);
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => new { e.UserId, e.IsDefault });
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<SupportTicket>(entity =>

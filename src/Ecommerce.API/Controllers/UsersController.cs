@@ -16,12 +16,14 @@ public class UsersController : ControllerBase
     private readonly UserService _service;
     private readonly OrderService _orderService;
     private readonly WishlistService _wishlistService;
+    private readonly UserAddressService _addressService;
 
-    public UsersController(UserService service, OrderService orderService, WishlistService wishlistService)
+    public UsersController(UserService service, OrderService orderService, WishlistService wishlistService, UserAddressService addressService)
     {
         _service = service;
         _orderService = orderService;
         _wishlistService = wishlistService;
+        _addressService = addressService;
     }
 
     private Guid GetCurrentUserId()
@@ -118,6 +120,101 @@ public class UsersController : ControllerBase
         }
     }
 
+    [HttpGet("me/addresses")]
+    [Authorize]
+    public async Task<IActionResult> GetMyAddresses()
+    {
+        var id = GetCurrentUserId();
+        if (id == Guid.Empty) return Unauthorized();
+
+        var addresses = await _addressService.GetUserAddressesAsync(id);
+        return Ok(addresses);
+    }
+
+    [HttpGet("me/addresses/{id}")]
+    [Authorize]
+    public async Task<IActionResult> GetMyAddress(Guid id)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty) return Unauthorized();
+
+        var address = await _addressService.GetAsync(id);
+        if (address == null || address.UserId != userId)
+        {
+            return NotFound(new { message = "Address not found" });
+        }
+
+        return Ok(address);
+    }
+
+    [HttpPost("me/addresses")]
+    [Authorize]
+    public async Task<IActionResult> CreateMyAddress(CreateUserAddressRequest request)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty) return Unauthorized();
+
+        var validation = ValidateAddressRequest(request);
+        if (validation != null)
+        {
+            return BadRequest(new { message = validation });
+        }
+
+        var address = await _addressService.CreateAsync(userId, request);
+        return CreatedAtAction(nameof(GetMyAddress), new { id = address.Id }, address);
+    }
+
+    [HttpPut("me/addresses/{id}")]
+    [Authorize]
+    public async Task<IActionResult> UpdateMyAddress(Guid id, UpdateUserAddressRequest request)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty) return Unauthorized();
+
+        var address = await _addressService.GetAsync(id);
+        if (address == null || address.UserId != userId)
+        {
+            return NotFound(new { message = "Address not found" });
+        }
+
+        var updated = await _addressService.UpdateAsync(address, request);
+        return Ok(updated);
+    }
+
+    [HttpDelete("me/addresses/{id}")]
+    [Authorize]
+    public async Task<IActionResult> DeleteMyAddress(Guid id)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty) return Unauthorized();
+
+        var address = await _addressService.GetAsync(id);
+        if (address == null || address.UserId != userId)
+        {
+            return NotFound(new { message = "Address not found" });
+        }
+
+        await _addressService.DeleteAsync(id);
+        return NoContent();
+    }
+
+    [HttpPost("me/addresses/{id}/default")]
+    [Authorize]
+    public async Task<IActionResult> SetDefaultAddress(Guid id)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty) return Unauthorized();
+
+        var address = await _addressService.GetAsync(id);
+        if (address == null || address.UserId != userId)
+        {
+            return NotFound(new { message = "Address not found" });
+        }
+
+        await _addressService.SetDefaultAsync(userId, id);
+        return Ok(new { message = "Default address updated" });
+    }
+
     [HttpGet("me/stats")]
     [Authorize]
     public async Task<IActionResult> GetMyStats()
@@ -137,6 +234,20 @@ public class UsersController : ControllerBase
         var reviews = 0;
 
         return Ok(new { orders = ordersCount, spent = totalSpent, favorites, reviews });
+    }
+
+    private static string? ValidateAddressRequest(CreateUserAddressRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Label)) return "Label is required";
+        if (string.IsNullOrWhiteSpace(request.RecipientName)) return "RecipientName is required";
+        if (string.IsNullOrWhiteSpace(request.Phone)) return "Phone is required";
+        if (string.IsNullOrWhiteSpace(request.Line1)) return "Line1 is required";
+        if (string.IsNullOrWhiteSpace(request.City)) return "City is required";
+        if (string.IsNullOrWhiteSpace(request.State)) return "State is required";
+        if (string.IsNullOrWhiteSpace(request.PostalCode)) return "PostalCode is required";
+        if (string.IsNullOrWhiteSpace(request.Country)) return "Country is required";
+
+        return null;
     }
 }
 

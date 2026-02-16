@@ -158,6 +158,7 @@ builder.Services.AddDbContext<EcommerceDbContext>(options =>
 
 // Add Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IUserAddressRepository, UserAddressRepository>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<ICartRepository, CartRepository>();
@@ -197,6 +198,7 @@ builder.Services.AddScoped<ICrmActivityRepository, CrmActivityRepository>();
 
 // Add Services
 builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<UserAddressService>();
 builder.Services.AddScoped<ProductService>();
 builder.Services.AddScoped<OrderService>();
 builder.Services.AddScoped<CartService>();

@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Ecommerce.API.Services;
 using Ecommerce.Application.Repositories;
 using Ecommerce.Application.Services;
@@ -42,6 +44,36 @@ public class AuthController : ControllerBase
         _emailService = emailService;
         _configuration = configuration;
         _socialAuthService = socialAuthService;
+    }
+
+    /// <summary>
+    /// Get current user profile from access token
+    /// </summary>
+    [HttpGet("me")]
+    [Authorize]
+    public async Task<IActionResult> Me()
+    {
+        var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        if (!Guid.TryParse(sub, out var userId))
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var user = await _userService.GetUserAsync(userId);
+            return Ok(new
+            {
+                id = user.Id,
+                email = user.Email,
+                name = user.FullName,
+                role = user.Role
+            });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
     }
 
     /// <summary>

@@ -61,6 +61,7 @@ public class ShippingController : ControllerBase
     }
 
     [HttpGet("track/{trackingNumber}")]
+    [AllowAnonymous]
     public async Task<IActionResult> Track(string trackingNumber)
     {
         var tracked = await _service.TrackAsync(trackingNumber);

@@ -46,6 +46,32 @@ public class OrdersController : ControllerBase
     }
 
     /// <summary>
+    /// Public tracking summary for an order
+    /// </summary>
+    [HttpGet("track/{id}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> TrackOrder(Guid id)
+    {
+        try
+        {
+            var order = await _service.GetOrderAsync(id);
+            return Ok(new
+            {
+                id = order.Id,
+                status = order.Status,
+                createdAt = order.CreatedAt,
+                updatedAt = order.UpdatedAt,
+                totalAmount = order.TotalAmount,
+                itemCount = order.Items.Count
+            });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Lista pedidos de um usuário
     /// </summary>
     /// <param name="userId">ID do usuário</param>
