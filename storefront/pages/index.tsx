@@ -30,6 +30,17 @@ export default function Home() {
           description="Confira os melhores produtos da nossa loja online. Preços, ofertas e novidades!"
         />
         <main className="page-shell">
+          <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Marketplace</p>
+              <h1 className="text-3xl sm:text-4xl font-bold text-slate-900">Aurora Market</h1>
+            </div>
+            <div className="flex items-center gap-3">
+              <a href="/cart" className="btn-ghost">Carrinho</a>
+              <a href="/support" className="btn-secondary">Suporte</a>
+            </div>
+          </header>
+
           <section className="hero fade-in">
             <div className="relative z-10 flex flex-col gap-6 max-w-3xl">
               <div className="flex flex-wrap gap-3 items-center">
@@ -37,7 +48,7 @@ export default function Home() {
                 <span className="chip">Entrega expressa</span>
                 <span className="chip">Pagamento seguro</span>
               </div>
-              <h1 className="text-4xl sm:text-5xl font-bold">{t('Product Catalog')}</h1>
+              <h2 className="text-4xl sm:text-5xl font-bold">{t('Product Catalog')}</h2>
               <p className="text-lg sm:text-xl text-slate-100">
                 Curadoria de produtos premium, filtros inteligentes e recomendações sob medida.
               </p>

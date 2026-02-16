@@ -9,12 +9,12 @@ export default function CountrySwitcher() {
 
   return (
     <div className="flex items-center gap-2">
-      <label htmlFor="country" className="text-sm font-medium">{t('Country')}</label>
+      <label htmlFor="country" className="text-xs font-semibold text-slate-500">{t('Country')}</label>
       <select
         id="country"
         value={country}
         onChange={(e) => setCountry(e.target.value as typeof country)}
-        className="border rounded px-2 py-1 text-sm"
+        className="soft-panel text-sm text-slate-700"
       >
         {options.map(option => (
           <option key={option.code} value={option.code}>

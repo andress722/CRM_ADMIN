@@ -11,11 +11,11 @@ export default function CategoryFilter({ onSelect }: { onSelect: (cat: string) =
   }
 
   return (
-    <div className="mb-4 flex gap-2 flex-wrap">
+    <div className="flex flex-wrap gap-2">
       {categories.map(cat => (
         <button
           key={cat}
-          className={`px-3 py-1 rounded border font-bold ${selected === cat ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}
+          className={`px-4 py-1.5 rounded-full border text-sm font-semibold transition ${selected === cat ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
           onClick={() => handleSelect(cat)}
         >
           {cat}

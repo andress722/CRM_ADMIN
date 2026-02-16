@@ -30,13 +30,13 @@ export default function PushNotificationPrompt() {
   if (permission === 'granted') return null;
 
   return (
-    <div className="fixed bottom-4 right-4 bg-blue-600 text-white p-4 rounded-lg shadow-lg z-50 flex flex-col items-center">
-      <span className="mb-2 font-bold">Receba promoções e novidades!</span>
-      <button
-        className="bg-white text-blue-600 px-4 py-2 rounded font-bold"
-        onClick={requestPermission}
-      >
-        Ativar notificações
+    <div className="soft-panel flex flex-col sm:flex-row sm:items-center gap-3">
+      <div>
+        <p className="text-sm font-semibold text-slate-900">Receba promocoes e novidades</p>
+        <p className="text-xs text-slate-500">Alertas de preco, colecoes e ofertas personalizadas.</p>
+      </div>
+      <button className="btn-primary w-fit" onClick={requestPermission}>
+        Ativar notificacoes
       </button>
     </div>
   );
