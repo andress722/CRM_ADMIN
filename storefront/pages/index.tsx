@@ -16,6 +16,8 @@ import SeoHead from '../components/SeoHead';
 import { useTranslation } from 'react-i18next';
 import { useEffect } from 'react';
 import { captureAffiliateRefFromUrl } from '../utils/affiliate';
+import StorefrontHeader from '../components/StorefrontHeader';
+import StorefrontFooter from '../components/StorefrontFooter';
 
 export default function Home() {
   const { t } = useTranslation();
@@ -30,16 +32,7 @@ export default function Home() {
           description="Confira os melhores produtos da nossa loja online. Preços, ofertas e novidades!"
         />
         <main className="page-shell">
-          <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Marketplace</p>
-              <h1 className="text-3xl sm:text-4xl font-bold text-slate-900">Aurora Market</h1>
-            </div>
-            <div className="flex items-center gap-3">
-              <a href="/cart" className="btn-ghost">Carrinho</a>
-              <a href="/support" className="btn-secondary">Suporte</a>
-            </div>
-          </header>
+          <StorefrontHeader />
 
           <section className="hero fade-in">
             <div className="relative z-10 flex flex-col gap-6 max-w-3xl">
@@ -55,6 +48,24 @@ export default function Home() {
               <div className="flex flex-wrap gap-3">
                 <a href="#catalog" className="btn-primary">Explorar catalogo</a>
                 <a href="#recommendations" className="btn-ghost">Ver recomendacoes</a>
+                <a href="/account" className="btn-secondary">Entrar agora</a>
+              </div>
+            </div>
+          </section>
+
+          <section className="section-card fade-in">
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="soft-panel">
+                <p className="text-sm font-semibold text-slate-900">Vendedores verificados</p>
+                <p className="text-xs text-slate-500">Compra segura e entregas acompanhadas.</p>
+              </div>
+              <div className="soft-panel">
+                <p className="text-sm font-semibold text-slate-900">Garantia estendida</p>
+                <p className="text-xs text-slate-500">Devolucao facilitada em ate 30 dias.</p>
+              </div>
+              <div className="soft-panel">
+                <p className="text-sm font-semibold text-slate-900">Ofertas inteligentes</p>
+                <p className="text-xs text-slate-500">Alertas de preco e recomendacoes personalizadas.</p>
               </div>
             </div>
           </section>
@@ -89,6 +100,24 @@ export default function Home() {
             <RecentlyViewed />
           </section>
 
+          <section className="section-card fade-in">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900">Lojas em destaque</h2>
+                <p className="text-slate-600">Marcas locais, designers independentes e curadorias exclusivas.</p>
+              </div>
+              <a href="/support" className="btn-ghost">Quero vender</a>
+            </div>
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              {['Studio Nuvem', 'Casa Onda', 'Atelier Aurora'].map((seller) => (
+                <div key={seller} className="soft-panel">
+                  <p className="text-sm font-semibold text-slate-900">{seller}</p>
+                  <p className="text-xs text-slate-500">Produtos autorais e entrega expressa.</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
           <section id="recommendations" className="section-card fade-in">
             <Recommendations />
           </section>
@@ -97,7 +126,21 @@ export default function Home() {
             <PaymentMethods />
           </section>
 
+          <section className="section-card fade-in">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900">Assine novidades</h2>
+                <p className="text-slate-600">Receba ofertas e lancamentos direto no seu e-mail.</p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input className="soft-panel w-full sm:w-64" placeholder="Seu e-mail" />
+                <button className="btn-primary">Quero receber</button>
+              </div>
+            </div>
+          </section>
+
           <LgpdBanner />
+          <StorefrontFooter />
         </main>
       </WishlistProvider>
     </NotificationProvider>

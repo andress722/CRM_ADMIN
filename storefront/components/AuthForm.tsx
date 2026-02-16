@@ -163,43 +163,46 @@ export default function AuthForm() {
   }
 
   return (
-    <form className="max-w-md mx-auto p-4 border rounded bg-white shadow" onSubmit={handleSubmit}>
-      <h2 className="text-xl font-bold mb-4">
-        {forgotMode ? 'Recuperar Senha' : isLogin ? 'Login' : 'Registro'}
-      </h2>
+    <form className="section-card w-full max-w-lg" onSubmit={handleSubmit}>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-slate-900">
+          {forgotMode ? 'Recuperar Senha' : isLogin ? 'Login' : 'Registro'}
+        </h2>
+        <span className="chip text-slate-700 bg-slate-100">Marketplace</span>
+      </div>
       {!forgotMode && !isLogin && (
-        <input name="name" placeholder="Nome" value={name} onChange={e => setName(e.target.value)} className="w-full border rounded px-2 py-1 mb-2" required />
+        <input name="name" placeholder="Nome" value={name} onChange={e => setName(e.target.value)} className="soft-panel w-full mb-3" required />
       )}
-      <input name="email" type="email" placeholder="E-mail" value={email} onChange={e => setEmail(e.target.value)} className="w-full border rounded px-2 py-1 mb-2" required />
+      <input name="email" type="email" placeholder="E-mail" value={email} onChange={e => setEmail(e.target.value)} className="soft-panel w-full mb-3" required />
       {!forgotMode && (
-        <input name="password" type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} className="w-full border rounded px-2 py-1 mb-2" required />
+        <input name="password" type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} className="soft-panel w-full mb-3" required />
       )}
-      {error && <div className="text-red-600 mb-2">{error}</div>}
-      {success && !forgotMode && <div className="text-green-600 mb-2">Sucesso!</div>}
-      {forgotSuccess && forgotMode && <div className="text-green-600 mb-2">E-mail de recuperação enviado!</div>}
+      {error && <div className="text-rose-600 mb-2 text-sm">{error}</div>}
+      {success && !forgotMode && <div className="text-emerald-600 mb-2 text-sm">Sucesso!</div>}
+      {forgotSuccess && forgotMode && <div className="text-emerald-600 mb-2 text-sm">E-mail de recuperação enviado!</div>}
       {showResend && !forgotMode && (
         <button
           type="button"
-          className="mt-2 text-blue-500 underline w-full"
+          className="text-sm text-indigo-600 underline w-full text-left"
           onClick={handleResendVerification}
           disabled={resendLoading || resendCooldown > 0}
         >
           {resendCooldown > 0 ? `Reenviar em ${resendCooldown}s` : resendLoading ? 'Reenviando...' : 'Reenviar verificação'}
         </button>
       )}
-      <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded font-bold w-full" disabled={loading}>
+      <button type="submit" className="btn-primary w-full mt-2" disabled={loading}>
         {loading ? 'Processando...' : forgotMode ? 'Enviar recuperação' : isLogin ? 'Entrar' : 'Registrar'}
       </button>
       {!forgotMode && (
-        <button type="button" className="mt-2 text-blue-500 underline w-full" onClick={() => setIsLogin(!isLogin)}>
+        <button type="button" className="mt-2 text-sm text-slate-600 underline w-full text-left" onClick={() => setIsLogin(!isLogin)}>
           {isLogin ? 'Criar conta' : 'Já tenho conta'}
         </button>
       )}
       {!forgotMode && (
-        <div className="mt-4 space-y-2">
+        <div className="mt-5 space-y-2">
           <button
             type="button"
-            className="w-full border border-gray-300 px-4 py-2 rounded font-semibold"
+            className="btn-ghost w-full text-left"
             onClick={() => handleSocialLogin('google')}
             disabled={loading}
           >
@@ -207,7 +210,7 @@ export default function AuthForm() {
           </button>
           <button
             type="button"
-            className="w-full border border-gray-300 px-4 py-2 rounded font-semibold"
+            className="btn-ghost w-full text-left"
             onClick={() => handleSocialLogin('facebook')}
             disabled={loading}
           >
@@ -216,12 +219,12 @@ export default function AuthForm() {
         </div>
       )}
       {!forgotMode && (
-        <button type="button" className="mt-2 text-blue-500 underline w-full" onClick={() => setForgotMode(true)}>
+        <button type="button" className="mt-3 text-sm text-slate-500 underline w-full text-left" onClick={() => setForgotMode(true)}>
           Esqueci minha senha
         </button>
       )}
       {forgotMode && (
-        <button type="button" className="mt-2 text-gray-500 underline w-full" onClick={() => { setForgotMode(false); setForgotSuccess(false); }}>
+        <button type="button" className="mt-3 text-sm text-slate-500 underline w-full text-left" onClick={() => { setForgotMode(false); setForgotSuccess(false); }}>
           Voltar ao login
         </button>
       )}

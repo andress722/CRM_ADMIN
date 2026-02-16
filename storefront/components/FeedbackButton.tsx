@@ -20,14 +20,14 @@ export default function FeedbackButton() {
   return (
     <>
       <button
-        className="fixed bottom-6 right-6 btn-primary shadow-glow z-50 text-base"
+        className="btn-secondary"
         aria-label="Enviar feedback"
         onClick={() => setOpen(true)}
       >
         💬 Feedback
       </button>
       {open && (
-        <div className="fixed bottom-24 right-6 section-card z-50 w-80 flex flex-col gap-2">
+        <div className="section-card w-full max-w-sm flex flex-col gap-2">
           <span className="font-bold text-amber-600 mb-1">Envie seu feedback</span>
           <select value={type} onChange={e => setType(e.target.value)} className="soft-panel">
             <option value="sugestao">Sugestão</option>
