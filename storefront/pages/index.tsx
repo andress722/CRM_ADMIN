@@ -29,17 +29,63 @@ export default function Home() {
           title="Loja Online | Catálogo de Produtos"
           description="Confira os melhores produtos da nossa loja online. Preços, ofertas e novidades!"
         />
-        <main>
-          <LanguageSwitcher />
-          <h1 className="text-2xl font-bold mb-4 text-center">{t('Product Catalog')}</h1>
-          <AccessibilityBar />
-          <FeedbackButton />
-          <ShareWishlist />
-          <PushNotificationPrompt />
-          <RecentlyViewed />
-          <ProductList />
-          <Recommendations />
-          <PaymentMethods />
+        <main className="page-shell">
+          <section className="hero fade-in">
+            <div className="relative z-10 flex flex-col gap-6 max-w-3xl">
+              <div className="flex flex-wrap gap-3 items-center">
+                <span className="chip">Nova colecao 2026</span>
+                <span className="chip">Entrega expressa</span>
+                <span className="chip">Pagamento seguro</span>
+              </div>
+              <h1 className="text-4xl sm:text-5xl font-bold">{t('Product Catalog')}</h1>
+              <p className="text-lg sm:text-xl text-slate-100">
+                Curadoria de produtos premium, filtros inteligentes e recomendações sob medida.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <a href="#catalog" className="btn-primary">Explorar catalogo</a>
+                <a href="#recommendations" className="btn-ghost">Ver recomendacoes</a>
+              </div>
+            </div>
+          </section>
+
+          <section className="section-card fade-in">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900">Seu painel de preferencias</h2>
+                <p className="text-slate-600">Idioma, acessibilidade e notificacoes em um so lugar.</p>
+              </div>
+              <LanguageSwitcher />
+            </div>
+            <div className="mt-6 flex flex-wrap gap-4 items-center">
+              <AccessibilityBar />
+              <FeedbackButton />
+              <ShareWishlist />
+              <PushNotificationPrompt />
+            </div>
+          </section>
+
+          <section id="catalog" className="section-card fade-in">
+            <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900">Catalogo inteligente</h2>
+                <p className="text-slate-600">Pesquise, compare e monte sua lista com poucos cliques.</p>
+              </div>
+            </div>
+            <ProductList />
+          </section>
+
+          <section className="section-card fade-in">
+            <RecentlyViewed />
+          </section>
+
+          <section id="recommendations" className="section-card fade-in">
+            <Recommendations />
+          </section>
+
+          <section className="section-card fade-in">
+            <PaymentMethods />
+          </section>
+
           <LgpdBanner />
         </main>
       </WishlistProvider>

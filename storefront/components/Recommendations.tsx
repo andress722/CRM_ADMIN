@@ -25,15 +25,21 @@ export default function Recommendations() {
   }, []);
 
   return (
-    <section className="mt-8">
-      <h2 className="text-xl font-bold mb-4">Recomendações para você</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <section>
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">Recomendações para você</h2>
+          <p className="text-slate-600">Produtos que combinam com seu estilo e ultima busca.</p>
+        </div>
+        <span className="chip text-slate-700 bg-slate-100">Atualizado agora</span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {products.map(product => (
-          <div key={product.id} className="border rounded-xl p-3 bg-white shadow flex flex-col items-center">
-            <img src={product.imageUrl || '/placeholder.png'} alt={product.name} className="w-full h-32 object-cover mb-2 rounded-lg" />
-            <h3 className="text-base font-bold mb-1">{product.name}</h3>
-            <p className="text-blue-600 font-semibold mb-2">{formatFromBase(product.price)}</p>
-            <button className="bg-green-600 text-white px-4 py-2 rounded font-bold mt-auto">Adicionar ao Carrinho</button>
+          <div key={product.id} className="section-card flex flex-col">
+            <img src={product.imageUrl || '/placeholder.png'} alt={product.name} className="w-full h-36 object-cover mb-3 rounded-2xl" />
+            <h3 className="text-lg font-bold mb-1 text-slate-900">{product.name}</h3>
+            <p className="text-emerald-600 font-semibold mb-3">{formatFromBase(product.price)}</p>
+            <button className="btn-primary mt-auto">Adicionar ao Carrinho</button>
           </div>
         ))}
       </div>

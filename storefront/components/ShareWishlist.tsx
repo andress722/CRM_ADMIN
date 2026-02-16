@@ -29,17 +29,17 @@ export default function ShareWishlist() {
   if (!list || list.length === 0) return null;
 
   return (
-    <div className="my-4 flex flex-col items-center">
+    <div className="flex flex-col items-start gap-3">
       <button
-        className="bg-blue-600 text-white px-4 py-2 rounded font-bold mb-2"
+        className="btn-secondary"
         onClick={handleShare}
       >
         Compartilhar minha wishlist
       </button>
       {link && (
-        <div className="flex flex-col items-center gap-2 mt-2">
-          <input type="text" value={link} readOnly className="border rounded px-2 py-1 w-72" />
-          <button className="bg-green-600 text-white px-3 py-1 rounded" onClick={handleCopy}>
+        <div className="flex flex-col gap-2">
+          <input type="text" value={link} readOnly className="soft-panel w-72" />
+          <button className="btn-primary w-fit" onClick={handleCopy}>
             {copied ? 'Copiado!' : 'Copiar link'}
           </button>
         </div>

@@ -106,54 +106,67 @@ export default function ProductList() {
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-  if (loading) return <div>{t('Loading products...')}</div>;
+  if (loading) return <div className="text-slate-600">{t('Loading products...')}</div>;
 
   return (
     <>
-      <CategoryFilter onSelect={setCategory} />
-      <div className="mb-4 flex flex-col sm:flex-row gap-2 items-center">
-        <input
-          type="text"
-          placeholder={t('Search product...')}
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="border rounded px-2 py-1 w-full sm:w-1/3"
-        />
-        {suggestions.length > 0 && (
-          <div className="relative w-full sm:w-1/3">
-            <ul className="absolute z-10 bg-white border rounded shadow w-full max-h-48 overflow-auto">
-              {suggestions.map((product) => (
-                <li key={product.id} className="px-2 py-1 hover:bg-gray-100 cursor-pointer"
-                    onClick={() => setSearch(product.name)}>
-                  {product.name}
-                </li>
-              ))}
-            </ul>
+      <div className="soft-panel mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-sm text-slate-500">Explore por categoria</p>
+            <CategoryFilter onSelect={setCategory} />
           </div>
-        )}
-        <input
-          type="number"
-          placeholder={t('Min Price')}
-          value={minPrice}
-          onChange={e => setMinPrice(e.target.value)}
-          className="border rounded px-2 py-1 w-full sm:w-1/6"
-        />
-        <input
-          type="number"
-          placeholder={t('Max Price')}
-          value={maxPrice}
-          onChange={e => setMaxPrice(e.target.value)}
-          className="border rounded px-2 py-1 w-full sm:w-1/6"
-        />
+          <div className="flex flex-wrap gap-2">
+            <span className="chip text-slate-700 bg-slate-100">{total} itens</span>
+            <span className="chip text-slate-700 bg-slate-100">{page} / {totalPages}</span>
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-1 lg:grid-cols-[2fr_1fr_1fr] gap-3">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder={t('Search product...')}
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="soft-panel w-full"
+            />
+            {suggestions.length > 0 && (
+              <div className="absolute z-10 mt-2 w-full rounded-2xl bg-white shadow-card border border-slate-100">
+                <ul className="max-h-48 overflow-auto">
+                  {suggestions.map((product) => (
+                    <li key={product.id} className="px-3 py-2 hover:bg-slate-50 cursor-pointer"
+                        onClick={() => setSearch(product.name)}>
+                      {product.name}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+          <input
+            type="number"
+            placeholder={t('Min Price')}
+            value={minPrice}
+            onChange={e => setMinPrice(e.target.value)}
+            className="soft-panel"
+          />
+          <input
+            type="number"
+            placeholder={t('Max Price')}
+            value={maxPrice}
+            onChange={e => setMaxPrice(e.target.value)}
+            className="soft-panel"
+          />
+        </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 px-2 sm:px-0">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
         {products.map((product) => {
           const isCompared = compare.some(p => p.id === product.id);
           return (
-            <div key={product.id} className="border rounded-xl p-3 sm:p-4 bg-white shadow flex flex-col relative">
+            <div key={product.id} className="section-card flex flex-col relative">
               <button
                 aria-label={isFavorite(product.id) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-                className={`absolute top-2 right-2 text-xl p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-pink-500 transition-colors ${isFavorite(product.id) ? 'bg-pink-100 text-pink-600' : 'bg-gray-100 text-gray-400'}`}
+                className={`absolute top-3 right-3 text-lg p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-pink-500 transition-colors ${isFavorite(product.id) ? 'bg-pink-100 text-pink-600' : 'bg-slate-100 text-slate-400'}`}
                 onClick={() => {
                   if (isFavorite(product.id)) {
                     remove(product.id);
@@ -168,7 +181,7 @@ export default function ProductList() {
               </button>
               <button
                 aria-label={isCompared ? 'Remover da comparação' : 'Adicionar à comparação'}
-                className={`absolute top-2 left-2 text-xs p-1 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${isCompared ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}
+                className={`absolute top-3 left-3 text-xs p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${isCompared ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}
                 onClick={() => {
                   if (isCompared) {
                     setCompare(compare.filter(p => p.id !== product.id));
@@ -179,13 +192,13 @@ export default function ProductList() {
               >
                 {isCompared ? '⇄' : '≡'}
               </button>
-              <img src={product.imageUrl || '/placeholder.png'} alt={product.name} loading="lazy" className="w-full h-40 sm:h-48 object-cover mb-2 rounded-lg" />
-              <h2 className="text-base sm:text-lg font-bold mb-1 mt-2">{product.name}</h2>
-              <p className="text-blue-600 font-semibold mb-1 text-sm sm:text-base">{formatFromBase(product.price)}</p>
+              <img src={product.imageUrl || '/placeholder.png'} alt={product.name} loading="lazy" className="w-full h-44 object-cover mb-3 rounded-2xl" />
+              <h2 className="text-lg font-bold mb-1 text-slate-900">{product.name}</h2>
+              <p className="text-emerald-600 font-semibold mb-1 text-base">{formatFromBase(product.price)}</p>
               {!isBaseCurrency && (
-                <p className="text-[11px] text-gray-500 mb-2">{t('Charged in BRL')}: {formatBase(product.price)}</p>
+                <p className="text-xs text-slate-500 mb-3">{t('Charged in BRL')}: {formatBase(product.price)}</p>
               )}
-              <a href={`/product?id=${product.id}`} className="bg-blue-500 text-white px-4 py-2 rounded-lg text-center text-sm sm:text-base mt-auto active:scale-95 transition-transform">{t('View details')}</a>
+              <a href={`/product?id=${product.id}`} className="btn-secondary text-center mt-auto">{t('View details')}</a>
             </div>
           );
         })}

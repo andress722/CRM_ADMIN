@@ -10,23 +10,23 @@ export default function AccessibilityBar() {
   }, [highContrast, fontSize]);
 
   return (
-    <div className="fixed top-4 right-4 bg-black bg-opacity-80 text-white p-3 rounded-lg z-50 flex gap-3 items-center shadow-lg">
+    <div className="soft-panel flex flex-wrap gap-2 items-center">
       <button
-        className={`px-3 py-1 rounded font-bold ${highContrast ? 'bg-yellow-400 text-black' : 'bg-gray-700'}`}
+        className={`px-3 py-1.5 rounded-full text-xs font-semibold ${highContrast ? 'bg-yellow-400 text-black' : 'bg-slate-900 text-white'}`}
         onClick={() => setHighContrast(h => !h)}
         aria-label="Alternar alto contraste"
       >
         {highContrast ? 'Desativar Contraste' : 'Alto Contraste'}
       </button>
       <button
-        className="px-3 py-1 rounded font-bold bg-gray-700"
+        className="px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-800"
         onClick={() => setFontSize(f => Math.min(f + 0.1, 2))}
         aria-label="Aumentar fonte"
       >
         A+
       </button>
       <button
-        className="px-3 py-1 rounded font-bold bg-gray-700"
+        className="px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-800"
         onClick={() => setFontSize(f => Math.max(f - 0.1, 0.8))}
         aria-label="Diminuir fonte"
       >
