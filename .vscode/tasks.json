@@ -379,6 +379,86 @@
 				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\python\"; uv run pytest -q"
 			],
 			"isBackground": false
+		},
+		{
+			"label": "lint-go",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\go\"; golangci-lint run ./..."
+			],
+			"isBackground": false
+		},
+		{
+			"label": "lint-python",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\python\"; uv run ruff check .; uv run ty check copilot"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "lint-nodejs",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\nodejs\"; npm run format:check; npm run lint; npm run typecheck"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "lint-dotnet",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\dotnet\"; dotnet format src/GitHub.Copilot.SDK.csproj --verify-no-changes"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "test-go",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\go\"; go test ./..."
+			],
+			"isBackground": false
+		},
+		{
+			"label": "test-python",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\python\"; uv run pytest -q"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "test-nodejs",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\nodejs\"; npm test"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "test-dotnet",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-Command",
+				"Set-Location \"c:\\Users\\Benyamin\\OneDrive\\Desktop\\copilot-sdk-main\\dotnet\"; dotnet test test/GitHub.Copilot.SDK.Test.csproj"
+			],
+			"isBackground": false
 		}
 	]
 }
