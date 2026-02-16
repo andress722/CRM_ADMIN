@@ -1,0 +1,52 @@
+services:
+  - type: web
+    name: copilot-sdk-api-staging
+    env: dotnet
+    plan: free
+    region: oregon
+    rootDir: .
+    buildCommand: dotnet publish src/Ecommerce.API/Ecommerce.API.csproj -c Release -o out
+    startCommand: dotnet out/Ecommerce.API.dll
+    envVars:
+      - key: ASPNETCORE_URLS
+        value: http://0.0.0.0:$PORT
+      - key: ConnectionStrings__DefaultConnection
+        fromDatabase:
+          name: copilot-sdk-db-staging
+          property: connectionString
+      - key: Jwt__SecretKey
+        value: CHANGE_ME_STAGING
+      - key: Jwt__Issuer
+        value: ecommerce-api
+      - key: Jwt__Audience
+        value: ecommerce-admin
+      - key: Cors__AllowedOrigins__0
+        value: https://copilot-sdk-admin-staging.vercel.app
+      - key: Cors__AllowedOrigins__1
+        value: https://copilot-sdk-storefront-staging.vercel.app
+      - key: Observability__EnableOpenTelemetry
+        value: "false"
+      - key: Sentry__Dsn
+        value: ""
+
+  - type: cron
+    name: copilot-sdk-migrations
+    env: dotnet
+    plan: free
+    region: oregon
+    schedule: "@daily"
+    rootDir: .
+    buildCommand: dotnet tool restore; dotnet restore src/Ecommerce.Infrastructure
+    startCommand: dotnet ef database update --startup-project src/Ecommerce.API/Ecommerce.API.csproj --connection "$ConnectionStrings__DefaultConnection"
+    envVars:
+      - key: ConnectionStrings__DefaultConnection
+        fromDatabase:
+          name: copilot-sdk-db-staging
+          property: connectionString
+
+
+
+databases:
+  - name: copilot-sdk-db-staging
+    plan: free
+    region: oregon

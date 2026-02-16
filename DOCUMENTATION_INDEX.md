@@ -213,13 +213,19 @@ PENDENTES (documentos ainda não criados)
 
    **Para:** QA e stakeholders
 
-### 18. **README.md** (Raiz do projeto)
+### 18. **docs/DEPLOY_STAGING.md**
+   - Guia de deploy staging (Vercel + Render)
+   - Variaveis e passos
+
+   **Para:** DevOps e release
+
+### 19. **README.md** (Raiz do projeto)
    - Visão geral geral
    - Tech stack
    - Quick start
    - Contributing
 
-### 19. **admin-frontend/README.md**
+### 20. **admin-frontend/README.md**
    - Setup do dashboard
    - Estrutura de componentes
    - API endpoints
