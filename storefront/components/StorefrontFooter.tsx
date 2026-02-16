@@ -5,8 +5,8 @@ export default function StorefrontFooter() {
     <footer className="section-card">
       <div className="grid gap-6 md:grid-cols-3">
         <div>
-          <h3 className="text-lg font-bold text-slate-900">Aurora Market</h3>
-          <p className="text-sm text-slate-600">Marketplace completo com curadoria, suporte humano e pagamento seguro.</p>
+          <h3 className="text-lg font-bold text-slate-900">InfoTechGamer</h3>
+          <p className="text-sm text-slate-600">Tecnologia e gaming com curadoria premium e suporte humano.</p>
         </div>
         <div>
           <h4 className="text-sm font-semibold text-slate-900 mb-2">Ajuda</h4>
@@ -26,7 +26,7 @@ export default function StorefrontFooter() {
         </div>
       </div>
       <div className="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-slate-500">
-        <span>© 2026 Aurora Market. Todos os direitos reservados.</span>
+        <span>© 2026 InfoTechGamer. Todos os direitos reservados.</span>
         <span>Pagamentos protegidos • LGPD • SSL</span>
       </div>
     </footer>

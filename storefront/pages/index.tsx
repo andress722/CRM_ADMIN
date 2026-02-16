@@ -28,44 +28,72 @@ export default function Home() {
     <NotificationProvider>
       <WishlistProvider>
         <SeoHead
-          title="Loja Online | Catálogo de Produtos"
-          description="Confira os melhores produtos da nossa loja online. Preços, ofertas e novidades!"
+          title="InfoTechGamer | Marketplace Premium"
+          description="Curadoria premium de tecnologia e gaming. Produtos, ofertas e recomendacoes sob medida."
         />
         <main className="page-shell">
           <StorefrontHeader />
 
           <section className="hero fade-in">
-            <div className="relative z-10 flex flex-col gap-6 max-w-3xl">
-              <div className="flex flex-wrap gap-3 items-center">
-                <span className="chip">Nova colecao 2026</span>
-                <span className="chip">Entrega expressa</span>
-                <span className="chip">Pagamento seguro</span>
+            <div className="relative z-10 grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">
+              <div className="flex flex-col gap-6">
+                <div className="flex flex-wrap gap-3 items-center">
+                  <span className="chip">Drops premium</span>
+                  <span className="chip">Entrega 24-48h</span>
+                  <span className="chip">Pagamentos seguros</span>
+                </div>
+                <h2 className="text-4xl sm:text-5xl font-bold">Tecnologia e gaming em curadoria de alto nivel.</h2>
+                <p className="text-lg sm:text-xl text-slate-600">
+                  Produtos selecionados, comparacao clara e uma experiencia feita para quem leva setup a serio.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <a href="#catalog" className="btn-primary">Explorar catalogo</a>
+                  <a href="#recommendations" className="btn-ghost">Recomendacoes</a>
+                  <a href="/account" className="btn-secondary">Entrar agora</a>
+                </div>
+                <div className="flex flex-wrap gap-4 text-sm text-slate-500">
+                  <span>Mais de 1.400 itens ativos</span>
+                  <span>Vendedores verificados</span>
+                  <span>Garantia de 30 dias</span>
+                </div>
               </div>
-              <h2 className="text-4xl sm:text-5xl font-bold">{t('Product Catalog')}</h2>
-              <p className="text-lg sm:text-xl text-slate-100">
-                Curadoria de produtos premium, filtros inteligentes e recomendações sob medida.
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <a href="#catalog" className="btn-primary">Explorar catalogo</a>
-                <a href="#recommendations" className="btn-ghost">Ver recomendacoes</a>
-                <a href="/account" className="btn-secondary">Entrar agora</a>
+              <div className="grid gap-4">
+                <div className="stat-card">
+                  <p className="text-xs uppercase tracking-[0.3em] text-slate-300">InfoTechGamer</p>
+                  <p className="mt-2 text-2xl font-bold">Setup Pro</p>
+                  <p className="text-sm text-slate-300">Combos premium com garantia estendida.</p>
+                </div>
+                <div className="soft-panel">
+                  <p className="text-sm font-semibold text-slate-900">Comparacao inteligente</p>
+                  <p className="text-xs text-slate-500">Veja desempenho, reviews e disponibilidade em segundos.</p>
+                </div>
+                <div className="soft-panel">
+                  <p className="text-sm font-semibold text-slate-900">Suporte humano</p>
+                  <p className="text-xs text-slate-500">Especialistas para ajudar na compra certa.</p>
+                </div>
               </div>
             </div>
           </section>
 
           <section className="section-card fade-in">
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="soft-panel">
-                <p className="text-sm font-semibold text-slate-900">Vendedores verificados</p>
-                <p className="text-xs text-slate-500">Compra segura e entregas acompanhadas.</p>
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="section-title">Experiencia premium em todas as etapas</h2>
+                <p className="section-lead">Entrega rapida, seguranca e garantia em cada compra.</p>
               </div>
-              <div className="soft-panel">
-                <p className="text-sm font-semibold text-slate-900">Garantia estendida</p>
-                <p className="text-xs text-slate-500">Devolucao facilitada em ate 30 dias.</p>
-              </div>
-              <div className="soft-panel">
-                <p className="text-sm font-semibold text-slate-900">Ofertas inteligentes</p>
-                <p className="text-xs text-slate-500">Alertas de preco e recomendacoes personalizadas.</p>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="soft-panel">
+                  <p className="text-sm font-semibold text-slate-900">Vendedores verificados</p>
+                  <p className="text-xs text-slate-500">Compra segura e entregas acompanhadas.</p>
+                </div>
+                <div className="soft-panel">
+                  <p className="text-sm font-semibold text-slate-900">Garantia estendida</p>
+                  <p className="text-xs text-slate-500">Devolucao facilitada em ate 30 dias.</p>
+                </div>
+                <div className="soft-panel">
+                  <p className="text-sm font-semibold text-slate-900">Ofertas inteligentes</p>
+                  <p className="text-xs text-slate-500">Alertas de preco e recomendacoes personalizadas.</p>
+                </div>
               </div>
             </div>
           </section>
@@ -73,24 +101,32 @@ export default function Home() {
           <section className="section-card fade-in">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">Seu painel de preferencias</h2>
-                <p className="text-slate-600">Idioma, acessibilidade e notificacoes em um so lugar.</p>
+                <h2 className="section-title">Preferencias e utilitarios</h2>
+                <p className="section-lead">Personalize idioma, acessibilidade e notificacoes.</p>
               </div>
               <LanguageSwitcher />
             </div>
-            <div className="mt-6 flex flex-wrap gap-4 items-center">
-              <AccessibilityBar />
-              <FeedbackButton />
-              <ShareWishlist />
-              <PushNotificationPrompt />
+            <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <div className="soft-panel">
+                <AccessibilityBar />
+              </div>
+              <div className="soft-panel">
+                <FeedbackButton />
+              </div>
+              <div className="soft-panel">
+                <ShareWishlist />
+              </div>
+              <div className="soft-panel">
+                <PushNotificationPrompt />
+              </div>
             </div>
           </section>
 
           <section id="catalog" className="section-card fade-in">
             <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">Catalogo inteligente</h2>
-                <p className="text-slate-600">Pesquise, compare e monte sua lista com poucos cliques.</p>
+                <h2 className="section-title">Catalogo inteligente</h2>
+                <p className="section-lead">Pesquise, compare e monte sua lista com poucos cliques.</p>
               </div>
             </div>
             <ProductList />
@@ -103,16 +139,16 @@ export default function Home() {
           <section className="section-card fade-in">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">Lojas em destaque</h2>
-                <p className="text-slate-600">Marcas locais, designers independentes e curadorias exclusivas.</p>
+                <h2 className="section-title">Lojas em destaque</h2>
+                <p className="section-lead">Marcas de tecnologia e creators de gaming verificados.</p>
               </div>
               <a href="/support" className="btn-ghost">Quero vender</a>
             </div>
             <div className="mt-6 grid gap-4 md:grid-cols-3">
-              {['Studio Nuvem', 'Casa Onda', 'Atelier Aurora'].map((seller) => (
+              {['Nebula Gear', 'Auric Labs', 'LevelUp Studio'].map((seller) => (
                 <div key={seller} className="soft-panel">
                   <p className="text-sm font-semibold text-slate-900">{seller}</p>
-                  <p className="text-xs text-slate-500">Produtos autorais e entrega expressa.</p>
+                  <p className="text-xs text-slate-500">Equipamentos premium e envio express.</p>
                 </div>
               ))}
             </div>
@@ -129,11 +165,11 @@ export default function Home() {
           <section className="section-card fade-in">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">Assine novidades</h2>
-                <p className="text-slate-600">Receba ofertas e lancamentos direto no seu e-mail.</p>
+                <h2 className="section-title">Assine novidades</h2>
+                <p className="section-lead">Receba ofertas e lancamentos direto no seu e-mail.</p>
               </div>
               <div className="flex flex-col sm:flex-row gap-3">
-                <input className="soft-panel w-full sm:w-64" placeholder="Seu e-mail" />
+                <input className="input-field w-full sm:w-64" placeholder="Seu e-mail" />
                 <button className="btn-primary">Quero receber</button>
               </div>
             </div>
