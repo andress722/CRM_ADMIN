@@ -117,8 +117,8 @@ export default function ProductList() {
             <CategoryFilter onSelect={setCategory} />
           </div>
           <div className="flex flex-wrap gap-2">
-            <span className="chip text-slate-700 bg-slate-100">{total} itens</span>
-            <span className="chip text-slate-700 bg-slate-100">{page} / {totalPages}</span>
+            <span className="badge-muted">{total} itens</span>
+            <span className="badge-muted">{page} / {totalPages}</span>
           </div>
         </div>
         <div className="mt-4 grid grid-cols-1 lg:grid-cols-[2fr_1fr_1fr] gap-3">
@@ -128,13 +128,13 @@ export default function ProductList() {
               placeholder={t('Search product...')}
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="soft-panel w-full"
+              className="input-field w-full"
             />
             {suggestions.length > 0 && (
-              <div className="absolute z-10 mt-2 w-full rounded-2xl bg-white shadow-card border border-slate-100">
+              <div className="absolute z-10 mt-2 w-full dropdown-panel">
                 <ul className="max-h-48 overflow-auto">
                   {suggestions.map((product) => (
-                    <li key={product.id} className="px-3 py-2 hover:bg-slate-50 cursor-pointer"
+                    <li key={product.id} className="px-3 py-2 hover:bg-black/5 cursor-pointer"
                         onClick={() => setSearch(product.name)}>
                       {product.name}
                     </li>
@@ -148,14 +148,14 @@ export default function ProductList() {
             placeholder={t('Min Price')}
             value={minPrice}
             onChange={e => setMinPrice(e.target.value)}
-            className="soft-panel"
+            className="input-field"
           />
           <input
             type="number"
             placeholder={t('Max Price')}
             value={maxPrice}
             onChange={e => setMaxPrice(e.target.value)}
-            className="soft-panel"
+            className="input-field"
           />
         </div>
       </div>
@@ -163,10 +163,10 @@ export default function ProductList() {
         {products.map((product) => {
           const isCompared = compare.some(p => p.id === product.id);
           return (
-            <div key={product.id} className="section-card flex flex-col relative">
+            <div key={product.id} className="product-card flex flex-col relative">
               <button
                 aria-label={isFavorite(product.id) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-                className={`absolute top-3 right-3 text-lg p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-pink-500 transition-colors ${isFavorite(product.id) ? 'bg-pink-100 text-pink-600' : 'bg-slate-100 text-slate-400'}`}
+                className={`absolute top-3 right-3 text-lg p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-400 transition-colors ${isFavorite(product.id) ? 'bg-orange-100 text-orange-600' : 'bg-black/10 text-black/50'}`}
                 onClick={() => {
                   if (isFavorite(product.id)) {
                     remove(product.id);
@@ -181,7 +181,7 @@ export default function ProductList() {
               </button>
               <button
                 aria-label={isCompared ? 'Remover da comparação' : 'Adicionar à comparação'}
-                className={`absolute top-3 left-3 text-xs p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${isCompared ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}
+                className={`absolute top-3 left-3 text-xs p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-400 transition-colors ${isCompared ? 'bg-black text-white' : 'bg-black/10 text-black/50'}`}
                 onClick={() => {
                   if (isCompared) {
                     setCompare(compare.filter(p => p.id !== product.id));
@@ -194,7 +194,7 @@ export default function ProductList() {
               </button>
               <img src={product.imageUrl || '/placeholder.png'} alt={product.name} loading="lazy" className="w-full h-44 object-cover mb-3 rounded-2xl" />
               <h2 className="text-lg font-bold mb-1 text-slate-900">{product.name}</h2>
-              <p className="text-emerald-600 font-semibold mb-1 text-base">{formatFromBase(product.price)}</p>
+              <p className="price-tag mb-1 text-base">{formatFromBase(product.price)}</p>
               {!isBaseCurrency && (
                 <p className="text-xs text-slate-500 mb-3">{t('Charged in BRL')}: {formatBase(product.price)}</p>
               )}

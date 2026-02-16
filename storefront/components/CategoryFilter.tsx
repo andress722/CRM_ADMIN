@@ -15,7 +15,7 @@ export default function CategoryFilter({ onSelect }: { onSelect: (cat: string) =
       {categories.map(cat => (
         <button
           key={cat}
-          className={`px-4 py-1.5 rounded-full border text-sm font-semibold transition ${selected === cat ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
+          className={`pill-button ${selected === cat ? 'pill-button-active' : ''}`}
           onClick={() => handleSelect(cat)}
         >
           {cat}

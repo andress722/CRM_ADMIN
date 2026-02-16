@@ -10,7 +10,7 @@ export default function Pagination({ page, totalPages, onPageChange }: { page: n
       >
         Anterior
       </button>
-      <span className="px-3 py-1 text-sm font-semibold text-slate-600">{page} / {totalPages}</span>
+      <span className="badge-muted">{page} / {totalPages}</span>
       <button
         className="btn-ghost"
         disabled={page === totalPages}

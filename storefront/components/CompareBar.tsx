@@ -5,12 +5,12 @@ export default function CompareBar({ products, onRemove }: { products: any[]; on
   const [show, setShow] = useState(false);
   if (products.length < 2) return null;
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[min(960px,92vw)] bg-slate-900 text-white p-3 z-50 shadow-glow rounded-2xl">
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[min(960px,92vw)] compare-bar p-3 z-50">
       <div className="flex flex-wrap items-center gap-2">
         {products.map(p => (
-          <div key={p.id} className="flex items-center gap-1 bg-slate-700/70 px-3 py-1 rounded-full">
+          <div key={p.id} className="flex items-center gap-1 bg-white/10 px-3 py-1 rounded-full">
             <span className="text-xs font-semibold">{p.name}</span>
-            <button className="ml-1 text-rose-300" onClick={() => onRemove(p.id)}>✕</button>
+            <button className="ml-1 text-orange-200" onClick={() => onRemove(p.id)}>✕</button>
           </div>
         ))}
         <button className="ml-auto btn-primary" onClick={() => setShow(s => !s)}>

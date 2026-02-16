@@ -164,18 +164,28 @@ export default function AuthForm() {
 
   return (
     <form className="section-card w-full max-w-lg" onSubmit={handleSubmit}>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-slate-900">
-          {forgotMode ? 'Recuperar Senha' : isLogin ? 'Login' : 'Registro'}
-        </h2>
-        <span className="chip text-slate-700 bg-slate-100">Marketplace</span>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.35em] text-slate-400">InfoTechGamer</p>
+          <h2 className="text-2xl font-bold text-slate-900">
+            {forgotMode ? 'Recuperar Senha' : isLogin ? 'Login' : 'Registro'}
+          </h2>
+        </div>
+        <span className="chip">InfoTechGamer ID</span>
       </div>
+      <p className="text-sm text-slate-600 mb-6">
+        {forgotMode
+          ? 'Enviaremos um link de recuperacao para o seu e-mail.'
+          : isLogin
+            ? 'Entre para continuar sua experiencia premium em tecnologia e gaming.'
+            : 'Crie sua conta e salve seus setups, alertas e favoritos.'}
+      </p>
       {!forgotMode && !isLogin && (
-        <input name="name" placeholder="Nome" value={name} onChange={e => setName(e.target.value)} className="soft-panel w-full mb-3" required />
+        <input name="name" placeholder="Nome" value={name} onChange={e => setName(e.target.value)} className="input-field w-full mb-3" required />
       )}
-      <input name="email" type="email" placeholder="E-mail" value={email} onChange={e => setEmail(e.target.value)} className="soft-panel w-full mb-3" required />
+      <input name="email" type="email" placeholder="E-mail" value={email} onChange={e => setEmail(e.target.value)} className="input-field w-full mb-3" required />
       {!forgotMode && (
-        <input name="password" type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} className="soft-panel w-full mb-3" required />
+        <input name="password" type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} className="input-field w-full mb-3" required />
       )}
       {error && <div className="text-rose-600 mb-2 text-sm">{error}</div>}
       {success && !forgotMode && <div className="text-emerald-600 mb-2 text-sm">Sucesso!</div>}
@@ -183,7 +193,7 @@ export default function AuthForm() {
       {showResend && !forgotMode && (
         <button
           type="button"
-          className="text-sm text-indigo-600 underline w-full text-left"
+          className="text-sm text-slate-600 underline w-full text-left"
           onClick={handleResendVerification}
           disabled={resendLoading || resendCooldown > 0}
         >
@@ -200,6 +210,7 @@ export default function AuthForm() {
       )}
       {!forgotMode && (
         <div className="mt-5 space-y-2">
+          <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Ou continue com</p>
           <button
             type="button"
             className="btn-ghost w-full text-left"
