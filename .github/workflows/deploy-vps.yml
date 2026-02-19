@@ -1,0 +1,60 @@
+name: Deploy API to VPS
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - "src/**"
+      - "deploy/vps/**"
+      - ".github/workflows/deploy-vps.yml"
+  workflow_dispatch:
+    inputs:
+      rollback_ref:
+        description: "Optional git ref (commit/tag/branch) to deploy instead of current SHA"
+        required: false
+        default: ""
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
+          ROLLBACK_REF: ${{ github.event.inputs.rollback_ref }}
+          APP_DIR: ${{ secrets.VPS_APP_DIR }}
+          API_PORT: ${{ secrets.VPS_API_PORT }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          envs: DEPLOY_SHA,ROLLBACK_REF,APP_DIR,API_PORT
+          script_stop: true
+          script: |
+            set -euo pipefail
+
+            if [ -z "${APP_DIR:-}" ]; then
+              echo "VPS_APP_DIR secret is empty."
+              exit 1
+            fi
+
+            cd "$APP_DIR"
+
+            TARGET_REF="${DEPLOY_SHA}"
+            if [ -n "${ROLLBACK_REF:-}" ]; then
+              TARGET_REF="${ROLLBACK_REF}"
+            fi
+
+            git fetch --all --prune
+            git checkout "$TARGET_REF"
+
+            chmod +x deploy/vps/scripts/deploy.sh
+            ./deploy/vps/scripts/deploy.sh
+
+            HEALTH_PORT="${API_PORT:-5071}"
+            curl -fsS "http://127.0.0.1:${HEALTH_PORT}/health" >/dev/null
+            echo "Deploy OK for ref ${TARGET_REF}"
