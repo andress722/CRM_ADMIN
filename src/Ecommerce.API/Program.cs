@@ -143,6 +143,18 @@ builder.Services.AddSwaggerGen(c =>
     c.CustomSchemaIds(type => (type.FullName ?? type.Name).Replace('+', '.'));
 });
 
+static bool IsLocalPostgresConnection(string? connectionString)
+{
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
+        return false;
+    }
+
+    return connectionString.Contains("Host=localhost", StringComparison.OrdinalIgnoreCase)
+        || connectionString.Contains("Host=127.0.0.1", StringComparison.OrdinalIgnoreCase)
+        || connectionString.Contains("Port=5433", StringComparison.OrdinalIgnoreCase);
+}
+
 // Add DbContext - use PostgreSQL by default
 builder.Services.AddDbContext<EcommerceDbContext>(options =>
 {
@@ -154,6 +166,26 @@ builder.Services.AddDbContext<EcommerceDbContext>(options =>
     else
     {
         var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+        var renderDatabaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+
+        if ((string.IsNullOrWhiteSpace(connectionString) || IsLocalPostgresConnection(connectionString))
+            && !string.IsNullOrWhiteSpace(renderDatabaseUrl))
+        {
+            connectionString = renderDatabaseUrl;
+        }
+
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
+                "Connection string not configured. Set ConnectionStrings__DefaultConnection or DATABASE_URL.");
+        }
+
+        if (builder.Environment.IsProduction() && IsLocalPostgresConnection(connectionString))
+        {
+            throw new InvalidOperationException(
+                "Invalid production database host. Localhost/127.0.0.1 is not allowed in production.");
+        }
+
         options.UseNpgsql(connectionString);
     }
 });
