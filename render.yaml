@@ -15,7 +15,7 @@ services:
           name: copilot-sdk-db-staging
           property: connectionString
       - key: Jwt__SecretKey
-        value: CHANGE_ME_STAGING
+        sync: false
       - key: Jwt__Issuer
         value: ecommerce-api
       - key: Jwt__Audience
@@ -44,23 +44,20 @@ services:
           name: copilot-sdk-db-staging
           property: connectionString
 
-
+  - type: web
+    name: copilot-sdk-admin-frontend-staging
+    env: docker
+    plan: free
+    region: oregon
+    rootDir: .
+    dockerfilePath: admin-frontend/Dockerfile
+    envVars:
+      - key: NEXT_PUBLIC_API_BASE
+        value: https://copilot-sdk-api-staging.onrender.com/api/v1
+      - key: NODE_ENV
+        value: production
 
 databases:
   - name: copilot-sdk-db-staging
     plan: free
     region: oregon
-
-# Admin frontend service (build using Dockerfile located in admin-frontend/)
-- type: web
-  name: copilot-sdk-admin-frontend-staging
-  env: docker
-  plan: free
-  region: oregon
-  dockerfilePath: admin-frontend/Dockerfile
-  rootDir: .
-  envVars:
-    - key: NEXT_PUBLIC_API_BASE
-      value: https://copilot-sdk-api-staging.onrender.com/api/v1
-    - key: NODE_ENV
-      value: production
