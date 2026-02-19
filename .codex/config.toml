@@ -1,0 +1,9 @@
+model = "gpt-5.3-codex"
+[projects.'\\?\C:\Users\Benyamin\OneDrive\Desktop\copilot-sdk-main']
+trust_level = "trusted"
+
+[notice.model_migrations]
+"gpt-5.2-codex" = "gpt-5.3-codex"
+
+[windows]
+sandbox = "elevated"

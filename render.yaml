@@ -50,3 +50,17 @@ databases:
   - name: copilot-sdk-db-staging
     plan: free
     region: oregon
+
+# Admin frontend service (build using Dockerfile located in admin-frontend/)
+- type: web
+  name: copilot-sdk-admin-frontend-staging
+  env: docker
+  plan: free
+  region: oregon
+  dockerfilePath: admin-frontend/Dockerfile
+  rootDir: .
+  envVars:
+    - key: NEXT_PUBLIC_API_BASE
+      value: https://copilot-sdk-api-staging.onrender.com/api/v1
+    - key: NODE_ENV
+      value: production
