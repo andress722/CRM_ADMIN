@@ -1,6 +1,7 @@
 // Painel de notificações internas (alertas)
 import React, { useEffect, useState } from 'react';
-import { LEGACY_API_URL } from '../lib/legacy-api';
+import { LEGACY_API_URL } from '@/services/endpoints';
+import { fetchJson } from '@/services/fetch-client';
 
 interface Notification {
   id: string;
@@ -16,13 +17,22 @@ export default function InternalNotificationsPanel() {
   const [typeFilter, setTypeFilter] = useState('');
 
   useEffect(() => {
-    fetch(`${LEGACY_API_URL}/notifications`)
-      .then((res) => res.json())
-      .then((data) => {
+    let mounted = true;
+
+    const load = async () => {
+      try {
+        const data = await fetchJson<Notification[]>(`${LEGACY_API_URL}/notifications`);
+        if (!mounted) return;
         setNotifications(data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    void load();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   function markAsRead(id: string) {
@@ -77,3 +87,5 @@ export default function InternalNotificationsPanel() {
     </div>
   );
 }
+
+

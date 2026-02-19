@@ -24,6 +24,12 @@ export const axiosInstance: AxiosInstance = axios.create({
 let isRefreshing = false;
 let failedQueue: ((token: string) => void)[] = [];
 
+const getCsrfTokenFromCookie = (): string | null => {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+};
+
 const processQueue = (token: string) => {
   failedQueue.forEach(callback => callback(token));
   failedQueue = [];
@@ -35,6 +41,10 @@ axiosInstance.interceptors.request.use(
     const token = AuthService.getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    const csrfToken = getCsrfTokenFromCookie();
+    if (csrfToken) {
+      config.headers['X-CSRF-Token'] = csrfToken;
     }
     return config;
   },

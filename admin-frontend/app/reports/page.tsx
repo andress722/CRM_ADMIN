@@ -1,11 +1,14 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+
+import { LoadingState, ErrorState, EmptyState } from '@/components/ui/AsyncState';
 import { Chart, registerables } from 'chart.js';
 Chart.register(...registerables);
 import ExcelJS from 'exceljs';
 import { endpoints } from '@/services/endpoints';
 import { AuthService } from '@/services/auth';
+import { authFetch } from '@/services/auth-fetch';
 import Link from 'next/link';
 
 type ReportItem = {
@@ -37,8 +40,8 @@ export default function ReportsPage() {
     if (period.start) params.push(`start=${encodeURIComponent(period.start)}`);
     if (period.end) params.push(`end=${encodeURIComponent(period.end)}`);
     if (params.length) url += '?' + params.join('&');
-    fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
+    authFetch(url, {
+      headers: {},
     })
       .then(res => res.json())
       .then(data => {
@@ -158,9 +161,9 @@ export default function ReportsPage() {
     URL.revokeObjectURL(url);
   };
 
-  if (loading) return <div>Carregando relatórios...</div>;
-  if (error) return <div className="text-red-600">{error}</div>;
-  if (!reports.length) return <div>Nenhum relatório encontrado.</div>;
+  if (loading) return <LoadingState message="Carregando relatórios..." />;
+  if (error) return <ErrorState message={error} />;
+  if (!reports.length) return <EmptyState message="Nenhum relatório encontrado." />;
 
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white border rounded-xl shadow">
@@ -241,3 +244,12 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+

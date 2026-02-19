@@ -1,6 +1,7 @@
 // Painel de conciliação de pagamentos vs pedidos
 import React, { useEffect, useState } from 'react';
-import { LEGACY_API_URL } from '../lib/legacy-api';
+import { LEGACY_API_URL } from '@/services/endpoints';
+import { fetchJson } from '@/services/fetch-client';
 
 interface Reconciliation {
   id: string;
@@ -18,13 +19,22 @@ export default function ReconciliationPanel() {
   const [statusFilter, setStatusFilter] = useState('');
 
   useEffect(() => {
-    fetch(`${LEGACY_API_URL}/reconciliation`)
-      .then((res) => res.json())
-      .then((data) => {
+    let mounted = true;
+
+    const load = async () => {
+      try {
+        const data = await fetchJson<Reconciliation[]>(`${LEGACY_API_URL}/reconciliation`);
+        if (!mounted) return;
         setItems(data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    void load();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const filtered = items.filter(i => !statusFilter || i.status === statusFilter);
@@ -72,3 +82,5 @@ export default function ReconciliationPanel() {
     </div>
   );
 }
+
+

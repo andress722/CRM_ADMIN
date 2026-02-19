@@ -1,9 +1,12 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+import { LoadingState, ErrorState, EmptyState } from '@/components/ui/AsyncState';
 import { useParams } from 'next/navigation';
 import { endpoints } from '@/services/endpoints';
 import { AuthService } from '@/services/auth';
+import { authFetch } from '@/services/auth-fetch';
 
 type OrderItem = {
   id: string;
@@ -31,8 +34,8 @@ export default function OrderDetailPage() {
 
   useEffect(() => {
     if (!id || !token) return;
-    fetch(endpoints.admin.orderDetail(id as string), {
-      headers: { Authorization: `Bearer ${token}` },
+    authFetch(endpoints.admin.orderDetail(id as string), {
+      headers: {},
     })
       .then(res => res.json())
       .then(data => {
@@ -45,9 +48,9 @@ export default function OrderDetailPage() {
       });
   }, [id, token]);
 
-  if (loading) return <div>Carregando pedido...</div>;
-  if (error) return <div className="text-red-600">{error}</div>;
-  if (!order) return <div>Nenhum dado de pedido.</div>;
+  if (loading) return <LoadingState message="Carregando pedido..." />;
+  if (error) return <ErrorState message={error} />;
+  if (!order) return <EmptyState message="Nenhum dado de pedido." />;
 
   return (
     <div className="max-w-2xl mx-auto p-6 bg-white border rounded-xl shadow">
@@ -67,3 +70,11 @@ export default function OrderDetailPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+

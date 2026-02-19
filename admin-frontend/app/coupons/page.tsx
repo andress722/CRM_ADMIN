@@ -1,7 +1,10 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
+import { LoadingState, ErrorState, EmptyState } from '@/components/ui/AsyncState';
 import { endpoints } from '@/services/endpoints';
 import { AuthService } from '@/services/auth';
+import { authFetch } from '@/services/auth-fetch';
 import Link from 'next/link';
 
 type Coupon = {
@@ -19,8 +22,8 @@ export default function CouponsPage() {
 
   useEffect(() => {
     if (!token) return;
-    fetch(endpoints.admin.coupons, {
-      headers: { Authorization: `Bearer ${token}` },
+    authFetch(endpoints.admin.coupons, {
+      headers: {},
     })
       .then(res => res.json())
       .then(data => {
@@ -33,9 +36,9 @@ export default function CouponsPage() {
       });
   }, [token]);
 
-  if (loading) return <div>Carregando cupons...</div>;
-  if (error) return <div className="text-red-600">{error}</div>;
-  if (!coupons.length) return <div>Nenhum cupom encontrado.</div>;
+  if (loading) return <LoadingState message="Carregando cupons..." />;
+  if (error) return <ErrorState message={error} />;
+  if (!coupons.length) return <EmptyState message="Nenhum cupom encontrado." />;
 
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white border rounded-xl shadow">
@@ -66,3 +69,12 @@ export default function CouponsPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+

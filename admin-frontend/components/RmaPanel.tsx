@@ -1,6 +1,7 @@
 // Painel de RMA/trocas/devoluções
 import React, { useEffect, useState } from 'react';
-import { API_URL } from '../src/services/endpoints';
+import { API_URL } from '@/services/endpoints';
+import { fetchJson } from '@/services/fetch-client';
 
 interface RmaRequest {
   id: string;
@@ -20,13 +21,21 @@ export default function RmaPanel() {
   const [statusFilter, setStatusFilter] = useState('');
 
   useEffect(() => {
-    fetch(`${API_URL}/rma`)
-      .then((res) => res.json())
-      .then((data) => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const data = await fetchJson<RmaRequest[]>(`${API_URL}/rma`);
+        if (!mounted) return;
         setRequests(data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    void load();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const filtered = requests.filter(r => !statusFilter || r.status === statusFilter);

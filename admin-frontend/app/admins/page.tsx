@@ -1,8 +1,11 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
+import { LoadingState, ErrorState, EmptyState } from '@/components/ui/AsyncState';
 import ExcelJS from 'exceljs';
 import { endpoints } from '@/services/endpoints';
 import { AuthService } from '@/services/auth';
+import { authFetch } from '@/services/auth-fetch';
 
 type AdminUser = {
   id: string;
@@ -39,8 +42,8 @@ export default function AdminsPage() {
       setLoading(false);
       return;
     }
-    fetch(endpoints.admin.admins, {
-      headers: { Authorization: `Bearer ${token}` },
+    authFetch(endpoints.admin.admins, {
+      headers: {},
     })
       .then(res => res.json())
       .then(data => {
@@ -54,10 +57,9 @@ export default function AdminsPage() {
   }, []);
 
   const fetchAccessLogs = async (id: string) => {
-    const token = AuthService.getToken();
     try {
-      const res = await fetch(`${endpoints.admin.admins}/${id}/logs`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await authFetch(`${endpoints.admin.admins}/${id}/logs`, {
+        headers: {},
       });
       const data = await res.json();
       setAccessLogs(data);
@@ -70,13 +72,11 @@ export default function AdminsPage() {
   const inviteAdmin = async () => {
     if (!inviteEmail) return;
     setInviting(true);
-    const token = AuthService.getToken();
     try {
-      await fetch(endpoints.admin.admins + '/invite', {
+      await authFetch(endpoints.admin.admins + '/invite', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ email: inviteEmail }),
       });
@@ -92,13 +92,11 @@ export default function AdminsPage() {
     const emails = inviteBatch.split(/[,;\s]+/).filter(e => e.includes('@'));
     if (!emails.length) return;
     setInviting(true);
-    const token = AuthService.getToken();
     try {
-      await fetch(endpoints.admin.admins + '/invite-batch', {
+      await authFetch(endpoints.admin.admins + '/invite-batch', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ emails }),
       });
@@ -156,11 +154,10 @@ export default function AdminsPage() {
 
   const toggleBlock = async (id: string, block: boolean) => {
     setUpdating(id);
-    const token = AuthService.getToken();
     try {
-      await fetch(`${endpoints.admin.admins}/${id}/${block ? 'block' : 'unblock'}`, {
+      await authFetch(`${endpoints.admin.admins}/${id}/${block ? 'block' : 'unblock'}`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {},
       });
       setAdmins(admins =>
         admins.map(a => a.id === id ? { ...a, blocked: block } : a)
@@ -179,13 +176,11 @@ export default function AdminsPage() {
   const saveRoleEdit = async () => {
     if (!roleEdit) return;
     setUpdating(roleEdit.id);
-    const token = AuthService.getToken();
     try {
-      await fetch(`${endpoints.admin.admins}/${roleEdit.id}/role`, {
+      await authFetch(`${endpoints.admin.admins}/${roleEdit.id}/role`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ role: roleEdit.role }),
       });
@@ -200,9 +195,9 @@ export default function AdminsPage() {
     }
   };
 
-  if (loading) return <div>Carregando administradores...</div>;
-  if (error) return <div className="text-red-600">{error}</div>;
-  if (!admins.length) return <div>Nenhum administrador encontrado.</div>;
+  if (loading) return <LoadingState message="Carregando administradores..." />;
+  if (error) return <ErrorState message={error} />;
+  if (!admins.length) return <EmptyState message="Nenhum administrador encontrado." />;
 
   const filteredAdmins = roleFilter ? admins.filter(a => a.role === roleFilter) : admins;
 
@@ -312,3 +307,12 @@ export default function AdminsPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+

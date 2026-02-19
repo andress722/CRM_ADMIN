@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { endpoints } from '@/services/endpoints';
 import Link from 'next/link';
 import { AuthService } from '@/services/auth';
+import { authFetch } from '@/services/auth-fetch';
 import BulkActionsBar from '@/components/BulkActionsBar';
 import BackButton from '@/components/BackButton';
 import Select from '@/components/Select';
@@ -57,8 +58,8 @@ export default function LeadsPage() {
       setLoading(false);
       return;
     }
-    fetch(endpoints.admin.crmLeads, {
-      headers: { Authorization: `Bearer ${token}` },
+    authFetch(endpoints.admin.crmLeads, {
+      headers: {},
     })
       .then((res) => res.json())
       .then((data) => {
@@ -107,11 +108,10 @@ export default function LeadsPage() {
       return;
     }
     try {
-      const res = await fetch(endpoints.admin.crmLeads, {
+      const res = await authFetch(endpoints.admin.crmLeads, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(newLead),
       });
@@ -129,11 +129,10 @@ export default function LeadsPage() {
     const token = AuthService.getToken();
     if (!token) return;
     try {
-      await fetch(endpoints.admin.crmLeadDetail(id), {
+      await authFetch(endpoints.admin.crmLeadDetail(id), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ status }),
       });
@@ -462,3 +461,7 @@ export default function LeadsPage() {
     </div>
   );
 }
+
+
+
+

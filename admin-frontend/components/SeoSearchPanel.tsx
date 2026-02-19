@@ -1,6 +1,7 @@
 // Painel de SEO e busca
 import React, { useEffect, useState } from 'react';
-import { API_URL } from '../src/services/endpoints';
+import { API_URL } from '@/services/endpoints';
+import { fetchJson } from '@/services/fetch-client';
 
 interface SearchReport {
   id: string;
@@ -23,14 +24,25 @@ export default function SeoSearchPanel() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      fetch(`${API_URL}/search-reports`).then(res => res.json()),
-      fetch(`${API_URL}/seo-reports`).then(res => res.json())
-    ]).then(([searchData, seoData]) => {
-      setSearchReports(searchData);
-      setSeoReports(seoData);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    let mounted = true;
+    const load = async () => {
+      try {
+        const [searchData, seoData] = await Promise.all([
+          fetchJson<SearchReport[]>(`${API_URL}/search-reports`),
+          fetchJson<SeoReport[]>(`${API_URL}/seo-reports`),
+        ]);
+        if (!mounted) return;
+        setSearchReports(searchData);
+        setSeoReports(seoData);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    void load();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   return (

@@ -1,7 +1,10 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
+import { LoadingState, ErrorState, EmptyState } from '@/components/ui/AsyncState';
 import { endpoints } from '@/services/endpoints';
 import { AuthService } from '@/services/auth';
+import { authFetch } from '@/services/auth-fetch';
 
 type NotificationItem = {
   id: string;
@@ -30,8 +33,8 @@ export default function NotificationsPage() {
       return;
     }
     // Fallback: carrega notificações iniciais
-    fetch(endpoints.admin.notifications, {
-      headers: { Authorization: `Bearer ${token}` },
+    authFetch(endpoints.admin.notifications, {
+      headers: {},
     })
       .then(res => res.json())
       .then((data) => {
@@ -74,11 +77,10 @@ export default function NotificationsPage() {
 
   const markAsRead = async (id: string) => {
     setMarking(id);
-    const token = AuthService.getToken();
     try {
-      await fetch(`${endpoints.admin.notifications}/${id}/read`, {
+      await authFetch(`${endpoints.admin.notifications}/${id}/read`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {},
       });
       setNotifications((notifications) =>
         notifications.map((n) => (n.id === id ? { ...n, read: true } : n))
@@ -90,9 +92,9 @@ export default function NotificationsPage() {
     }
   };
 
-  if (loading) return <div>Carregando notificações...</div>;
-  if (error) return <div className="text-red-600">{error}</div>;
-  if (!notifications.length) return <div>Nenhuma notificação encontrada.</div>;
+  if (loading) return <LoadingState message="Carregando notificações..." />;
+  if (error) return <ErrorState message={error} />;
+  if (!notifications.length) return <EmptyState message="Nenhuma notificação encontrada." />;
 
   return (
     <div className="max-w-2xl mx-auto p-6 bg-white border rounded-xl shadow">
@@ -122,3 +124,12 @@ export default function NotificationsPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+

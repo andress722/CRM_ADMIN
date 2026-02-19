@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { endpoints } from '@/services/endpoints';
 import { AuthService } from '@/services/auth';
+import { authFetch } from '@/services/auth-fetch';
 import { useRouter } from 'next/navigation';
 
 export default function NewCouponPage() {
@@ -23,11 +24,10 @@ export default function NewCouponPage() {
       return;
     }
     try {
-      const res = await fetch(endpoints.admin.coupons, {
+      const res = await authFetch(endpoints.admin.coupons, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ code, discount: Number(discount), active }),
       });
@@ -72,3 +72,6 @@ export default function NewCouponPage() {
     </div>
   );
 }
+
+
+

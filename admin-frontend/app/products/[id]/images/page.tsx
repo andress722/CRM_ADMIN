@@ -1,10 +1,13 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+import { LoadingState, ErrorState } from '@/components/ui/AsyncState';
 import Image from 'next/image';
 import { useRouter, useParams } from 'next/navigation';
 import { endpoints } from '@/services/endpoints';
 import { AuthService } from '@/services/auth';
+import { authFetch } from '@/services/auth-fetch';
 
 export default function ProductImagesPage() {
   const router = useRouter();
@@ -23,8 +26,8 @@ export default function ProductImagesPage() {
       setLoading(false);
       return;
     }
-    fetch(endpoints.admin.productImages(id as string), {
-      headers: { Authorization: `Bearer ${token}` },
+    authFetch(endpoints.admin.productImages(id as string), {
+      headers: {},
     })
       .then(res => res.json())
       .then(data => {
@@ -42,13 +45,12 @@ export default function ProductImagesPage() {
     if (!file || !id) return;
     setLoading(true);
     setError(null);
-    const token = AuthService.getToken();
     try {
       const formData = new FormData();
       formData.append('image', file);
-      const res = await fetch(endpoints.admin.productImages(id as string), {
+      const res = await authFetch(endpoints.admin.productImages(id as string), {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {},
         body: formData,
       });
       if (!res.ok) throw new Error('Erro ao enviar imagem');
@@ -59,8 +61,8 @@ export default function ProductImagesPage() {
     }
   };
 
-  if (loading) return <div>Carregando imagens...</div>;
-  if (error) return <div className="text-red-600">{error}</div>;
+  if (loading) return <LoadingState message="Carregando imagens..." />;
+  if (error) return <ErrorState message={error} />;
 
   return (
     <div className="max-w-lg mx-auto p-6 bg-white border rounded-xl shadow">
@@ -87,3 +89,11 @@ export default function ProductImagesPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+

@@ -1,8 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+import { LoadingState, ErrorState } from '@/components/ui/AsyncState';
 import { endpoints } from '@/services/endpoints';
 import { AuthService } from '@/services/auth';
+import { authFetch } from '@/services/auth-fetch';
 import { ApiRecord } from '@/types';
 
 type SettingsState = ApiRecord & {
@@ -25,8 +28,8 @@ export default function SettingsPage() {
       setLoading(false);
       return;
     }
-    fetch(endpoints.admin.settings, {
-      headers: { Authorization: `Bearer ${token}` },
+    authFetch(endpoints.admin.settings, {
+      headers: {},
     })
       .then(res => res.json())
       .then(data => {
@@ -50,13 +53,11 @@ export default function SettingsPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    const token = AuthService.getToken();
     try {
-      await fetch(endpoints.admin.settings, {
+      await authFetch(endpoints.admin.settings, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(settings),
       });
@@ -67,8 +68,8 @@ export default function SettingsPage() {
     }
   };
 
-  if (loading) return <div>Carregando configurações...</div>;
-  if (error) return <div className="text-red-600">{error}</div>;
+  if (loading) return <LoadingState message="Carregando configurações..." />;
+  if (error) return <ErrorState message={error} />;
 
   return (
     <div className="max-w-xl mx-auto p-6 bg-white border rounded-xl shadow">
@@ -123,3 +124,12 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+

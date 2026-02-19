@@ -1,9 +1,12 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+
+import { LoadingState, ErrorState } from '@/components/ui/AsyncState';
 import Image from 'next/image';
 import { endpoints } from '@/services/endpoints';
 import { AuthService } from '@/services/auth';
+import { authFetch } from '@/services/auth-fetch';
 
 type ProfilePreferences = {
   darkMode: boolean;
@@ -56,8 +59,8 @@ export default function ProfilePage() {
       setLoading(false);
       return;
     }
-    fetch(endpoints.admin.profile, {
-      headers: { Authorization: `Bearer ${token}` },
+    authFetch(endpoints.admin.profile, {
+      headers: {},
     })
       .then(res => res.json())
       .then(data => {
@@ -98,11 +101,10 @@ export default function ProfilePage() {
     const file = e.target.files[0];
     const formData = new FormData();
     formData.append('file', file);
-    const token = AuthService.getToken();
     try {
-      const res = await fetch(endpoints.admin.profile + '/avatar', {
+      const res = await authFetch(endpoints.admin.profile + '/avatar', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {},
         body: formData,
       });
       const data = await res.json();
@@ -120,13 +122,11 @@ export default function ProfilePage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    const token = AuthService.getToken();
     try {
-      await fetch(endpoints.admin.profile, {
+      await authFetch(endpoints.admin.profile, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(form),
       });
@@ -138,8 +138,8 @@ export default function ProfilePage() {
     }
   };
 
-  if (loading) return <div>Carregando perfil...</div>;
-  if (error) return <div className="text-red-600">{error}</div>;
+  if (loading) return <LoadingState message="Carregando perfil..." />;
+  if (error) return <ErrorState message={error} />;
   if (!profile) return <div>Perfil não encontrado.</div>;
 
   return (
@@ -266,3 +266,12 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+

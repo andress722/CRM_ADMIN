@@ -1,14 +1,15 @@
 import React from 'react';
 import { endpoints } from '@/services/endpoints';
 import { AuthService } from '@/services/auth';
+import { authFetch } from '@/services/auth-fetch';
 
 export default function ExportLogsPage() {
   const handleExport = async (type: 'csv' | 'excel') => {
     const token = AuthService.getToken();
     if (!token) return alert('Usuário não autenticado.');
     try {
-      const res = await fetch(`${endpoints.admin.logs}/export?type=${type}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await authFetch(`${endpoints.admin.logs}/export?type=${type}`, {
+        headers: {},
       });
       if (!res.ok) throw new Error('Erro ao exportar logs');
       const blob = await res.blob();
@@ -38,3 +39,7 @@ export default function ExportLogsPage() {
     </div>
   );
 }
+
+
+
+

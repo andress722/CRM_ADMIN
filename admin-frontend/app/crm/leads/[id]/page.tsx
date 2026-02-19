@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from 'react';
+import { LoadingState, ErrorState } from '@/components/ui/AsyncState';
 import { useParams, useRouter } from 'next/navigation';
 import { AuthService } from '@/services/auth';
+import { authFetch } from '@/services/auth-fetch';
 import { endpoints } from '@/services/endpoints';
 import BackButton from '@/components/BackButton';
 import Select from '@/components/Select';
@@ -64,8 +66,8 @@ export default function LeadDetailPage() {
       setLoading(false);
       return;
     }
-    fetch(endpoints.admin.crmLeadDetail(id), {
-      headers: { Authorization: `Bearer ${token}` },
+    authFetch(endpoints.admin.crmLeadDetail(id), {
+      headers: {},
     })
       .then((res) => res.json())
       .then((data) => {
@@ -93,11 +95,10 @@ export default function LeadDetailPage() {
       return;
     }
     try {
-      const res = await fetch(endpoints.admin.crmLeadDetail(id), {
+      const res = await authFetch(endpoints.admin.crmLeadDetail(id), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(form),
       });
@@ -123,9 +124,9 @@ export default function LeadDetailPage() {
       return;
     }
     try {
-      const res = await fetch(endpoints.admin.crmLeadDetail(id), {
+      const res = await authFetch(endpoints.admin.crmLeadDetail(id), {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {},
       });
       if (!res.ok) throw new Error('Erro ao remover lead');
       router.push('/crm/leads');
@@ -156,11 +157,10 @@ export default function LeadDetailPage() {
       notes: form.email ? `Lead: ${form.email}` : undefined,
     };
     try {
-      const res = await fetch(endpoints.admin.crmActivities, {
+      const res = await authFetch(endpoints.admin.crmActivities, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });
@@ -196,11 +196,10 @@ export default function LeadDetailPage() {
       notes: form.email ? `Destinatário: ${form.email}` : undefined,
     };
     try {
-      const res = await fetch(endpoints.admin.crmActivities, {
+      const res = await authFetch(endpoints.admin.crmActivities, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });
@@ -234,11 +233,10 @@ export default function LeadDetailPage() {
       notes: form.company ? `Empresa: ${form.company}` : undefined,
     };
     try {
-      const res = await fetch(endpoints.admin.crmActivities, {
+      const res = await authFetch(endpoints.admin.crmActivities, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });
@@ -270,11 +268,10 @@ export default function LeadDetailPage() {
       expectedClose: dealExpectedClose,
     };
     try {
-      const res = await fetch(endpoints.admin.crmDeals, {
+      const res = await authFetch(endpoints.admin.crmDeals, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });
@@ -292,8 +289,8 @@ export default function LeadDetailPage() {
     }
   };
 
-  if (loading) return <div className="p-6">Carregando lead...</div>;
-  if (error) return <div className="p-6 text-red-600">{error}</div>;
+  if (loading) return <LoadingState message="Carregando lead..." />;
+  if (error) return <ErrorState message={error} />;
   if (!form) return <div className="p-6">Lead não encontrado.</div>;
 
   return (
@@ -518,3 +515,11 @@ export default function LeadDetailPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+

@@ -1,4 +1,4 @@
-const { withSentryConfig } = require("@sentry/nextjs");
+import { withSentryConfig } from "@sentry/nextjs";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -11,4 +11,4 @@ const sentryWebpackPluginOptions = {
   dryRun: !process.env.SENTRY_AUTH_TOKEN,
 };
 
-module.exports = withSentryConfig(nextConfig, sentryWebpackPluginOptions);
+export default withSentryConfig(nextConfig, sentryWebpackPluginOptions);

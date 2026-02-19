@@ -1,6 +1,7 @@
 // Painel de carrinho abandonado
 import React, { useEffect, useState } from 'react';
-import { LEGACY_API_URL } from '../lib/legacy-api';
+import { LEGACY_API_URL } from '@/services/endpoints';
+import { fetchJson } from '@/services/fetch-client';
 
 interface AbandonedCart {
   id: string;
@@ -17,13 +18,22 @@ export default function AbandonedCartPanel() {
   const [statusFilter, setStatusFilter] = useState('');
 
   useEffect(() => {
-    fetch(`${LEGACY_API_URL}/abandoned-carts`)
-      .then((res) => res.json())
-      .then((data) => {
+    let mounted = true;
+
+    const load = async () => {
+      try {
+        const data = await fetchJson<AbandonedCart[]>(`${LEGACY_API_URL}/abandoned-carts`);
+        if (!mounted) return;
         setCarts(data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    void load();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const filtered = carts.filter(c => !statusFilter || c.recoveryStatus === statusFilter);
@@ -78,3 +88,5 @@ export default function AbandonedCartPanel() {
     </div>
   );
 }
+
+

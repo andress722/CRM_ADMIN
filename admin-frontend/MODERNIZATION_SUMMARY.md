@@ -356,7 +356,7 @@ const colors = {
 admin-frontend/
 ├── app/globals.css ........... Theme & styles
 ├── components/*.tsx .......... 7 componentes
-├── lib/api.ts ............... API client
+├── src/services/api-client.ts ... API client
 ├── lib/store.ts ............. State management
 └── DESIGN_SYSTEM.md ......... Design docs
 ```

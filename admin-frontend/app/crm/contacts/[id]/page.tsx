@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from 'react';
+import { LoadingState, ErrorState } from '@/components/ui/AsyncState';
 import { useParams, useRouter } from 'next/navigation';
 import { AuthService } from '@/services/auth';
+import { authFetch } from '@/services/auth-fetch';
 import { endpoints } from '@/services/endpoints';
 import BackButton from '@/components/BackButton';
 import Select from '@/components/Select';
@@ -60,8 +62,8 @@ export default function ContactDetailPage() {
       setLoading(false);
       return;
     }
-    fetch(endpoints.admin.crmContactDetail(id), {
-      headers: { Authorization: `Bearer ${token}` },
+    authFetch(endpoints.admin.crmContactDetail(id), {
+      headers: {},
     })
       .then((res) => res.json())
       .then((data) => {
@@ -88,11 +90,10 @@ export default function ContactDetailPage() {
       return;
     }
     try {
-      const res = await fetch(endpoints.admin.crmContactDetail(id), {
+      const res = await authFetch(endpoints.admin.crmContactDetail(id), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(form),
       });
@@ -118,9 +119,9 @@ export default function ContactDetailPage() {
       return;
     }
     try {
-      const res = await fetch(endpoints.admin.crmContactDetail(id), {
+      const res = await authFetch(endpoints.admin.crmContactDetail(id), {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {},
       });
       if (!res.ok) throw new Error('Erro ao remover contato');
       router.push('/crm/contacts');
@@ -151,11 +152,10 @@ export default function ContactDetailPage() {
       notes: form.email ? `Contato: ${form.email}` : undefined,
     };
     try {
-      const res = await fetch(endpoints.admin.crmActivities, {
+      const res = await authFetch(endpoints.admin.crmActivities, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });
@@ -183,11 +183,10 @@ export default function ContactDetailPage() {
     }
     const updatedNotes = [form.notes, noteDraft.trim()].filter(Boolean).join('\n\n');
     try {
-      const res = await fetch(endpoints.admin.crmContactDetail(id), {
+      const res = await authFetch(endpoints.admin.crmContactDetail(id), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ ...form, notes: updatedNotes }),
       });
@@ -223,11 +222,10 @@ export default function ContactDetailPage() {
       notes: form.email ? `Destinatário: ${form.email}` : undefined,
     };
     try {
-      const res = await fetch(endpoints.admin.crmActivities, {
+      const res = await authFetch(endpoints.admin.crmActivities, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });
@@ -261,11 +259,10 @@ export default function ContactDetailPage() {
       notes: form.company ? `Empresa: ${form.company}` : undefined,
     };
     try {
-      const res = await fetch(endpoints.admin.crmActivities, {
+      const res = await authFetch(endpoints.admin.crmActivities, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });
@@ -277,8 +274,8 @@ export default function ContactDetailPage() {
     }
   };
 
-  if (loading) return <div className="p-6">Carregando contato...</div>;
-  if (error) return <div className="p-6 text-red-600">{error}</div>;
+  if (loading) return <LoadingState message="Carregando contato..." />;
+  if (error) return <ErrorState message={error} />;
   if (!form) return <div className="p-6">Contato não encontrado.</div>;
 
   return (
@@ -508,3 +505,11 @@ export default function ContactDetailPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { endpoints } from '@/services/endpoints';
 import { AuthService } from '@/services/auth';
+import { authFetch } from '@/services/auth-fetch';
 import Link from 'next/link';
 import BulkActionsBar from '@/components/BulkActionsBar';
 import BackButton from '@/components/BackButton';
@@ -42,8 +43,8 @@ export default function ActivitiesPage() {
       setLoading(false);
       return;
     }
-    fetch(endpoints.admin.crmActivities, {
-      headers: { Authorization: `Bearer ${token}` },
+    authFetch(endpoints.admin.crmActivities, {
+      headers: {},
     })
       .then((res) => res.json())
       .then((data) => {
@@ -82,11 +83,10 @@ export default function ActivitiesPage() {
     const current = activities.find((activity) => activity.id === id);
     const nextStatus = current?.status === 'Done' ? 'Open' : 'Done';
     try {
-      await fetch(endpoints.admin.crmActivityDetail(id), {
+      await authFetch(endpoints.admin.crmActivityDetail(id), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ status: nextStatus }),
       });
@@ -351,3 +351,7 @@ export default function ActivitiesPage() {
     </div>
   );
 }
+
+
+
+

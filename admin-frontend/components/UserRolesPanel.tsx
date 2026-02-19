@@ -1,6 +1,7 @@
 // Painel de permissões, papéis e auditoria
 import React, { useEffect, useState } from 'react';
 import { API_URL } from '@/services/endpoints';
+import { fetchJson } from '@/services/fetch-client';
 
 interface User {
   id: string;
@@ -24,14 +25,25 @@ export default function UserRolesPanel() {
   const [roleFilter, setRoleFilter] = useState('');
 
   useEffect(() => {
-    Promise.all([
-      fetch(`${API_URL}/users`).then(res => res.json()),
-      fetch(`${API_URL}/audit-logs`).then(res => res.json())
-    ]).then(([userData, logData]) => {
-      setUsers(userData);
-      setLogs(logData);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    let mounted = true;
+    const load = async () => {
+      try {
+        const [userData, logData] = await Promise.all([
+          fetchJson<User[]>(`${API_URL}/users`),
+          fetchJson<AuditLog[]>(`${API_URL}/audit-logs`),
+        ]);
+        if (!mounted) return;
+        setUsers(userData);
+        setLogs(logData);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    void load();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   function changeRole(id: string, role: string) {

@@ -1,6 +1,7 @@
 // Painel LGPD: exportação/anonimização de dados
 import React, { useState } from 'react';
 import { API_URL } from '@/services/endpoints';
+import { fetchJson } from '@/services/fetch-client';
 
 export default function LgpdPanel() {
   const [exporting, setExporting] = useState(false);
@@ -11,8 +12,7 @@ export default function LgpdPanel() {
     setExporting(true);
     setStatus('');
     try {
-      // Chamada para exportar dados do usuário
-      await fetch(`${API_URL}/lgpd/export`, { method: 'POST' });
+      await fetchJson(`${API_URL}/lgpd/export`, { method: 'POST' });
       setStatus('Dados exportados com sucesso!');
     } catch {
       setStatus('Erro ao exportar dados.');
@@ -24,8 +24,7 @@ export default function LgpdPanel() {
     setAnonymizing(true);
     setStatus('');
     try {
-      // Chamada para anonimizar dados do usuário
-      await fetch(`${API_URL}/lgpd/anonymize`, { method: 'POST' });
+      await fetchJson(`${API_URL}/lgpd/anonymize`, { method: 'POST' });
       setStatus('Dados anonimizados com sucesso!');
     } catch {
       setStatus('Erro ao anonimizar dados.');

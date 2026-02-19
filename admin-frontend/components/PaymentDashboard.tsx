@@ -1,6 +1,7 @@
 // Dashboard de pagamentos e conciliação
 import React, { useEffect, useState } from 'react';
-import { LEGACY_API_URL } from '../lib/legacy-api';
+import { LEGACY_API_URL } from '@/services/endpoints';
+import { fetchJson } from '@/services/fetch-client';
 
 interface Payment {
   id: string;
@@ -18,13 +19,22 @@ export default function PaymentDashboard() {
   const [statusFilter, setStatusFilter] = useState('');
 
   useEffect(() => {
-    fetch(`${LEGACY_API_URL}/payments`)
-      .then((res) => res.json())
-      .then((data) => {
+    let mounted = true;
+
+    const load = async () => {
+      try {
+        const data = await fetchJson<Payment[]>(`${LEGACY_API_URL}/payments`);
+        if (!mounted) return;
         setPayments(data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    void load();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const filtered = payments.filter(p => !statusFilter || p.status === statusFilter);
@@ -74,3 +84,5 @@ export default function PaymentDashboard() {
     </div>
   );
 }
+
+

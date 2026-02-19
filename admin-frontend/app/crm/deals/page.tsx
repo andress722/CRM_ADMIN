@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { endpoints } from '@/services/endpoints';
 import { AuthService } from '@/services/auth';
+import { authFetch } from '@/services/auth-fetch';
 import Link from 'next/link';
 import BulkActionsBar from '@/components/BulkActionsBar';
 import BackButton from '@/components/BackButton';
@@ -46,8 +47,8 @@ export default function DealsPage() {
       setLoading(false);
       return;
     }
-    fetch(endpoints.admin.crmDeals, {
-      headers: { Authorization: `Bearer ${token}` },
+    authFetch(endpoints.admin.crmDeals, {
+      headers: {},
     })
       .then((res) => res.json())
       .then((data) => {
@@ -80,11 +81,10 @@ export default function DealsPage() {
     const token = AuthService.getToken();
     if (!token) return;
     try {
-      await fetch(endpoints.admin.crmDealDetail(id), {
+      await authFetch(endpoints.admin.crmDealDetail(id), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ stage }),
       });
@@ -343,3 +343,7 @@ export default function DealsPage() {
     </div>
   );
 }
+
+
+
+

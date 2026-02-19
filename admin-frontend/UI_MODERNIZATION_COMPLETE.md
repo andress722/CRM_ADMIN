@@ -255,7 +255,7 @@ Para dúvidas sobre o design ou implementação:
 1. Consulte `DESIGN_SYSTEM.md`
 2. Revise componentes em `components/`
 3. Verifique tipos em `lib/types.ts`
-4. Confira API em `lib/api.ts`
+4. Confira API em `src/services/api-client.ts`
 
 ---
 

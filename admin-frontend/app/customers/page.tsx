@@ -1,7 +1,10 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
+import { LoadingState, ErrorState, EmptyState } from '@/components/ui/AsyncState';
 import { endpoints } from '@/services/endpoints';
 import { AuthService } from '@/services/auth';
+import { authFetch } from '@/services/auth-fetch';
 import Link from 'next/link';
 
 type CustomerSummary = {
@@ -18,8 +21,8 @@ export default function CustomersPage() {
 
   useEffect(() => {
     if (!token) return;
-    fetch(endpoints.admin.customers, {
-      headers: { Authorization: `Bearer ${token}` },
+    authFetch(endpoints.admin.customers, {
+      headers: {},
     })
       .then(res => res.json())
       .then(data => {
@@ -32,9 +35,9 @@ export default function CustomersPage() {
       });
   }, [token]);
 
-  if (loading) return <div>Carregando clientes...</div>;
-  if (error) return <div className="text-red-600">{error}</div>;
-  if (!customers.length) return <div>Nenhum cliente encontrado.</div>;
+  if (loading) return <LoadingState message="Carregando clientes..." />;
+  if (error) return <ErrorState message={error} />;
+  if (!customers.length) return <EmptyState message="Nenhum cliente encontrado." />;
 
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white border rounded-xl shadow">
@@ -65,3 +68,12 @@ export default function CustomersPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+

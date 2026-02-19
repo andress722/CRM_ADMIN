@@ -1,6 +1,7 @@
 // Modal de detalhes do pedido com histórico de status
 import React, { useEffect, useState } from 'react';
-import { LEGACY_API_URL } from '../lib/legacy-api';
+import { LEGACY_API_URL } from '@/services/endpoints';
+import { fetchJson } from '@/services/fetch-client';
 
 interface StatusHistory {
   status: string;
@@ -21,13 +22,22 @@ export default function OrderDetailsModal({ orderId, onClose }: { orderId: strin
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${LEGACY_API_URL}/orders/${orderId}`)
-      .then((res) => res.json())
-      .then((data) => {
+    let mounted = true;
+
+    const load = async () => {
+      try {
+        const data = await fetchJson<Order>(`${LEGACY_API_URL}/orders/${orderId}`);
+        if (!mounted) return;
         setOrder(data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    void load();
+    return () => {
+      mounted = false;
+    };
   }, [orderId]);
 
   if (loading) return <div>Carregando...</div>;
@@ -53,3 +63,5 @@ export default function OrderDetailsModal({ orderId, onClose }: { orderId: strin
     </div>
   );
 }
+
+

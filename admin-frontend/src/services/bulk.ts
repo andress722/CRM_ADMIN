@@ -1,20 +1,20 @@
+import { authFetch } from './auth-fetch';
+
 export type BulkRequest = {
   url: string;
   method: 'POST' | 'PATCH' | 'PUT' | 'DELETE';
   body?: unknown;
 };
 
-export async function runBulkRequests(requests: BulkRequest[], token: string) {
-  const headers = {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
-  };
-
+export async function runBulkRequests(requests: BulkRequest[], _token: string) {
+  void _token;
   await Promise.all(
     requests.map(({ url, method, body }) =>
-      fetch(url, {
+      authFetch(url, {
         method,
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: body ? JSON.stringify(body) : undefined,
       })
     )

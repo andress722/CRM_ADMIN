@@ -1,6 +1,7 @@
 // Painel de movimentações de estoque
 import React, { useEffect, useState } from 'react';
 import { API_URL } from '@/services/endpoints';
+import { fetchJson } from '@/services/fetch-client';
 
 interface Movement {
   id: string;
@@ -18,13 +19,21 @@ export default function StockMovementsPanel() {
   const [typeFilter, setTypeFilter] = useState('');
 
   useEffect(() => {
-    fetch(`${API_URL}/movements`)
-      .then((res) => res.json())
-      .then((data) => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const data = await fetchJson<Movement[]>(`${API_URL}/movements`);
+        if (!mounted) return;
         setMovements(data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    void load();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const filtered = movements.filter(m => !typeFilter || m.type === typeFilter);

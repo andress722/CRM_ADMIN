@@ -1,8 +1,11 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
+import { LoadingState, ErrorState } from '@/components/ui/AsyncState';
 import { useRouter, useParams } from 'next/navigation';
 import { endpoints } from '@/services/endpoints';
 import { AuthService } from '@/services/auth';
+import { authFetch } from '@/services/auth-fetch';
 
 export default function EditCustomerPage() {
   const router = useRouter();
@@ -22,8 +25,8 @@ export default function EditCustomerPage() {
       setLoading(false);
       return;
     }
-    fetch(endpoints.admin.customerDetail(id as string), {
-      headers: { Authorization: `Bearer ${token}` },
+    authFetch(endpoints.admin.customerDetail(id as string), {
+      headers: {},
     })
       .then(res => res.json())
       .then(data => {
@@ -49,11 +52,10 @@ export default function EditCustomerPage() {
       return;
     }
     try {
-      const res = await fetch(endpoints.admin.customerDetail(id as string), {
+      const res = await authFetch(endpoints.admin.customerDetail(id as string), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ name, email, blocked }),
       });
@@ -76,11 +78,10 @@ export default function EditCustomerPage() {
       return;
     }
     try {
-      const res = await fetch(endpoints.admin.customerDetail(id as string), {
+      const res = await authFetch(endpoints.admin.customerDetail(id as string), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ blocked: !blocked }),
       });
@@ -93,8 +94,8 @@ export default function EditCustomerPage() {
     }
   };
 
-  if (loading) return <div>Carregando cliente...</div>;
-  if (error) return <div className="text-red-600">{error}</div>;
+  if (loading) return <LoadingState message="Carregando cliente..." />;
+  if (error) return <ErrorState message={error} />;
 
   return (
     <div className="max-w-lg mx-auto p-6 bg-white border rounded-xl shadow">
@@ -129,3 +130,11 @@ export default function EditCustomerPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+

@@ -1,7 +1,10 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
+import { LoadingState, ErrorState, EmptyState } from '@/components/ui/AsyncState';
 import { endpoints } from '@/services/endpoints';
 import { AuthService } from '@/services/auth';
+import { authFetch } from '@/services/auth-fetch';
 
 type LogEntry = {
   id: string | number;
@@ -24,8 +27,8 @@ export default function LogsPage() {
 
   useEffect(() => {
     if (!token) return;
-    fetch(endpoints.admin.logs, {
-      headers: { Authorization: `Bearer ${token}` },
+    authFetch(endpoints.admin.logs, {
+      headers: {},
     })
       .then(res => res.json())
       .then(data => {
@@ -46,9 +49,9 @@ export default function LogsPage() {
     return matchesUser && matchesAction && matchesDate && matchesSearch;
   });
 
-  if (loading) return <div>Carregando logs...</div>;
-  if (error) return <div className="text-red-600">{error}</div>;
-  if (!filteredLogs.length) return <div>Nenhum log encontrado.</div>;
+  if (loading) return <LoadingState message="Carregando logs..." />;
+  if (error) return <ErrorState message={error} />;
+  if (!filteredLogs.length) return <EmptyState message="Nenhum log encontrado." />;
 
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white border rounded-xl shadow">
@@ -82,3 +85,12 @@ export default function LogsPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+

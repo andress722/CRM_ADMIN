@@ -1,8 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+import { LoadingState, ErrorState } from '@/components/ui/AsyncState';
 import { endpoints } from '@/services/endpoints';
 import { AuthService } from '@/services/auth';
+import { authFetch } from '@/services/auth-fetch';
 
 type Webhook = {
   id: string | number;
@@ -31,8 +34,8 @@ export default function WebhooksPage() {
       setLoading(false);
       return;
     }
-    fetch(endpoints.admin.webhooks, {
-      headers: { Authorization: `Bearer ${token}` },
+    authFetch(endpoints.admin.webhooks, {
+      headers: {},
     })
       .then(res => res.json())
       .then(data => {
@@ -55,13 +58,11 @@ export default function WebhooksPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    const token = AuthService.getToken();
     try {
-      await fetch(endpoints.admin.webhooks, {
+      await authFetch(endpoints.admin.webhooks, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(form),
       });
@@ -73,8 +74,8 @@ export default function WebhooksPage() {
     }
   };
 
-  if (loading) return <div>Carregando webhooks...</div>;
-  if (error) return <div className="text-red-600">{error}</div>;
+  if (loading) return <LoadingState message="Carregando webhooks..." />;
+  if (error) return <ErrorState message={error} />;
 
   return (
     <div className="max-w-xl mx-auto p-6 bg-white border rounded-xl shadow">
@@ -141,3 +142,12 @@ export default function WebhooksPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+

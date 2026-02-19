@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from 'react';
+import { LoadingState, ErrorState } from '@/components/ui/AsyncState';
 import { endpoints } from '@/services/endpoints';
 import { AuthService } from '@/services/auth';
+import { authFetch } from '@/services/auth-fetch';
 import Link from 'next/link';
 import BulkActionsBar from '@/components/BulkActionsBar';
 import BackButton from '@/components/BackButton';
@@ -44,8 +46,8 @@ export default function DealsPipelinePage() {
       setLoading(false);
       return;
     }
-    fetch(endpoints.admin.crmDeals, {
-      headers: { Authorization: `Bearer ${token}` },
+    authFetch(endpoints.admin.crmDeals, {
+      headers: {},
     })
       .then((res) => res.json())
       .then((data) => {
@@ -72,11 +74,10 @@ export default function DealsPipelinePage() {
     const token = AuthService.getToken();
     if (!token) return;
     try {
-      await fetch(endpoints.admin.crmDealDetail(id), {
+      await authFetch(endpoints.admin.crmDealDetail(id), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ stage }),
       });
@@ -186,8 +187,8 @@ export default function DealsPipelinePage() {
     }
   };
 
-  if (loading) return <div className="p-6">Carregando pipeline...</div>;
-  if (error) return <div className="p-6 text-red-600">{error}</div>;
+  if (loading) return <LoadingState message="Carregando pipeline..." />;
+  if (error) return <ErrorState message={error} />;
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
@@ -307,3 +308,12 @@ export default function DealsPipelinePage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+

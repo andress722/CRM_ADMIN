@@ -1,6 +1,7 @@
 // Painel de configurações avançadas
 import React, { useEffect, useState } from 'react';
-import { LEGACY_API_URL } from '../lib/legacy-api';
+import { LEGACY_API_URL } from '@/services/endpoints';
+import { fetchJson, fetchText } from '@/services/fetch-client';
 
 interface BusinessParams {
   minOrderValue: number;
@@ -22,16 +23,29 @@ export default function AdvancedSettingsPanel() {
   const [emailTemplate, setEmailTemplate] = useState('');
 
   useEffect(() => {
-    Promise.all([
-      fetch(`${LEGACY_API_URL}/business-params`).then(res => res.json()),
-      fetch(`${LEGACY_API_URL}/integrations`).then(res => res.json()),
-      fetch(`${LEGACY_API_URL}/email-template`).then(res => res.text())
-    ]).then(([paramsData, integrationsData, emailData]) => {
-      setParams(paramsData);
-      setIntegrations(integrationsData);
-      setEmailTemplate(emailData);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    let mounted = true;
+
+    const load = async () => {
+      try {
+        const [paramsData, integrationsData, emailData] = await Promise.all([
+          fetchJson<BusinessParams>(`${LEGACY_API_URL}/business-params`),
+          fetchJson<Integration[]>(`${LEGACY_API_URL}/integrations`),
+          fetchText(`${LEGACY_API_URL}/email-template`),
+        ]);
+
+        if (!mounted) return;
+        setParams(paramsData);
+        setIntegrations(integrationsData);
+        setEmailTemplate(emailData);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    void load();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   function saveEmailTemplate() {
@@ -85,3 +99,5 @@ export default function AdvancedSettingsPanel() {
     </div>
   );
 }
+
+

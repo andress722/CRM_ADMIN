@@ -1,9 +1,12 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+import { LoadingState, ErrorState } from '@/components/ui/AsyncState';
 import { useRouter, useParams } from 'next/navigation';
 import { endpoints } from '@/services/endpoints';
 import { AuthService } from '@/services/auth';
+import { authFetch } from '@/services/auth-fetch';
 
 export default function EditProductPage() {
   const router = useRouter();
@@ -22,8 +25,8 @@ export default function EditProductPage() {
       setLoading(false);
       return;
     }
-    fetch(endpoints.admin.productDetail(id as string), {
-      headers: { Authorization: `Bearer ${token}` },
+    authFetch(endpoints.admin.productDetail(id as string), {
+      headers: {},
     })
       .then(res => res.json())
       .then(data => {
@@ -48,11 +51,10 @@ export default function EditProductPage() {
       return;
     }
     try {
-      const res = await fetch(endpoints.admin.productDetail(id as string), {
+      const res = await authFetch(endpoints.admin.productDetail(id as string), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ name, price: Number(price) }),
       });
@@ -75,9 +77,9 @@ export default function EditProductPage() {
       return;
     }
     try {
-      const res = await fetch(endpoints.admin.productDetail(id as string), {
+      const res = await authFetch(endpoints.admin.productDetail(id as string), {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {},
       });
       if (!res.ok) throw new Error('Erro ao excluir produto');
       router.push('/products');
@@ -88,8 +90,8 @@ export default function EditProductPage() {
     }
   };
 
-  if (loading) return <div>Carregando produto...</div>;
-  if (error) return <div className="text-red-600">{error}</div>;
+  if (loading) return <LoadingState message="Carregando produto..." />;
+  if (error) return <ErrorState message={error} />;
 
   return (
     <div className="max-w-lg mx-auto p-6 bg-white border rounded-xl shadow">
@@ -124,3 +126,11 @@ export default function EditProductPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+

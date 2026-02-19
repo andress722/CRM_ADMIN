@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { endpoints } from '@/services/endpoints';
 import { AuthService } from '@/services/auth';
+import { authFetch } from '@/services/auth-fetch';
 import { useRouter } from 'next/navigation';
 
 export default function NewProductPage() {
@@ -23,11 +24,10 @@ export default function NewProductPage() {
       return;
     }
     try {
-      const res = await fetch(endpoints.admin.products, {
+      const res = await authFetch(endpoints.admin.products, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ name, price: Number(price) }),
       });
@@ -68,3 +68,6 @@ export default function NewProductPage() {
     </div>
   );
 }
+
+
+

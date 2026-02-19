@@ -1,8 +1,11 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
+import { LoadingState, ErrorState } from '@/components/ui/AsyncState';
 import Image from 'next/image';
 import { endpoints } from '@/services/endpoints';
 import { AuthService } from '@/services/auth';
+import { authFetch } from '@/services/auth-fetch';
 
 type Banner = {
   id: string;
@@ -54,8 +57,8 @@ export default function BannersPage() {
       setLoading(false);
       return;
     }
-    fetch(endpoints.admin.banners, {
-      headers: { Authorization: `Bearer ${token}` },
+    authFetch(endpoints.admin.banners, {
+      headers: {},
     })
       .then(res => res.json())
       .then(data => {
@@ -90,13 +93,11 @@ export default function BannersPage() {
 
   const saveEdit = async (id: string) => {
     setSaving(true);
-    const token = AuthService.getToken();
     try {
-      await fetch(`${endpoints.admin.banners}/${id}`, {
+      await authFetch(`${endpoints.admin.banners}/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(editForm),
       });
@@ -111,11 +112,10 @@ export default function BannersPage() {
 
   const removeBanner = async (id: string) => {
     setSaving(true);
-    const token = AuthService.getToken();
     try {
-      await fetch(`${endpoints.admin.banners}/${id}`, {
+      await authFetch(`${endpoints.admin.banners}/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {},
       });
       setBanners(list => list.filter(b => b.id !== id));
     } catch {
@@ -127,16 +127,15 @@ export default function BannersPage() {
 
   const moveBanner = async (id: string, direction: 'up' | 'down') => {
     setOrdering(true);
-    const token = AuthService.getToken();
     try {
-      await fetch(`${endpoints.admin.banners}/${id}/move`, {
+      await authFetch(`${endpoints.admin.banners}/${id}/move`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {},
         body: JSON.stringify({ direction }),
       });
       // Recarrega banners após ordenação
-      const res = await fetch(endpoints.admin.banners, {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await authFetch(endpoints.admin.banners, {
+        headers: {},
       });
       const data = await res.json();
       setBanners(data);
@@ -150,13 +149,11 @@ export default function BannersPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    const token = AuthService.getToken();
     try {
-      await fetch(endpoints.admin.banners, {
+      await authFetch(endpoints.admin.banners, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(form),
       });
@@ -168,8 +165,8 @@ export default function BannersPage() {
     }
   };
 
-  if (loading) return <div>Carregando banners...</div>;
-  if (error) return <div className="text-red-600">{error}</div>;
+  if (loading) return <LoadingState message="Carregando banners..." />;
+  if (error) return <ErrorState message={error} />;
 
   return (
     <div className="max-w-xl mx-auto p-6 bg-white border rounded-xl shadow">
@@ -318,3 +315,12 @@ export default function BannersPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+

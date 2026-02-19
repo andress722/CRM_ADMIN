@@ -1,6 +1,7 @@
 // Listagem de pedidos com filtros avançados
 import React, { useEffect, useState } from 'react';
-import { LEGACY_API_URL } from '../lib/legacy-api';
+import { LEGACY_API_URL } from '@/services/endpoints';
+import { fetchJson } from '@/services/fetch-client';
 import OrderDetailsModal from './OrderDetailsModal';
 import OrderExport from './OrderExport';
 
@@ -20,13 +21,22 @@ export default function OrderList() {
   const [dateFilter, setDateFilter] = useState('');
 
   useEffect(() => {
-    fetch(`${LEGACY_API_URL}/orders`)
-      .then((res) => res.json())
-      .then((data) => {
+    let mounted = true;
+
+    const load = async () => {
+      try {
+        const data = await fetchJson<Order[]>(`${LEGACY_API_URL}/orders`);
+        if (!mounted) return;
         setOrders(data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    void load();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const filtered = orders.filter(order =>
@@ -91,3 +101,5 @@ export default function OrderList() {
     </div>
   );
 }
+
+

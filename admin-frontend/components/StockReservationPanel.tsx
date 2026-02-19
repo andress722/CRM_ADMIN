@@ -1,6 +1,7 @@
 // Painel de reserva de estoque
 import React, { useEffect, useState } from 'react';
 import { API_URL } from '@/services/endpoints';
+import { fetchJson } from '@/services/fetch-client';
 
 interface Reservation {
   id: string;
@@ -17,13 +18,21 @@ export default function StockReservationPanel() {
   const [statusFilter, setStatusFilter] = useState('');
 
   useEffect(() => {
-    fetch(`${API_URL}/reservations`)
-      .then((res) => res.json())
-      .then((data) => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const data = await fetchJson<Reservation[]>(`${API_URL}/reservations`);
+        if (!mounted) return;
         setReservations(data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    void load();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const filtered = reservations.filter(r => !statusFilter || r.status === statusFilter);

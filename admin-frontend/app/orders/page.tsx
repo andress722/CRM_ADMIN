@@ -1,8 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+import { LoadingState, ErrorState, EmptyState } from '@/components/ui/AsyncState';
 import { endpoints } from '@/services/endpoints';
 import { AuthService } from '@/services/auth';
+import { authFetch } from '@/services/auth-fetch';
 import Link from 'next/link';
 
 type OrderSummary = {
@@ -21,8 +24,8 @@ export default function OrdersPage() {
 
   useEffect(() => {
     if (!token) return;
-    fetch(endpoints.admin.orders, {
-      headers: { Authorization: `Bearer ${token}` },
+    authFetch(endpoints.admin.orders, {
+      headers: {},
     })
       .then(res => res.json())
       .then(data => {
@@ -35,9 +38,9 @@ export default function OrdersPage() {
       });
   }, [token]);
 
-  if (loading) return <div>Carregando pedidos...</div>;
-  if (error) return <div className="text-red-600">{error}</div>;
-  if (!orders.length) return <div>Nenhum pedido encontrado.</div>;
+  if (loading) return <LoadingState message="Carregando pedidos..." />;
+  if (error) return <ErrorState message={error} />;
+  if (!orders.length) return <EmptyState message="Nenhum pedido encontrado." />;
 
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white border rounded-xl shadow">
@@ -69,3 +72,12 @@ export default function OrdersPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+

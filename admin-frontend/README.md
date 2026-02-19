@@ -166,7 +166,7 @@ admin-frontend/
 ├── package.json
 ├── tsconfig.json
 ├── tailwind.config.js
-└── next.config.js
+└── next.config.mjs
 ```
 
 ## 🎨 Componentes Principais

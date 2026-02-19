@@ -1,6 +1,7 @@
 // Dashboard geral do admin: KPIs, gráficos, atalhos
 import React, { useEffect, useState } from 'react';
-import { LEGACY_API_URL } from '../lib/legacy-api';
+import { LEGACY_API_URL } from '@/services/endpoints';
+import { fetchJson } from '@/services/fetch-client';
 
 interface Kpi {
   label: string;
@@ -21,14 +22,27 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      fetch(`${LEGACY_API_URL}/kpis`).then(res => res.json()),
-      fetch(`${LEGACY_API_URL}/charts`).then(res => res.json())
-    ]).then(([kpiData, chartData]) => {
-      setKpis(kpiData);
-      setCharts(chartData);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    let mounted = true;
+
+    const load = async () => {
+      try {
+        const [kpiData, chartData] = await Promise.all([
+          fetchJson<Kpi[]>(`${LEGACY_API_URL}/kpis`),
+          fetchJson<ChartData[]>(`${LEGACY_API_URL}/charts`),
+        ]);
+
+        if (!mounted) return;
+        setKpis(kpiData);
+        setCharts(chartData);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    void load();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   return (
@@ -68,3 +82,5 @@ export default function AdminDashboard() {
     </div>
   );
 }
+
+

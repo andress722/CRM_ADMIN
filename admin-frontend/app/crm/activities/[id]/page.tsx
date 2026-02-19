@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from 'react';
+import { LoadingState, ErrorState } from '@/components/ui/AsyncState';
 import { useParams, useRouter } from 'next/navigation';
 import { AuthService } from '@/services/auth';
+import { authFetch } from '@/services/auth-fetch';
 import { endpoints } from '@/services/endpoints';
 import BackButton from '@/components/BackButton';
 import DateInput from '@/components/DateInput';
@@ -47,8 +49,8 @@ export default function ActivityDetailPage() {
       setLoading(false);
       return;
     }
-    fetch(endpoints.admin.crmActivityDetail(id), {
-      headers: { Authorization: `Bearer ${token}` },
+    authFetch(endpoints.admin.crmActivityDetail(id), {
+      headers: {},
     })
       .then((res) => res.json())
       .then((data) => {
@@ -75,11 +77,10 @@ export default function ActivityDetailPage() {
       return;
     }
     try {
-      const res = await fetch(endpoints.admin.crmActivityDetail(id), {
+      const res = await authFetch(endpoints.admin.crmActivityDetail(id), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(form),
       });
@@ -105,9 +106,9 @@ export default function ActivityDetailPage() {
       return;
     }
     try {
-      const res = await fetch(endpoints.admin.crmActivityDetail(id), {
+      const res = await authFetch(endpoints.admin.crmActivityDetail(id), {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {},
       });
       if (!res.ok) throw new Error('Erro ao remover atividade');
       router.push('/crm/activities');
@@ -118,8 +119,8 @@ export default function ActivityDetailPage() {
     }
   };
 
-  if (loading) return <div className="p-6">Carregando atividade...</div>;
-  if (error) return <div className="p-6 text-red-600">{error}</div>;
+  if (loading) return <LoadingState message="Carregando atividade..." />;
+  if (error) return <ErrorState message={error} />;
   if (!form) return <div className="p-6">Atividade não encontrada.</div>;
 
   return (
@@ -272,3 +273,11 @@ export default function ActivityDetailPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+

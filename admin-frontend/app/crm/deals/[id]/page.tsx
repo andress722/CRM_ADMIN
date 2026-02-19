@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from 'react';
+import { LoadingState, ErrorState } from '@/components/ui/AsyncState';
 import { useParams, useRouter } from 'next/navigation';
 import { AuthService } from '@/services/auth';
+import { authFetch } from '@/services/auth-fetch';
 import { endpoints } from '@/services/endpoints';
 import BackButton from '@/components/BackButton';
 import Select from '@/components/Select';
@@ -61,8 +63,8 @@ export default function DealDetailPage() {
       setLoading(false);
       return;
     }
-    fetch(endpoints.admin.crmDealDetail(id), {
-      headers: { Authorization: `Bearer ${token}` },
+    authFetch(endpoints.admin.crmDealDetail(id), {
+      headers: {},
     })
       .then((res) => res.json())
       .then((data) => {
@@ -89,11 +91,10 @@ export default function DealDetailPage() {
       return;
     }
     try {
-      const res = await fetch(endpoints.admin.crmDealDetail(id), {
+      const res = await authFetch(endpoints.admin.crmDealDetail(id), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(form),
       });
@@ -119,9 +120,9 @@ export default function DealDetailPage() {
       return;
     }
     try {
-      const res = await fetch(endpoints.admin.crmDealDetail(id), {
+      const res = await authFetch(endpoints.admin.crmDealDetail(id), {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {},
       });
       if (!res.ok) throw new Error('Erro ao remover negócio');
       router.push('/crm/deals');
@@ -152,11 +153,10 @@ export default function DealDetailPage() {
       notes: `Negócio: ${form.title}`,
     };
     try {
-      const res = await fetch(endpoints.admin.crmActivities, {
+      const res = await authFetch(endpoints.admin.crmActivities, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });
@@ -192,11 +192,10 @@ export default function DealDetailPage() {
       notes: `Negócio: ${form.title}`,
     };
     try {
-      const res = await fetch(endpoints.admin.crmActivities, {
+      const res = await authFetch(endpoints.admin.crmActivities, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });
@@ -230,11 +229,10 @@ export default function DealDetailPage() {
       notes: `Probabilidade: ${form.probability}%`,
     };
     try {
-      const res = await fetch(endpoints.admin.crmActivities, {
+      const res = await authFetch(endpoints.admin.crmActivities, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });
@@ -246,8 +244,8 @@ export default function DealDetailPage() {
     }
   };
 
-  if (loading) return <div className="p-6">Carregando negócio...</div>;
-  if (error) return <div className="p-6 text-red-600">{error}</div>;
+  if (loading) return <LoadingState message="Carregando negócio..." />;
+  if (error) return <ErrorState message={error} />;
   if (!form) return <div className="p-6">Negócio não encontrado.</div>;
 
   return (
@@ -466,3 +464,11 @@ export default function DealDetailPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
