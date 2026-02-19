@@ -6,7 +6,7 @@ using Ecommerce.Domain.Entities;
 namespace Ecommerce.API.Controllers;
 
 [ApiController]
-[AllowAnonymous]
+[Authorize(Roles = "Admin")]
 [Route("api")]
 public class LegacyAdminController : ControllerBase
 {

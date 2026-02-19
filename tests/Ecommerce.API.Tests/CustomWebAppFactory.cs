@@ -14,6 +14,8 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.UseEnvironment("Development");
+
         builder.ConfigureAppConfiguration((_, config) =>
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
@@ -26,6 +28,9 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
                 ["Auth:PasswordResetMinutes"] = "30",
                 ["Auth:MaxFailedAttempts"] = "5",
                 ["Auth:LockoutMinutes"] = "15",
+                ["Auth:AllowInsecureCookiesInDevelopment"] = "true",
+                ["Networking:TrustedProxies:0"] = "127.0.0.1",
+                ["Networking:TrustedProxies:1"] = "::1",
                 ["Payments:Provider"] = "Stub",
                 ["Payments:MercadoPago:WebhookSecret"] = "test_webhook_secret",
                 ["Payments:MercadoPago:WebhookSignatureFormat"] = "ts_requestid_body",

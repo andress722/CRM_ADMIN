@@ -17,15 +17,18 @@ public class PaymentsWebhookController : ControllerBase
     private readonly PaymentService _payments;
     private readonly IConfiguration _configuration;
     private readonly ILogger<PaymentsWebhookController> _logger;
+    private readonly IWebHostEnvironment _environment;
 
     public PaymentsWebhookController(
         PaymentService payments,
         IConfiguration configuration,
-        ILogger<PaymentsWebhookController> logger)
+        ILogger<PaymentsWebhookController> logger,
+        IWebHostEnvironment environment)
     {
         _payments = payments;
         _configuration = configuration;
         _logger = logger;
+        _environment = environment;
     }
 
     [HttpPost]
@@ -52,7 +55,17 @@ public class PaymentsWebhookController : ControllerBase
         }
 
         var secret = _configuration["Payments:MercadoPago:WebhookSecret"];
-        if (!string.IsNullOrWhiteSpace(secret))
+        if (string.IsNullOrWhiteSpace(secret))
+        {
+            if (!_environment.IsDevelopment())
+            {
+                _logger.LogError("Mercado Pago webhook secret is not configured.");
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = "Webhook is not configured" });
+            }
+
+            _logger.LogWarning("Mercado Pago webhook secret not configured. Signature validation disabled in development.");
+        }
+        else
         {
             if (!ValidateSignature(secret, body))
             {

@@ -9,10 +9,12 @@ using Ecommerce.Application.Services;
 using Ecommerce.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using System.Diagnostics;
+using System.Security.Cryptography;
 using AspNetCoreRateLimit;
 using Ecommerce.Infrastructure.Email;
 using Ecommerce.Infrastructure.Payments;
@@ -246,6 +248,10 @@ else if (emailProvider.Equals("SES", StringComparison.OrdinalIgnoreCase))
 {
     builder.Services.AddScoped<IEmailService, SesEmailService>();
 }
+else if (emailProvider.Equals("Gmail", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddScoped<IEmailService, GmailSmtpEmailService>();
+}
 else
 {
     builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
@@ -256,6 +262,27 @@ builder.Services.AddScoped<IPasswordHasher<Ecommerce.Domain.Entities.User>, Pass
 builder.Services.AddHostedService<WebhookDeliveryWorker>();
 builder.Services.AddHostedService<AnalyticsAggregationWorker>();
 builder.Services.AddHostedService<Ecommerce.Infrastructure.BackgroundServices.EventWorker>();
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardLimit = 2;
+
+    var trustedProxies = builder.Configuration.GetSection("Networking:TrustedProxies").Get<string[]>() ?? Array.Empty<string>();
+    foreach (var proxy in trustedProxies)
+    {
+        if (System.Net.IPAddress.TryParse(proxy, out var ip))
+        {
+            options.KnownProxies.Add(ip);
+        }
+    }
+
+    // If no proxies are configured, allow local/dev reverse-proxy setups.
+    if (trustedProxies.Length == 0 && builder.Environment.IsDevelopment())
+    {
+        options.KnownNetworks.Clear();
+        options.KnownProxies.Clear();
+    }
+});
 
 // Auth
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -263,7 +290,27 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     {
         var issuer = builder.Configuration["Jwt:Issuer"] ?? "ecommerce-api";
         var audience = builder.Configuration["Jwt:Audience"] ?? "ecommerce-admin";
-        var secret = builder.Configuration["Jwt:SecretKey"] ?? "";
+        var secret = builder.Configuration["Jwt:SecretKey"];
+        var hasValidConfiguredSecret = !string.IsNullOrWhiteSpace(secret)
+            && !secret.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase);
+
+        if (!hasValidConfiguredSecret)
+        {
+            if (builder.Environment.IsDevelopment())
+            {
+                secret = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+                Log.Warning("Jwt:SecretKey is not configured. Using an ephemeral development key.");
+            }
+            else
+            {
+                throw new InvalidOperationException("Jwt:SecretKey must be configured outside development.");
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(secret))
+        {
+            throw new InvalidOperationException("Unable to initialize Jwt:SecretKey.");
+        }
 
         options.TokenValidationParameters = new TokenValidationParameters
         {
@@ -280,6 +327,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("OwnerOrAdmin", policy => policy.Requirements.Add(new Ecommerce.API.Authorization.OwnerOrAdminRequirement()));
+    options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
 });
 
 // Register authorization handler
@@ -339,6 +387,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+app.UseForwardedHeaders();
 app.Use(async (context, next) =>
 {
     var correlationId = context.Request.Headers["X-Correlation-Id"].FirstOrDefault();
@@ -399,7 +448,8 @@ app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = Dat
 
 app.MapGet("/metrics", (MetricsRegistry registry) =>
         Results.Text(registry.ToPrometheus(), "text/plain"))
-    .WithName("Metrics");
+    .WithName("Metrics")
+    .RequireAuthorization("AdminOnly");
 
 static IAsyncPolicy<HttpResponseMessage> GetMercadoPagoRetryPolicy()
     => HttpPolicyExtensions
@@ -458,35 +508,35 @@ try
         if (!seedDataEnabled)
         {
             Console.WriteLine("ℹ️ Seed data disabled (Database:SeedData=false)");
-            return;
         }
-
-        // Seed demo user if no users exist
-        if (await TableExistsAsync(db, "Users") && !db.Users.Any())
+        else
         {
-            var demoUser = new Ecommerce.Domain.Entities.User
+            // Seed demo user if no users exist
+            if (await TableExistsAsync(db, "Users") && !db.Users.Any())
             {
-                Id = Guid.NewGuid(),
-                Email = "admin@example.com",
-                FullName = "Admin User",
-                PasswordHash = "",
-                IsEmailVerified = true,
-                Role = "Admin",
-                CreatedAt = DateTime.UtcNow
-            };
+                var demoUser = new Ecommerce.Domain.Entities.User
+                {
+                    Id = Guid.NewGuid(),
+                    Email = "admin@example.com",
+                    FullName = "Admin User",
+                    PasswordHash = "",
+                    IsEmailVerified = true,
+                    Role = "Admin",
+                    CreatedAt = DateTime.UtcNow
+                };
 
-            demoUser.PasswordHash = passwordHasher.HashPassword(demoUser, "demo123");
+                demoUser.PasswordHash = passwordHasher.HashPassword(demoUser, "demo123");
 
-            db.Users.Add(demoUser);
-            await db.SaveChangesAsync();
-            Console.WriteLine("✅ Demo user created: admin@example.com");
-        }
+                db.Users.Add(demoUser);
+                await db.SaveChangesAsync();
+                Console.WriteLine("✅ Demo user created: admin@example.com");
+            }
 
-        // Seed products if none exist
-        if (await TableExistsAsync(db, "Products") && !db.Products.Any())
-        {
-            var products = new[]
+            // Seed products if none exist
+            if (await TableExistsAsync(db, "Products") && !db.Products.Any())
             {
+                var products = new[]
+                {
                 new Ecommerce.Domain.Entities.Product
                 {
                     Id = Guid.NewGuid(),
@@ -669,20 +719,20 @@ try
                 }
             };
 
-            db.Products.AddRange(products);
-            await db.SaveChangesAsync();
-            Console.WriteLine($"✅ {products.Length} demo products created");
-        }
+                db.Products.AddRange(products);
+                await db.SaveChangesAsync();
+                Console.WriteLine($"✅ {products.Length} demo products created");
+            }
 
-        // Seed demo orders if none exist
-        if (await TableExistsAsync(db, "Orders") && !db.Orders.Any())
-        {
-            var users = await db.Users.ToListAsync();
-            if (users.Any())
+            // Seed demo orders if none exist
+            if (await TableExistsAsync(db, "Orders") && !db.Orders.Any())
             {
-                var products = await db.Products.ToListAsync();
-                var orders = new[]
+                var users = await db.Users.ToListAsync();
+                if (users.Any())
                 {
+                    var products = await db.Products.ToListAsync();
+                    var orders = new[]
+                    {
                     new Ecommerce.Domain.Entities.Order
                     {
                         Id = Guid.NewGuid(),
@@ -709,9 +759,10 @@ try
                     }
                 };
 
-                db.Orders.AddRange(orders);
-                await db.SaveChangesAsync();
-                Console.WriteLine($"✅ {orders.Length} demo orders created");
+                    db.Orders.AddRange(orders);
+                    await db.SaveChangesAsync();
+                    Console.WriteLine($"✅ {orders.Length} demo orders created");
+                }
             }
         }
     }

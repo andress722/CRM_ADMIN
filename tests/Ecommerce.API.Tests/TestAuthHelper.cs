@@ -66,5 +66,5 @@ public static class TestAuthHelper
         return client;
     }
 
-    private record LoginPayload(string AccessToken, string RefreshToken);
+    private record LoginPayload(string AccessToken);
 }

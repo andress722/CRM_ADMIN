@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using Ecommerce.API.Services;
 using Ecommerce.Application.Repositories;
 using Ecommerce.Application.Services;
@@ -17,6 +19,10 @@ namespace Ecommerce.API.Controllers;
 [Route("api/v1/[controller]")]
 public class AuthController : ControllerBase
 {
+    private const string RefreshCookieName = "refresh_token";
+    private const string CsrfCookieName = "csrf_token";
+    private const string CsrfHeaderName = "X-CSRF-Token";
+
     private readonly UserService _userService;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly ITokenService _tokenService;
@@ -25,6 +31,7 @@ public class AuthController : ControllerBase
     private readonly IEmailService _emailService;
     private readonly IConfiguration _configuration;
     private readonly SocialAuthService _socialAuthService;
+    private readonly ILogger<AuthController> _logger;
 
     public AuthController(
         UserService userService,
@@ -34,7 +41,8 @@ public class AuthController : ControllerBase
         AuthService authService,
         IEmailService emailService,
         IConfiguration configuration,
-        SocialAuthService socialAuthService)
+        SocialAuthService socialAuthService,
+        ILogger<AuthController> logger)
     {
         _userService = userService;
         _refreshTokenRepository = refreshTokenRepository;
@@ -44,6 +52,82 @@ public class AuthController : ControllerBase
         _emailService = emailService;
         _configuration = configuration;
         _socialAuthService = socialAuthService;
+        _logger = logger;
+    }
+
+    private bool ShouldUseSecureRefreshCookie()
+    {
+        var allowInsecureDev = _configuration.GetValue("Auth:AllowInsecureCookiesInDevelopment", true);
+        var isDevelopment = HttpContext.RequestServices.GetRequiredService<IHostEnvironment>().IsDevelopment();
+        return Request.IsHttps || !isDevelopment || !allowInsecureDev;
+    }
+
+    private CookieOptions BuildRefreshCookieOptions(DateTime expiresAtUtc)
+    {
+        return new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = ShouldUseSecureRefreshCookie(),
+            SameSite = SameSiteMode.Lax,
+            Expires = new DateTimeOffset(expiresAtUtc),
+            Path = "/"
+        };
+    }
+
+    private CookieOptions BuildRefreshCookieDeleteOptions()
+    {
+        return new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = ShouldUseSecureRefreshCookie(),
+            SameSite = SameSiteMode.Lax,
+            Path = "/"
+        };
+    }
+
+    private CookieOptions BuildCsrfCookieOptions(DateTime expiresAtUtc)
+    {
+        return new CookieOptions
+        {
+            HttpOnly = false,
+            Secure = ShouldUseSecureRefreshCookie(),
+            SameSite = SameSiteMode.Lax,
+            Expires = new DateTimeOffset(expiresAtUtc),
+            Path = "/"
+        };
+    }
+
+    private CookieOptions BuildCsrfCookieDeleteOptions()
+    {
+        return new CookieOptions
+        {
+            HttpOnly = false,
+            Secure = ShouldUseSecureRefreshCookie(),
+            SameSite = SameSiteMode.Lax,
+            Path = "/"
+        };
+    }
+
+    private static string GenerateCsrfToken()
+        => Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+
+    private bool IsCsrfTokenValid()
+    {
+        var headerToken = Request.Headers[CsrfHeaderName].FirstOrDefault();
+        var cookieToken = Request.Cookies[CsrfCookieName];
+        if (string.IsNullOrWhiteSpace(headerToken) || string.IsNullOrWhiteSpace(cookieToken))
+        {
+            return false;
+        }
+
+        var left = Encoding.UTF8.GetBytes(headerToken);
+        var right = Encoding.UTF8.GetBytes(cookieToken);
+        if (left.Length != right.Length)
+        {
+            return false;
+        }
+
+        return CryptographicOperations.FixedTimeEquals(left, right);
     }
 
     /// <summary>
@@ -85,7 +169,12 @@ public class AuthController : ControllerBase
     {
         try
         {
-            var cookie = Request.Cookies["refresh_token"];
+            if (!IsCsrfTokenValid())
+            {
+                return StatusCode(403, new { message = "Invalid CSRF token" });
+            }
+
+            var cookie = Request.Cookies[RefreshCookieName];
             if (!string.IsNullOrWhiteSpace(cookie))
             {
                 var stored = await _refreshTokenRepository.GetByTokenAsync(cookie);
@@ -96,8 +185,9 @@ public class AuthController : ControllerBase
                 }
             }
 
-            // Clear cookie
-            Response.Cookies.Delete("refresh_token", new CookieOptions { Path = "/" });
+            // Clear cookie with the same main attributes used at creation.
+            Response.Cookies.Delete(RefreshCookieName, BuildRefreshCookieDeleteOptions());
+            Response.Cookies.Delete(CsrfCookieName, BuildCsrfCookieDeleteOptions());
 
             return Ok(new { message = "Logged out" });
         }
@@ -167,20 +257,14 @@ public class AuthController : ControllerBase
             await _refreshTokenRepository.AddAsync(refreshToken);
 
             // Set refresh token as HttpOnly cookie (rotating cookie strategy)
-            var cookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = Request.IsHttps, // secure in production, allow insecure in dev
-                SameSite = SameSiteMode.Lax,
-                Expires = refreshToken.ExpiresAt,
-                Path = "/"
-            };
-            Response.Cookies.Append("refresh_token", refreshTokenValue, cookieOptions);
+            var cookieOptions = BuildRefreshCookieOptions(refreshToken.ExpiresAt);
+            var csrfToken = GenerateCsrfToken();
+            Response.Cookies.Append(RefreshCookieName, refreshTokenValue, cookieOptions);
+            Response.Cookies.Append(CsrfCookieName, csrfToken, BuildCsrfCookieOptions(refreshToken.ExpiresAt));
 
             return Ok(new
             {
                 accessToken = token,
-                refreshToken = refreshTokenValue,
                 user = new
                 {
                     id = user.Id,
@@ -192,7 +276,8 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "An error occurred during login", error = ex.Message });
+            _logger.LogError(ex, "Login failed unexpectedly");
+            return StatusCode(500, new { message = "An error occurred during login" });
         }
     }
 
@@ -226,20 +311,14 @@ public class AuthController : ControllerBase
             await _refreshTokenRepository.AddAsync(refreshToken);
 
             // Set refresh token as HttpOnly cookie (rotating cookie strategy)
-            var cookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = Request.IsHttps, // secure in production, allow insecure in dev
-                SameSite = SameSiteMode.Lax,
-                Expires = refreshToken.ExpiresAt,
-                Path = "/"
-            };
-            Response.Cookies.Append("refresh_token", refreshTokenValue, cookieOptions);
+            var cookieOptions = BuildRefreshCookieOptions(refreshToken.ExpiresAt);
+            var csrfToken = GenerateCsrfToken();
+            Response.Cookies.Append(RefreshCookieName, refreshTokenValue, cookieOptions);
+            Response.Cookies.Append(CsrfCookieName, csrfToken, BuildCsrfCookieOptions(refreshToken.ExpiresAt));
 
             return Ok(new
             {
                 accessToken = token,
-                refreshToken = refreshTokenValue,
                 user = new
                 {
                     id = user.Id,
@@ -255,7 +334,8 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "An error occurred during social login", error = ex.Message });
+            _logger.LogError(ex, "Social login failed unexpectedly for provider {Provider}", provider);
+            return StatusCode(500, new { message = "An error occurred during social login" });
         }
     }
 
@@ -280,7 +360,14 @@ public class AuthController : ControllerBase
             var existingUser = await _userService.GetUserByEmailAsync(request.Email);
             if (existingUser != null)
             {
-                return BadRequest(new { message = "User with this email already exists" });
+                if (!existingUser.IsEmailVerified)
+                {
+                    var existingVerificationTtlMinutes = _configuration.GetValue("Auth:EmailVerificationMinutes", 60);
+                    var existingVerificationToken = await _authService.CreateEmailVerificationTokenAsync(existingUser, TimeSpan.FromMinutes(existingVerificationTtlMinutes));
+                    await _emailService.SendEmailVerificationAsync(existingUser.Email, existingVerificationToken.Token);
+                }
+
+                return Ok(new { message = "If the email exists, a verification link was sent" });
             }
 
             var passwordHash = _passwordHasher.HashPassword(new User(), request.Password);
@@ -306,20 +393,14 @@ public class AuthController : ControllerBase
             await _refreshTokenRepository.AddAsync(refreshToken);
 
             // Set refresh token as HttpOnly cookie
-            var cookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = Request.IsHttps,
-                SameSite = SameSiteMode.Lax,
-                Expires = refreshToken.ExpiresAt,
-                Path = "/"
-            };
-            Response.Cookies.Append("refresh_token", refreshTokenValue, cookieOptions);
+            var cookieOptions = BuildRefreshCookieOptions(refreshToken.ExpiresAt);
+            var csrfToken = GenerateCsrfToken();
+            Response.Cookies.Append(RefreshCookieName, refreshTokenValue, cookieOptions);
+            Response.Cookies.Append(CsrfCookieName, csrfToken, BuildCsrfCookieOptions(refreshToken.ExpiresAt));
 
             return CreatedAtAction(nameof(Register), new
             {
                 accessToken = token,
-                refreshToken = refreshTokenValue,
                 user = new
                 {
                     id = user.Id,
@@ -331,7 +412,8 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "An error occurred during registration", error = ex.Message });
+            _logger.LogError(ex, "Registration failed unexpectedly");
+            return StatusCode(500, new { message = "An error occurred during registration" });
         }
     }
 
@@ -428,20 +510,20 @@ public class AuthController : ControllerBase
     /// <summary>
     /// Refresh access token
     /// </summary>
-    /// <param name="request">Refresh token request</param>
     /// <returns>New access token</returns>
     /// <response code="200">Token refreshed successfully</response>
     /// <response code="401">Invalid refresh token</response>
     [HttpPost("refresh")]
     [AllowAnonymous]
-    public async Task<IActionResult> Refresh([FromBody] RefreshRequest? request)
+    public async Task<IActionResult> Refresh()
     {
         // Read refresh token from HttpOnly cookie
-        var refreshToken = request?.RefreshToken;
-        if (string.IsNullOrWhiteSpace(refreshToken))
+        if (!IsCsrfTokenValid())
         {
-            refreshToken = Request.Cookies["refresh_token"];
+            return StatusCode(403, new { message = "Invalid CSRF token" });
         }
+
+        var refreshToken = Request.Cookies[RefreshCookieName];
 
         if (string.IsNullOrWhiteSpace(refreshToken))
         {
@@ -462,7 +544,8 @@ public class AuthController : ControllerBase
             {
                 // Possible token reuse detected: revoke all tokens for this user
                 await _refreshTokenRepository.RevokeAllForUserAsync(storedToken.UserId, DateTime.UtcNow);
-                Response.Cookies.Delete("refresh_token", new CookieOptions { Path = "/" });
+                Response.Cookies.Delete(RefreshCookieName, BuildRefreshCookieDeleteOptions());
+                Response.Cookies.Delete(CsrfCookieName, BuildCsrfCookieDeleteOptions());
                 return Unauthorized(new { message = "Refresh token reuse detected. All sessions revoked." });
             }
 
@@ -492,20 +575,14 @@ public class AuthController : ControllerBase
             await _refreshTokenRepository.AddAsync(newRefreshTokenEntity);
 
             // Set new refresh token cookie
-            var cookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = Request.IsHttps,
-                SameSite = SameSiteMode.Lax,
-                Expires = newRefreshTokenEntity.ExpiresAt,
-                Path = "/"
-            };
-            Response.Cookies.Append("refresh_token", newRefreshToken, cookieOptions);
+            var cookieOptions = BuildRefreshCookieOptions(newRefreshTokenEntity.ExpiresAt);
+            var csrfToken = GenerateCsrfToken();
+            Response.Cookies.Append(RefreshCookieName, newRefreshToken, cookieOptions);
+            Response.Cookies.Append(CsrfCookieName, csrfToken, BuildCsrfCookieOptions(newRefreshTokenEntity.ExpiresAt));
 
             return Ok(new
             {
                 accessToken = newAccessToken,
-                refreshToken = newRefreshToken,
                 user = new
                 {
                     id = user.Id,
@@ -539,17 +616,6 @@ public class LoginRequest
 }
 
 /// <summary>
-/// Refresh token request model
-/// </summary>
-public class RefreshRequest
-{
-    /// <summary>
-    /// Refresh token
-    /// </summary>
-    public string? RefreshToken { get; set; }
-}
-
-/// <summary>
 /// Registration request model
 /// </summary>
 public class RegisterRequest
@@ -575,17 +641,6 @@ public class SocialLoginRequest
     public string? ProviderUserId { get; set; }
     public string? Email { get; set; }
     public string? Name { get; set; }
-}
-
-/// <summary>
-/// Refresh token request model
-/// </summary>
-public class RefreshTokenRequest
-{
-    /// <summary>
-    /// Refresh token
-    /// </summary>
-    public string? RefreshToken { get; set; }
 }
 
 public class VerifyEmailRequest
