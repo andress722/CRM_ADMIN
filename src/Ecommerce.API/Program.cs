@@ -18,6 +18,7 @@ using System.Security.Cryptography;
 using AspNetCoreRateLimit;
 using Ecommerce.Infrastructure.Email;
 using Ecommerce.Infrastructure.Payments;
+using Npgsql;
 using Polly;
 using Polly.Extensions.Http;
 using Sentry;
@@ -161,6 +162,80 @@ static bool IsLocalPostgresConnection(string? connectionString)
         || connectionString.Contains("Port=5433", StringComparison.OrdinalIgnoreCase);
 }
 
+static string NormalizePostgresConnectionString(string connectionString)
+{
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
+        return connectionString;
+    }
+
+    // Already in ADO.NET key/value format.
+    if (connectionString.Contains('='))
+    {
+        return connectionString;
+    }
+
+    if (!Uri.TryCreate(connectionString, UriKind.Absolute, out var uri))
+    {
+        return connectionString;
+    }
+
+    if (!uri.Scheme.Equals("postgres", StringComparison.OrdinalIgnoreCase)
+        && !uri.Scheme.Equals("postgresql", StringComparison.OrdinalIgnoreCase))
+    {
+        return connectionString;
+    }
+
+    var builder = new NpgsqlConnectionStringBuilder
+    {
+        Host = uri.Host,
+        Port = uri.IsDefaultPort ? 5432 : uri.Port
+    };
+
+    var dbName = uri.AbsolutePath.Trim('/');
+    if (!string.IsNullOrWhiteSpace(dbName))
+    {
+        builder.Database = dbName;
+    }
+
+    if (!string.IsNullOrWhiteSpace(uri.UserInfo))
+    {
+        var parts = uri.UserInfo.Split(':', 2);
+        if (parts.Length >= 1)
+        {
+            builder.Username = Uri.UnescapeDataString(parts[0]);
+        }
+
+        if (parts.Length == 2)
+        {
+            builder.Password = Uri.UnescapeDataString(parts[1]);
+        }
+    }
+
+    var query = uri.Query.TrimStart('?');
+    if (!string.IsNullOrWhiteSpace(query))
+    {
+        foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var split = pair.Split('=', 2);
+            var key = Uri.UnescapeDataString(split[0]).Trim().ToLowerInvariant();
+            var value = split.Length == 2 ? Uri.UnescapeDataString(split[1]).Trim() : string.Empty;
+
+            switch (key)
+            {
+                case "sslmode":
+                    if (Enum.TryParse<SslMode>(value, true, out var sslMode))
+                    {
+                        builder.SslMode = sslMode;
+                    }
+                    break;
+            }
+        }
+    }
+
+    return builder.ConnectionString;
+}
+
 // Add DbContext - use PostgreSQL by default
 builder.Services.AddDbContext<EcommerceDbContext>(options =>
 {
@@ -192,6 +267,7 @@ builder.Services.AddDbContext<EcommerceDbContext>(options =>
                 "Production is using a local Postgres connection string. Configure ConnectionStrings__DefaultConnection or DATABASE_URL for managed DB.");
         }
 
+        connectionString = NormalizePostgresConnectionString(connectionString);
         options.UseNpgsql(connectionString);
     }
 });
