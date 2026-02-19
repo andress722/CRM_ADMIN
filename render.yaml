@@ -11,11 +11,9 @@ services:
       - key: ASPNETCORE_URLS
         value: http://0.0.0.0:$PORT
       - key: ConnectionStrings__DefaultConnection
-        fromDatabase:
-          name: copilot-sdk-db-staging
-          property: connectionString
+        value: "Host=dpg-d6bac5buibrs73ej77cg-a.oregon-postgres.render.com;Port=5432;Database=copilot_sdk_db_staging;Username=copilot_sdk_db_staging_user;Password=0FbGPJEnXUJ0arpvqYtwbGotXEORRke7;Ssl Mode=Require;Trust Server Certificate=true;"
       - key: Jwt__SecretKey
-        sync: false
+        value: CHANGE_ME_STAGING
       - key: Jwt__Issuer
         value: ecommerce-api
       - key: Jwt__Audience
@@ -40,24 +38,23 @@ services:
     startCommand: dotnet ef database update --startup-project src/Ecommerce.API/Ecommerce.API.csproj --connection "$ConnectionStrings__DefaultConnection"
     envVars:
       - key: ConnectionStrings__DefaultConnection
-        fromDatabase:
-          name: copilot-sdk-db-staging
-          property: connectionString
-
-  - type: web
-    name: copilot-sdk-admin-frontend-staging
-    env: docker
-    plan: free
-    region: oregon
-    rootDir: .
-    dockerfilePath: admin-frontend/Dockerfile
-    envVars:
-      - key: NEXT_PUBLIC_API_BASE
-        value: https://copilot-sdk-api-staging.onrender.com/api/v1
-      - key: NODE_ENV
-        value: production
+        value: "Host=dpg-d6bac5buibrs73ej77cg-a.oregon-postgres.render.com;Port=5432;Database=copilot_sdk_db_staging;Username=copilot_sdk_db_staging_user;Password=REPLACE_WITH_PASSWORD;Ssl Mode=Require;Trust Server Certificate=true;"
 
 databases:
   - name: copilot-sdk-db-staging
     plan: free
     region: oregon
+
+  # Admin frontend service (build using Dockerfile located in admin-frontend/)
+  - type: web
+    name: copilot-sdk-admin-frontend-staging
+    env: docker
+    plan: free
+    region: oregon
+    dockerfilePath: admin-frontend/Dockerfile
+    rootDir: .
+    envVars:
+      - key: NEXT_PUBLIC_API_BASE
+        value: https://copilot-sdk-api-staging.onrender.com/api/v1
+      - key: NODE_ENV
+        value: production
