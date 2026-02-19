@@ -27,7 +27,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
 
       - name: Cache node modules
         uses: actions/cache@v4
@@ -35,7 +35,8 @@ jobs:
           path: |
             **/node_modules
             ~/.npm
-          key: node-modules-${{ runner.os }}-$(hashFiles('**/package-lock.json'))
+            ~/.pnpm-store
+          key: node-modules-${{ runner.os }}-$(hashFiles('**/package-lock.json', '**/pnpm-lock.yaml'))
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -82,10 +83,10 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
 
       - name: Restore .NET
-        run: dotnet restore
+        run: dotnet restore src/Ecommerce.sln --configfile NuGet.config -m:1 /p:RestoreDisableParallel=true
 
       - name: Wait for Postgres
         run: |
@@ -99,10 +100,10 @@ jobs:
         run: dotnet ef database update --startup-project src/Ecommerce.API/Ecommerce.API.csproj --no-build
 
       - name: Build solution
-        run: dotnet build --no-restore --configuration Release
+        run: dotnet build src/Ecommerce.sln --no-restore --configuration Release
 
       - name: Run tests
-        run: dotnet test --no-build --configuration Release --verbosity normal
+        run: dotnet test tests/Ecommerce.API.Tests/Ecommerce.API.Tests.csproj --no-build --configuration Release --verbosity normal
 
       - name: Build admin frontend
         working-directory: admin-frontend

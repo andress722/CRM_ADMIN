@@ -26,10 +26,10 @@ Render will expose the API URL. Use it as `NEXT_PUBLIC_API_URL` in Vercel.
    - `NEXT_PUBLIC_LEGACY_API_URL` = legacy backend if used (optional)
    - Sentry vars if needed
 
-## Vercel (Storefront)
+## Vercel (info-tech-gamer-storefront-build)
 
 1) Create a new project from this repo.
-2) Root Directory: `storefront`
+2) Root Directory: `info-tech-gamer-storefront-build`
 3) Build Command: `npm run build`
 4) Output: default (Next.js)
 5) Environment variables:
@@ -45,3 +45,4 @@ Render will expose the API URL. Use it as `NEXT_PUBLIC_API_URL` in Vercel.
 ## Notas
 - Render free tier sleeps on inactivity. First request may be slow.
 - If you want to disable the cron migrations job, remove it from `render.yaml`.
+

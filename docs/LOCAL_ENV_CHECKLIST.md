@@ -22,7 +22,7 @@
 - `npm run dev`
 
 ## Storefront
-- `cd storefront`
+- `cd info-tech-gamer-storefront-build`
 - `npm install`
 - `npm run dev`
 
@@ -34,3 +34,4 @@
 - Login no admin
 - Dashboard carrega
 - Storefront carrega pagina inicial
+

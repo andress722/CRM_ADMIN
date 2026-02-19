@@ -20,7 +20,7 @@ Admin frontend (admin-frontend/.env.local):
 - `NEXT_PUBLIC_API_URL`
 - `NEXT_PUBLIC_LEGACY_API_URL`
 
-Storefront (storefront/.env.local):
+Storefront (info-tech-gamer-storefront-build/.env.local):
 - `NEXT_PUBLIC_API_URL`
 - `NEXT_PUBLIC_SITE_URL`
 
@@ -46,7 +46,7 @@ From the repo root:
 
 From the repo root:
 
-- `cd storefront`
+- `cd info-tech-gamer-storefront-build`
 - `npm install`
 - `npm run dev`
 
@@ -71,3 +71,4 @@ Example:
 - CORS errors: update `Cors__AllowedOrigins` in appsettings or environment variables.
 - 401s in frontends: verify `NEXT_PUBLIC_API_URL` and the backend auth configuration.
 - Missing traces: set `Observability__EnableOpenTelemetry=true` and `Observability__OtlpEndpoint`.
+

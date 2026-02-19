@@ -5,13 +5,13 @@
 **Pré-requisitos locais**
 - **Docker Desktop** rodando (containers e volumes gerenciados por `docker compose`).
 - Backend: .NET 9 SDK instalado; comandos `dotnet` e `dotnet ef` disponíveis.
-- Node: `npm` disponível para frontends (`admin-frontend`, `storefront`).
+- Node: `npm` disponível para frontends (`admin-frontend`, `info-tech-gamer-storefront-build`).
 
 **Arquivos importantes**
 - API config: [src/Ecommerce.API/appsettings.Development.json](src/Ecommerce.API/appsettings.Development.json)
 - DbContext / Migrations: [src/Ecommerce.Infrastructure](src/Ecommerce.Infrastructure)
 - Admin UI: [admin-frontend](admin-frontend)
-- Storefront: [storefront](storefront)
+- Storefront: [storefront](info-tech-gamer-storefront-build)
 
 **Roadmap Priorizado (curto prazo → longo prazo)**
 - **Infra / Migrations (Alta):** garantir que migrations rodem no CI e em dev; automatizar `dotnet ef database update` ou aplicar via startup. (arquivo: [docker-compose.test.yml](docker-compose.test.yml))
@@ -42,7 +42,7 @@ npm run dev
 - Rodar storefront dev server (se necessário, porta 3006):
 
 ```powershell
-cd "storefront"
+cd "info-tech-gamer-storefront-build"
 npm install
 npm run dev
 ``` 
@@ -104,3 +104,4 @@ Example (development):
 Escolha A, B ou C para eu começar a executar um passo concreto e eu continuo a partir daqui.
 
 Roadmap gerado em: 2026-01-31
+

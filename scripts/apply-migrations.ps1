@@ -6,7 +6,13 @@ param(
 Write-Host "Applying EF migrations using connection: $Connection"
 Set-Location -Path "src\Ecommerce.Infrastructure"
 
-dotnet restore
+dotnet restore --configfile "..\..\NuGet.config" -m:1 /p:RestoreDisableParallel=true
+
+if (-not (dotnet tool list --global | Select-String -Pattern "dotnet-ef")) {
+  Write-Host "dotnet-ef not found globally. Installing..."
+  dotnet tool install --global dotnet-ef --version 9.*
+}
+
 dotnet ef database update --startup-project "..\Ecommerce.API\Ecommerce.API.csproj" --connection "$Connection"
 
 Write-Host "Migrations applied."

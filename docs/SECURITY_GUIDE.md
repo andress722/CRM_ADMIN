@@ -46,3 +46,13 @@ This guide covers safe SDK usage, logging hygiene, and basic observability pract
 - [ ] Sentry PII disabled.
 - [ ] Error rates and latencies visible in dashboards.
 - [ ] Retry/backoff configured for CLI connectivity.
+
+## 7) Reverse proxy and secure cookies
+
+- Configure `Networking:TrustedProxies` in `appsettings`/env when running behind ingress/load balancers.
+- Keep refresh token cookies `HttpOnly` and `Secure` in non-development environments.
+- If local HTTP dev is required, use `Auth:AllowInsecureCookiesInDevelopment=true` only in dev.
+- CSRF protection uses double-submit cookie for auth session endpoints:
+  - cookie: `csrf_token`
+  - header required: `X-CSRF-Token`
+  - enforced on `/api/v1/auth/refresh` and `/api/v1/auth/logout`.

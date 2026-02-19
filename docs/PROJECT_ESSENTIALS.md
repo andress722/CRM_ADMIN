@@ -6,7 +6,7 @@ This document replaces all prior scattered docs. It defines the essential scope,
 ## 2) What Must Exist (Essential Scope)
 - Backend API (ASP.NET Core): src/Ecommerce.API
 - Domain and business logic: src/Ecommerce.Domain, src/Ecommerce.Application, src/Ecommerce.Infrastructure
-- Storefront (Next.js): storefront/
+- Storefront (Next.js): info-tech-gamer-storefront-build/
 - Admin UI (Next.js): admin-frontend/
 - Tests: tests/Ecommerce.API.Tests
 
@@ -19,7 +19,7 @@ This document replaces all prior scattered docs. It defines the essential scope,
 
 ## 4) Frontend Architecture
 ### Storefront (Customer)
-- App: storefront/
+- App: info-tech-gamer-storefront-build/
 - Core pages: /, /product, /cart, /checkout, /wishlist, /account, /dashboard, /profile, /track-order
 - Responsibilities: product discovery, cart, checkout, account, wishlist
 
@@ -32,7 +32,7 @@ This document replaces all prior scattered docs. It defines the essential scope,
 - API base path: /api/v1
 - Swagger: http://localhost:5071/swagger
 
-## 6) API Contract (Storefront)
+## 6) API Contract (info-tech-gamer-storefront-build)
 ### Auth and Session
 - POST /auth/login
   - Request: { email, password }
@@ -140,7 +140,7 @@ OrderWithHistory:
 - Swagger: http://localhost:5071/swagger
 
 ### Storefront
-- cd storefront
+- cd info-tech-gamer-storefront-build
 - npm install
 - npm run dev
 - Storefront: http://localhost:3006
@@ -165,3 +165,4 @@ OrderWithHistory:
 
 ## 12) Consolidated Sources (Removed)
 This file replaces the previous documents scattered across the repo. If any missing requirement is found, update this file as the only source of truth.
+

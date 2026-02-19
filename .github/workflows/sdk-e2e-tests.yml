@@ -189,7 +189,7 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Restore .NET dependencies
-        run: dotnet restore
+        run: dotnet restore --configfile ../NuGet.config -m:1 /p:RestoreDisableParallel=true
 
       - name: Run dotnet format check
         if: runner.os == 'Linux'

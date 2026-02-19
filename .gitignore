@@ -30,7 +30,10 @@
 **/*.log
 
 # Local env
-.env.local
+.env
+.env.*
+!.env.example
+!.env.*.example
 
 # Artifacts
 automation.bundle

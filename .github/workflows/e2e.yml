@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - 'storefront/**'
+      - 'info-tech-gamer-storefront-build/**'
       - 'src/**'
 
 jobs:
@@ -37,11 +37,17 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
+      - name: Install dotnet-ef
+        run: |
+          dotnet tool install --global dotnet-ef --version 9.*
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+
       - name: Apply migrations
         env:
           ConnectionStrings__DefaultConnection: "Host=127.0.0.1;Port=5433;Database=ecommerce;Username=admin;Password=changeme;"
         run: |
-          dotnet build src/Ecommerce.API -c Release
+          dotnet restore src/Ecommerce.sln --configfile NuGet.config -m:1 /p:RestoreDisableParallel=true
+          dotnet build src/Ecommerce.API -c Release --no-restore
           dotnet ef database update --project src/Ecommerce.API --startup-project src/Ecommerce.API
 
       - name: Start API
@@ -49,20 +55,27 @@ jobs:
           dotnet run --project src/Ecommerce.API --urls http://0.0.0.0:5071 &
           # wait for API
           for i in {1..30}; do
-            curl -sS http://127.0.0.1:5071/health || true
-            if curl -sS http://127.0.0.1:5071/health | grep -q ""; then break; fi
+            if curl -fsS http://127.0.0.1:5071/health >/dev/null; then
+              break
+            fi
             sleep 2
           done
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
 
       - name: Install storefront deps
         run: |
-          if [ -f storefront/package.json ]; then
-            cd storefront && npm ci
+          if [ -f info-tech-gamer-storefront-build/package.json ]; then
+            cd info-tech-gamer-storefront-build
+            if [ -f pnpm-lock.yaml ]; then
+              corepack enable
+              pnpm install --frozen-lockfile
+            else
+              npm ci
+            fi
           else
             echo "No storefront found; skipping"
             exit 0
@@ -70,10 +83,10 @@ jobs:
 
       - name: Install Playwright browsers
         run: |
-          cd storefront
+          cd info-tech-gamer-storefront-build
           npx playwright install --with-deps
 
       - name: Run Playwright tests
         run: |
-          cd storefront
+          cd info-tech-gamer-storefront-build
           npx playwright test --reporter=list

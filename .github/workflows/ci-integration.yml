@@ -27,23 +27,25 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
+      - name: Install dotnet-ef
+        run: |
+          dotnet tool install --global dotnet-ef --version 9.*
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '22'
 
-      - name: Restore dotnet tools
-        run: dotnet tool restore
-
       - name: Check OpenTelemetry guard
         run: |
-          chmod +x scripts/check-otel-ci.sh || true
+          chmod +x scripts/check-otel-ci.sh
           scripts/check-otel-ci.sh
 
       - name: Restore and run migrations
         run: |
           cd src/Ecommerce.Infrastructure
-          dotnet restore
+          dotnet restore --configfile "../../NuGet.config" -m:1 /p:RestoreDisableParallel=true
           dotnet ef database update --startup-project "../Ecommerce.API/Ecommerce.API.csproj" --connection "Host=localhost;Port=5433;Database=ecommerce;Username=admin;Password=changeme;SslMode=Disable;"
 
       - name: Build backend
@@ -62,11 +64,21 @@ jobs:
           # Start API in background
           cd src/Ecommerce.API
           nohup dotnet run --urls "http://0.0.0.0:5071" >/tmp/api.log 2>&1 &
-          sleep 10
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:5071/health >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
           # Start frontend on 3003
           cd ../../admin-frontend
           nohup npm run start:prod >/tmp/frontend.log 2>&1 &
-          sleep 10
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:3003 >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
@@ -77,10 +89,10 @@ jobs:
         run: |
           cd admin-frontend
           # run tests and generate an HTML report in admin-frontend/playwright-report
-          npx playwright test --reporter=html --output=playwright-report || true
+          npx playwright test --reporter=html --output=playwright-report
 
-      - name: Upload Playwright artifacts on failure
-        if: failure()
+      - name: Upload Playwright artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-artifacts

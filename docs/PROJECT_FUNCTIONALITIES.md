@@ -86,16 +86,16 @@ Frontend Next.js usado para admin de e-commerce e CRM interno.
 Frontend publico do e-commerce (Next.js), com paginas e fluxos de compra.
 
 ### Paginas principais
-- Home/catalogo: storefront/pages/index.tsx.
-- PDP: storefront/pages/product.tsx.
-- Carrinho: storefront/pages/cart.tsx.
-- Checkout: storefront/pages/checkout.tsx.
-- Wishlist: storefront/pages/wishlist.tsx.
-- Acompanhamento de pedido: storefront/pages/track-order.tsx.
-- Conta/Perfil: storefront/pages/account.tsx, profile.tsx.
-- Subscriptions: storefront/pages/subscriptions.tsx.
-- Suporte e privacidade: storefront/pages/support.tsx, privacy.tsx.
-- Debug/operacao: storefront/pages/debug-payment.tsx, verify-email.tsx, dashboard.tsx.
+- Home/catalogo: info-tech-gamer-storefront-build/app/page.tsx.
+- PDP: info-tech-gamer-storefront-build/app/product/page.tsx.
+- Carrinho: info-tech-gamer-storefront-build/app/cart/page.tsx.
+- Checkout: info-tech-gamer-storefront-build/app/checkout/page.tsx.
+- Wishlist: info-tech-gamer-storefront-build/app/wishlist/page.tsx.
+- Acompanhamento de pedido: info-tech-gamer-storefront-build/app/track-order/page.tsx.
+- Conta/Perfil: info-tech-gamer-storefront-build/app/account/page.tsx, app/profile/page.tsx.
+- Subscriptions: info-tech-gamer-storefront-build/app/subscriptions/page.tsx.
+- Suporte e privacidade: info-tech-gamer-storefront-build/app/support/page.tsx, app/privacy/page.tsx.
+- Debug/operacao: info-tech-gamer-storefront-build/app/debug-payment/page.tsx, app/verify-email/page.tsx, app/dashboard/page.tsx.
 
 ### Recursos base
 - i18n (i18next/react-i18next).
@@ -128,4 +128,5 @@ Observacao: este repo e multi-projeto; valide o escopo ativo do backend nos docs
 - Admin docs: admin-frontend/README.md, admin-frontend/DOCUMENTATION_INDEX.md
 - CRM API: admin-frontend/CRM_API.md
 - CRM smoke test: admin-frontend/CRM_SMOKE_TEST.md
-- Storefront: storefront/README.md
+- Storefront: info-tech-gamer-storefront-build/README.md
+

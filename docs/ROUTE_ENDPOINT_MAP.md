@@ -9,7 +9,6 @@ Base API: /api/v1 (NEXT_PUBLIC_API_URL)
   - GET /products/search
   - GET /recommendations
   - POST /analytics/events
-  - Gap: wishlist persistent endpoints are not wired yet
 
 - /product?id=...
   - GET /products/:id
@@ -32,13 +31,12 @@ Base API: /api/v1 (NEXT_PUBLIC_API_URL)
 
 - /wishlist (public share view)
   - No backend call required (query param list)
-  - Gap: persistent wishlist should use:
-    - GET /wishlists/default
-    - POST /wishlists
-    - GET /wishlists/:id
-    - POST /wishlists/:id/items
-    - DELETE /wishlists/:id/items/:itemId
-    - GET /wishlists/contains/:productId
+  - GET /wishlists/default
+  - POST /wishlists
+  - GET /wishlists/:id
+  - POST /wishlists/:id/items
+  - DELETE /wishlists/:id/items/:itemId
+  - GET /wishlists/contains/:productId
 
 - /account (login/register/forgot)
   - POST /auth/login

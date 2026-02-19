@@ -15,7 +15,7 @@
 
 ## Builds
 - Admin: `npm run build` (admin-frontend)
-- Storefront: `npm run build` (storefront)
+- Storefront: `npm run build` (info-tech-gamer-storefront-build)
 
 ## E2E
 - Instalar Playwright: `npx playwright install --with-deps`
@@ -31,3 +31,4 @@
 - Sem erros de TypeScript
 - Sem warnings de PII nos logs
 - `GET /health` e `GET /metrics` respondem
+

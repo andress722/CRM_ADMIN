@@ -25,8 +25,9 @@
 
 ## Ajustes aplicados
 - Adicionado `turbopack: {}` para compatibilidade Next 16 + Sentry em:
-  - admin-frontend/next.config.js
-  - storefront/next.config.js
+  - admin-frontend/next.config.mjs
+  - info-tech-gamer-storefront-build/next.config.mjs
 
 ## Observacoes
 - E2E admin exige frontend rodando em http://localhost:3003.
+

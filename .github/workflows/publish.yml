@@ -121,7 +121,7 @@ jobs:
         with:
           dotnet-version: "8.0.x"
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore --configfile ../NuGet.config -m:1 /p:RestoreDisableParallel=true
       - name: Build and pack
         run: dotnet pack src/GitHub.Copilot.SDK.csproj -c Release -p:Version=${{ needs.version.outputs.version }} -o ./artifacts
       - name: Upload artifact
