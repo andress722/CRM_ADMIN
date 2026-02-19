@@ -23,6 +23,12 @@ using Polly.Extensions.Http;
 using Sentry;
 
 var builder = WebApplication.CreateBuilder(args);
+var renderPort = Environment.GetEnvironmentVariable("PORT");
+var aspnetUrls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
+if (!string.IsNullOrWhiteSpace(renderPort) && string.IsNullOrWhiteSpace(aspnetUrls))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{renderPort}");
+}
 
 // Configure Serilog early
 Log.Logger = new LoggerConfiguration()
