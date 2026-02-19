@@ -188,8 +188,8 @@ builder.Services.AddDbContext<EcommerceDbContext>(options =>
 
         if (builder.Environment.IsProduction() && IsLocalPostgresConnection(connectionString))
         {
-            throw new InvalidOperationException(
-                "Invalid production database host. Localhost/127.0.0.1 is not allowed in production.");
+            Log.Warning(
+                "Production is using a local Postgres connection string. Configure ConnectionStrings__DefaultConnection or DATABASE_URL for managed DB.");
         }
 
         options.UseNpgsql(connectionString);
