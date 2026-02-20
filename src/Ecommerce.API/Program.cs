@@ -706,25 +706,32 @@ try
         }
         else
         {
-            // Seed demo user if no users exist
-            if (await TableExistsAsync(db, "Users") && !db.Users.Any())
+            // Ensure demo admin user exists even when database already has other users.
+            if (await TableExistsAsync(db, "Users"))
             {
-                var demoUser = new Ecommerce.Domain.Entities.User
+                const string demoAdminEmail = "admin@example.com";
+                const string demoAdminPassword = "demo123";
+                var demoAdmin = await db.Users.FirstOrDefaultAsync(u => u.Email == demoAdminEmail);
+
+                if (demoAdmin == null)
                 {
-                    Id = Guid.NewGuid(),
-                    Email = "admin@example.com",
-                    FullName = "Admin User",
-                    PasswordHash = "",
-                    IsEmailVerified = true,
-                    Role = "Admin",
-                    CreatedAt = DateTime.UtcNow
-                };
+                    demoAdmin = new Ecommerce.Domain.Entities.User
+                    {
+                        Id = Guid.NewGuid(),
+                        Email = demoAdminEmail,
+                        FullName = "Admin User",
+                        PasswordHash = "",
+                        IsEmailVerified = true,
+                        Role = "Admin",
+                        CreatedAt = DateTime.UtcNow
+                    };
 
-                demoUser.PasswordHash = passwordHasher.HashPassword(demoUser, "demo123");
+                    demoAdmin.PasswordHash = passwordHasher.HashPassword(demoAdmin, demoAdminPassword);
 
-                db.Users.Add(demoUser);
-                await db.SaveChangesAsync();
-                Console.WriteLine("✅ Demo user created: admin@example.com");
+                    db.Users.Add(demoAdmin);
+                    await db.SaveChangesAsync();
+                    Console.WriteLine($"✅ Demo admin user created: {demoAdminEmail}");
+                }
             }
 
             // Seed products if none exist
@@ -970,4 +977,5 @@ catch (Exception ex)
 app.Run();
 
 public partial class Program { }
+
 

@@ -19,6 +19,8 @@ services:
         value: ecommerce-api
       - key: Jwt__Audience
         value: ecommerce-admin
+      - key: Database__SeedData
+        value: "true"
       - key: Cors__AllowedOrigins__0
         value: https://copilot-sdk-admin-staging.vercel.app
       - key: Cors__AllowedOrigins__1
@@ -61,4 +63,3 @@ databases:
         value: https://copilot-sdk-api-staging.onrender.com/api/v1
       - key: NODE_ENV
         value: production
-
