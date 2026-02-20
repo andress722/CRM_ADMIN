@@ -159,18 +159,14 @@ static bool IsLocalPostgresConnection(string? connectionString)
 
     return connectionString.Contains("Host=localhost", StringComparison.OrdinalIgnoreCase)
         || connectionString.Contains("Host=127.0.0.1", StringComparison.OrdinalIgnoreCase)
+        || connectionString.Contains("Host=postgres", StringComparison.OrdinalIgnoreCase)
+        || connectionString.Contains("Host=db", StringComparison.OrdinalIgnoreCase)
         || connectionString.Contains("Port=5433", StringComparison.OrdinalIgnoreCase);
 }
 
 static string NormalizePostgresConnectionString(string connectionString)
 {
     if (string.IsNullOrWhiteSpace(connectionString))
-    {
-        return connectionString;
-    }
-
-    // Already in ADO.NET key/value format.
-    if (connectionString.Contains('='))
     {
         return connectionString;
     }
