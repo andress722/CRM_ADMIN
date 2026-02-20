@@ -171,6 +171,12 @@ static string NormalizePostgresConnectionString(string connectionString)
         return connectionString;
     }
 
+    // Already in ADO.NET key/value format.
+    if (connectionString.Contains('='))
+    {
+        return connectionString;
+    }
+
     if (!Uri.TryCreate(connectionString, UriKind.Absolute, out var uri))
     {
         return connectionString;
