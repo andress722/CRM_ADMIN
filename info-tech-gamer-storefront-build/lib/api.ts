@@ -9,7 +9,9 @@ import type {
   CartItem,
 } from "./types"
 
-const RAW_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5071"
+const RAW_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (process.env.NODE_ENV === "development" ? "http://localhost:5071" : "")
 const API_BASE = RAW_BASE_URL.replace(/\/+$/, "")
 const API = API_BASE.endsWith("/api/v1") ? API_BASE : `${API_BASE}/api/v1`
 

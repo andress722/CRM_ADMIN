@@ -7,7 +7,9 @@ import axios, {
 import { AuthService } from './auth';
 
 const API_TIMEOUT = parseInt(process.env.NEXT_PUBLIC_API_TIMEOUT || '30000', 10);
-const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5071';
+const RAW_API_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (process.env.NODE_ENV === 'development' ? 'http://localhost:5071' : '');
 const API_BASE = RAW_API_URL.replace(/\/+$/, '');
 const API_ROOT = API_BASE.endsWith('/api/v1') ? API_BASE : `${API_BASE}/api/v1`;
 

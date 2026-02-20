@@ -13,7 +13,7 @@ services:
       - key: ConnectionStrings__DefaultConnection
         value: "postgresql://copilot_sdk_db_staging_user:0FbGPJEnXUJ0arpvqYtwbGotXEORRke7@dpg-d6bac5buibrs73ej77cg-a/copilot_sdk_db_staging"
       - key: Jwt__SecretKey
-        value: CHANGE_ME_STAGING
+        generateValue: true
       - key: Jwt__Issuer
         value: ecommerce-api
       - key: Jwt__Audience
