@@ -11,7 +11,7 @@ services:
       - key: ASPNETCORE_URLS
         value: http://0.0.0.0:$PORT
       - key: ConnectionStrings__DefaultConnection
-        value: "postgresql://postgres:%40anD11940785004@db.alcgyndzpeeupzgdexkb.supabase.co:5432/postgres?sslmode=require"
+        value: "postgresql://copilot_sdk_db_staging_user:0FbGPJEnXUJ0arpvqYtwbGotXEORRke7@dpg-d6bac5buibrs73ej77cg-a/copilot_sdk_db_staging"
       - key: Jwt__SecretKey
         value: CHANGE_ME_STAGING
       - key: Jwt__Issuer
@@ -38,7 +38,7 @@ services:
     startCommand: dotnet ef database update --startup-project src/Ecommerce.API/Ecommerce.API.csproj --connection "$ConnectionStrings__DefaultConnection"
     envVars:
       - key: ConnectionStrings__DefaultConnection
-        value: "postgresql://postgres:%40anD11940785004@db.alcgyndzpeeupzgdexkb.supabase.co:5432/postgres?sslmode=require"
+        value: "postgresql://copilot_sdk_db_staging_user:0FbGPJEnXUJ0arpvqYtwbGotXEORRke7@dpg-d6bac5buibrs73ej77cg-a/copilot_sdk_db_staging"
 
 databases:
   - name: copilot-sdk-db-staging
