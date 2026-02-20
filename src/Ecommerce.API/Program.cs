@@ -633,6 +633,10 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
+// Root endpoint keeps Render internal health checks green when probing '/'.
+app.MapGet("/", () => Results.Ok(new { service = "Ecommerce API", status = "running", timestamp = DateTime.UtcNow }))
+    .WithName("Root");
+
 // Health check endpoint
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }))
     .WithName("Health");
@@ -966,3 +970,4 @@ catch (Exception ex)
 app.Run();
 
 public partial class Program { }
+
