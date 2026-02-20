@@ -55,6 +55,9 @@ if (!string.IsNullOrWhiteSpace(sentryDsn))
 // Add CORS
 var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
 corsOrigins = corsOrigins?.Where(origin => !string.IsNullOrWhiteSpace(origin)).ToArray();
+var corsOriginPatterns = builder.Configuration.GetSection("Cors:AllowedOriginPatterns").Get<string[]>();
+corsOriginPatterns = corsOriginPatterns?.Where(pattern => !string.IsNullOrWhiteSpace(pattern)).ToArray()
+    ?? Array.Empty<string>();
 if (corsOrigins == null || corsOrigins.Length == 0)
 {
     corsOrigins = new[]
@@ -76,12 +79,84 @@ builder.Services.AddCors(options =>
         }
 
         policy
-            .WithOrigins(corsOrigins)
+            .SetIsOriginAllowed(origin => IsCorsOriginAllowed(origin, corsOrigins, corsOriginPatterns))
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials();
     });
 });
+
+static bool IsCorsOriginAllowed(string? origin, string[] allowedOrigins, string[] allowedOriginPatterns)
+{
+    if (string.IsNullOrWhiteSpace(origin))
+    {
+        return false;
+    }
+
+    if (allowedOrigins.Any(allowed => string.Equals(allowed, origin, StringComparison.OrdinalIgnoreCase)))
+    {
+        return true;
+    }
+
+    if (!Uri.TryCreate(origin, UriKind.Absolute, out var originUri))
+    {
+        return false;
+    }
+
+    foreach (var pattern in allowedOriginPatterns)
+    {
+        if (!TryMatchOriginPattern(originUri, pattern))
+        {
+            continue;
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+static bool TryMatchOriginPattern(Uri originUri, string pattern)
+{
+    if (string.IsNullOrWhiteSpace(pattern))
+    {
+        return false;
+    }
+
+    if (Uri.TryCreate(pattern, UriKind.Absolute, out var patternUri))
+    {
+        if (!string.Equals(patternUri.Scheme, originUri.Scheme, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!patternUri.IsDefaultPort && patternUri.Port != originUri.Port)
+        {
+            return false;
+        }
+
+        return TryMatchHostPattern(originUri.Host, patternUri.Host);
+    }
+
+    return TryMatchHostPattern(originUri.Host, pattern);
+}
+
+static bool TryMatchHostPattern(string host, string hostPattern)
+{
+    if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(hostPattern))
+    {
+        return false;
+    }
+
+    if (!hostPattern.StartsWith("*.", StringComparison.Ordinal))
+    {
+        return string.Equals(host, hostPattern, StringComparison.OrdinalIgnoreCase);
+    }
+
+    var suffix = hostPattern[2..];
+    return host.Length > suffix.Length
+        && host.EndsWith("." + suffix, StringComparison.OrdinalIgnoreCase);
+}
 
 // Add services to the container
 builder.Services.AddControllers();
