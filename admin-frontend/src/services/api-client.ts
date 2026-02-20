@@ -11,7 +11,7 @@ const RAW_API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   (process.env.NODE_ENV === 'development' ? 'http://localhost:5071' : '');
 const API_BASE = RAW_API_URL.replace(/\/+$/, '');
-const API_ROOT = API_BASE.endsWith('/api/v1') ? API_BASE : `${API_BASE}/api/v1`;
+const API_ROOT = API_BASE;
 
 // Create axios instance
 export const axiosInstance: AxiosInstance = axios.create({
@@ -132,3 +132,5 @@ export const ApiClient = {
 };
 
 export default ApiClient;
+
+
