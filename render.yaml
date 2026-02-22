@@ -21,6 +21,12 @@ services:
         value: ecommerce-admin
       - key: Database__SeedData
         value: "true"
+      - key: Runtime__AllowInsecureProvidersInProduction
+        value: "true"
+      - key: Payments__Provider
+        value: Stub
+      - key: Email__Provider
+        value: Console
       - key: SeedAdmin__Email
         value: admin@example.com
       - key: SeedAdmin__Password

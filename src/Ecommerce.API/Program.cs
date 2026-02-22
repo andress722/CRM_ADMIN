@@ -414,51 +414,78 @@ builder.Services.AddScoped<PushDeviceService>();
 builder.Services.AddScoped<CrmService>();
 builder.Services.AddScoped<IShippingProvider, Ecommerce.Infrastructure.Shipping.CorreiosShippingProvider>();
 var isProduction = builder.Environment.IsProduction();
+var allowInsecureProvidersInProduction = builder.Configuration.GetValue("Runtime:AllowInsecureProvidersInProduction", false);
+var enforceProviderSafety = isProduction && !allowInsecureProvidersInProduction;
+
+if (isProduction && allowInsecureProvidersInProduction)
+{
+    Log.Warning("Runtime:AllowInsecureProvidersInProduction=true. Unsafe provider fallbacks are enabled for this deployment.");
+}
 
 var paymentProvider = (builder.Configuration.GetValue<string>("Payments:Provider") ?? "Stub").Trim();
 if (paymentProvider.Equals("MercadoPago", StringComparison.OrdinalIgnoreCase))
 {
     var mpAccessToken = builder.Configuration["Payments:MercadoPago:AccessToken"];
-    if (string.IsNullOrWhiteSpace(mpAccessToken) || mpAccessToken.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase))
+    var missingAccessToken = string.IsNullOrWhiteSpace(mpAccessToken)
+        || mpAccessToken.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase);
+
+    if (missingAccessToken)
     {
-        if (isProduction)
+        if (enforceProviderSafety)
         {
             throw new InvalidOperationException(
                 "Payments:MercadoPago:AccessToken must be configured in production when using MercadoPago provider.");
         }
 
-        Log.Warning("MercadoPago provider configured without a valid access token in non-production environment.");
+        Log.Warning("MercadoPago configured without valid token. Falling back to StubPaymentGateway.");
+        builder.Services.AddScoped<IPaymentGateway, StubPaymentGateway>();
     }
-
-    builder.Services.AddScoped<IPaymentGateway, MercadoPagoPaymentGateway>();
+    else
+    {
+        builder.Services.AddScoped<IPaymentGateway, MercadoPagoPaymentGateway>();
+    }
 }
 else if (paymentProvider.Equals("Stub", StringComparison.OrdinalIgnoreCase))
 {
-    if (isProduction)
+    if (enforceProviderSafety)
     {
         throw new InvalidOperationException("Payments:Provider=Stub is not allowed in production.");
+    }
+
+    if (isProduction)
+    {
+        Log.Warning("Payments:Provider=Stub enabled in production due to Runtime:AllowInsecureProvidersInProduction=true.");
     }
 
     builder.Services.AddScoped<IPaymentGateway, StubPaymentGateway>();
 }
 else
 {
-    throw new InvalidOperationException($"Unsupported Payments:Provider '{paymentProvider}'.");
+    if (enforceProviderSafety)
+    {
+        throw new InvalidOperationException($"Unsupported Payments:Provider '{paymentProvider}'.");
+    }
+
+    Log.Warning("Unsupported Payments:Provider '{Provider}'. Falling back to StubPaymentGateway.", paymentProvider);
+    builder.Services.AddScoped<IPaymentGateway, StubPaymentGateway>();
 }
 
 var emailProvider = (builder.Configuration.GetValue<string>("Email:Provider") ?? "Console").Trim();
 if (emailProvider.Equals("SendGrid", StringComparison.OrdinalIgnoreCase))
 {
     var sendGridKey = builder.Configuration["Email:SendGrid:ApiKey"];
-    if (string.IsNullOrWhiteSpace(sendGridKey) || sendGridKey.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase))
+    var missingSendGridKey = string.IsNullOrWhiteSpace(sendGridKey)
+        || sendGridKey.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase);
+
+    if (missingSendGridKey)
     {
-        if (isProduction)
+        if (enforceProviderSafety)
         {
             throw new InvalidOperationException(
                 "Email:SendGrid:ApiKey must be configured in production when Email:Provider=SendGrid.");
         }
 
-        Log.Warning("SendGrid provider configured without API key in non-production. Falling back to ConsoleEmailService.");
+        Log.Warning("SendGrid configured without API key. Falling back to ConsoleEmailService.");
         builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
     }
     else
@@ -471,15 +498,18 @@ else if (emailProvider.Equals("SES", StringComparison.OrdinalIgnoreCase))
     var sesRegion = builder.Configuration["Email:Ses:Region"];
     if (string.IsNullOrWhiteSpace(sesRegion))
     {
-        if (isProduction)
+        if (enforceProviderSafety)
         {
             throw new InvalidOperationException("Email:Ses:Region must be configured in production when Email:Provider=SES.");
         }
 
-        Log.Warning("SES provider configured without region in non-production environment.");
+        Log.Warning("SES configured without region. Falling back to ConsoleEmailService.");
+        builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
     }
-
-    builder.Services.AddScoped<IEmailService, SesEmailService>();
+    else
+    {
+        builder.Services.AddScoped<IEmailService, SesEmailService>();
+    }
 }
 else if (emailProvider.Equals("Gmail", StringComparison.OrdinalIgnoreCase))
 {
@@ -492,13 +522,13 @@ else if (emailProvider.Equals("Gmail", StringComparison.OrdinalIgnoreCase))
 
     if (missingGmailCredentials)
     {
-        if (isProduction)
+        if (enforceProviderSafety)
         {
             throw new InvalidOperationException(
                 "Email:Gmail:User and Email:Gmail:Pass must be configured in production when Email:Provider=Gmail.");
         }
 
-        Log.Warning("Gmail provider configured without valid credentials in non-production. Falling back to ConsoleEmailService.");
+        Log.Warning("Gmail configured without valid credentials. Falling back to ConsoleEmailService.");
         builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
     }
     else
@@ -508,16 +538,27 @@ else if (emailProvider.Equals("Gmail", StringComparison.OrdinalIgnoreCase))
 }
 else if (emailProvider.Equals("Console", StringComparison.OrdinalIgnoreCase))
 {
-    if (isProduction)
+    if (enforceProviderSafety)
     {
         throw new InvalidOperationException("Email:Provider=Console is not allowed in production.");
+    }
+
+    if (isProduction)
+    {
+        Log.Warning("Email:Provider=Console enabled in production due to Runtime:AllowInsecureProvidersInProduction=true.");
     }
 
     builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
 }
 else
 {
-    throw new InvalidOperationException($"Unsupported Email:Provider '{emailProvider}'.");
+    if (enforceProviderSafety)
+    {
+        throw new InvalidOperationException($"Unsupported Email:Provider '{emailProvider}'.");
+    }
+
+    Log.Warning("Unsupported Email:Provider '{Provider}'. Falling back to ConsoleEmailService.", emailProvider);
+    builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
 }
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IPasswordHasher<Ecommerce.Domain.Entities.User>, PasswordHasher<Ecommerce.Domain.Entities.User>>();
@@ -1086,6 +1127,7 @@ catch (Exception ex)
 app.Run();
 
 public partial class Program { }
+
 
 
 
