@@ -413,39 +413,111 @@ builder.Services.AddScoped<SocialAuthService>();
 builder.Services.AddScoped<PushDeviceService>();
 builder.Services.AddScoped<CrmService>();
 builder.Services.AddScoped<IShippingProvider, Ecommerce.Infrastructure.Shipping.CorreiosShippingProvider>();
-var paymentProvider = builder.Configuration.GetValue<string>("Payments:Provider") ?? "Stub";
+var isProduction = builder.Environment.IsProduction();
+
+var paymentProvider = (builder.Configuration.GetValue<string>("Payments:Provider") ?? "Stub").Trim();
 if (paymentProvider.Equals("MercadoPago", StringComparison.OrdinalIgnoreCase))
 {
+    var mpAccessToken = builder.Configuration["Payments:MercadoPago:AccessToken"];
+    if (string.IsNullOrWhiteSpace(mpAccessToken) || mpAccessToken.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase))
+    {
+        if (isProduction)
+        {
+            throw new InvalidOperationException(
+                "Payments:MercadoPago:AccessToken must be configured in production when using MercadoPago provider.");
+        }
+
+        Log.Warning("MercadoPago provider configured without a valid access token in non-production environment.");
+    }
+
     builder.Services.AddScoped<IPaymentGateway, MercadoPagoPaymentGateway>();
+}
+else if (paymentProvider.Equals("Stub", StringComparison.OrdinalIgnoreCase))
+{
+    if (isProduction)
+    {
+        throw new InvalidOperationException("Payments:Provider=Stub is not allowed in production.");
+    }
+
+    builder.Services.AddScoped<IPaymentGateway, StubPaymentGateway>();
 }
 else
 {
-    builder.Services.AddScoped<IPaymentGateway, StubPaymentGateway>();
+    throw new InvalidOperationException($"Unsupported Payments:Provider '{paymentProvider}'.");
 }
-var emailProvider = builder.Configuration.GetValue<string>("Email:Provider") ?? "Console";
+
+var emailProvider = (builder.Configuration.GetValue<string>("Email:Provider") ?? "Console").Trim();
 if (emailProvider.Equals("SendGrid", StringComparison.OrdinalIgnoreCase))
 {
     var sendGridKey = builder.Configuration["Email:SendGrid:ApiKey"];
-    if (!string.IsNullOrWhiteSpace(sendGridKey))
+    if (string.IsNullOrWhiteSpace(sendGridKey) || sendGridKey.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase))
     {
-        builder.Services.AddScoped<IEmailService, SendGridEmailService>();
+        if (isProduction)
+        {
+            throw new InvalidOperationException(
+                "Email:SendGrid:ApiKey must be configured in production when Email:Provider=SendGrid.");
+        }
+
+        Log.Warning("SendGrid provider configured without API key in non-production. Falling back to ConsoleEmailService.");
+        builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
     }
     else
     {
-        builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
+        builder.Services.AddScoped<IEmailService, SendGridEmailService>();
     }
 }
 else if (emailProvider.Equals("SES", StringComparison.OrdinalIgnoreCase))
 {
+    var sesRegion = builder.Configuration["Email:Ses:Region"];
+    if (string.IsNullOrWhiteSpace(sesRegion))
+    {
+        if (isProduction)
+        {
+            throw new InvalidOperationException("Email:Ses:Region must be configured in production when Email:Provider=SES.");
+        }
+
+        Log.Warning("SES provider configured without region in non-production environment.");
+    }
+
     builder.Services.AddScoped<IEmailService, SesEmailService>();
 }
 else if (emailProvider.Equals("Gmail", StringComparison.OrdinalIgnoreCase))
 {
-    builder.Services.AddScoped<IEmailService, GmailSmtpEmailService>();
+    var gmailUser = builder.Configuration["Email:Gmail:User"];
+    var gmailPass = builder.Configuration["Email:Gmail:Pass"];
+    var missingGmailCredentials = string.IsNullOrWhiteSpace(gmailUser)
+        || string.IsNullOrWhiteSpace(gmailPass)
+        || gmailUser.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase)
+        || gmailPass.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase);
+
+    if (missingGmailCredentials)
+    {
+        if (isProduction)
+        {
+            throw new InvalidOperationException(
+                "Email:Gmail:User and Email:Gmail:Pass must be configured in production when Email:Provider=Gmail.");
+        }
+
+        Log.Warning("Gmail provider configured without valid credentials in non-production. Falling back to ConsoleEmailService.");
+        builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
+    }
+    else
+    {
+        builder.Services.AddScoped<IEmailService, GmailSmtpEmailService>();
+    }
+}
+else if (emailProvider.Equals("Console", StringComparison.OrdinalIgnoreCase))
+{
+    if (isProduction)
+    {
+        throw new InvalidOperationException("Email:Provider=Console is not allowed in production.");
+    }
+
+    builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
 }
 else
 {
-    builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
+    throw new InvalidOperationException($"Unsupported Email:Provider '{emailProvider}'.");
 }
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IPasswordHasher<Ecommerce.Domain.Entities.User>, PasswordHasher<Ecommerce.Domain.Entities.User>>();
@@ -706,31 +778,68 @@ try
         }
         else
         {
-            // Ensure demo admin user exists even when database already has other users.
+            // Ensure seed admin user exists (and optionally reset password) even when database already has users.
             if (await TableExistsAsync(db, "Users"))
             {
-                const string demoAdminEmail = "admin@example.com";
-                const string demoAdminPassword = "demo123";
-                var demoAdmin = await db.Users.FirstOrDefaultAsync(u => u.Email == demoAdminEmail);
+                var seedAdminEmail = builder.Configuration["SeedAdmin:Email"] ?? "admin@example.com";
+                var seedAdminPassword = builder.Configuration["SeedAdmin:Password"] ?? "demo123";
+                var seedAdminName = builder.Configuration["SeedAdmin:Name"] ?? "Admin User";
+                var forceResetSeedAdminPassword = builder.Configuration.GetValue("SeedAdmin:ForceResetPassword", false);
 
-                if (demoAdmin == null)
+                if (string.IsNullOrWhiteSpace(seedAdminEmail) || string.IsNullOrWhiteSpace(seedAdminPassword))
                 {
-                    demoAdmin = new Ecommerce.Domain.Entities.User
+                    Console.WriteLine("⚠️ Seed admin skipped because SeedAdmin:Email/Password is empty.");
+                }
+                else
+                {
+                    var normalizedEmail = seedAdminEmail.Trim().ToLowerInvariant();
+                    var seedAdmin = await db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == normalizedEmail);
+                    var changed = false;
+
+                    if (seedAdmin == null)
                     {
-                        Id = Guid.NewGuid(),
-                        Email = demoAdminEmail,
-                        FullName = "Admin User",
-                        PasswordHash = "",
-                        IsEmailVerified = true,
-                        Role = "Admin",
-                        CreatedAt = DateTime.UtcNow
-                    };
+                        seedAdmin = new Ecommerce.Domain.Entities.User
+                        {
+                            Id = Guid.NewGuid(),
+                            Email = seedAdminEmail.Trim(),
+                            FullName = seedAdminName,
+                            PasswordHash = "",
+                            IsEmailVerified = true,
+                            Role = "Admin",
+                            CreatedAt = DateTime.UtcNow
+                        };
 
-                    demoAdmin.PasswordHash = passwordHasher.HashPassword(demoAdmin, demoAdminPassword);
+                        seedAdmin.PasswordHash = passwordHasher.HashPassword(seedAdmin, seedAdminPassword);
+                        db.Users.Add(seedAdmin);
+                        changed = true;
+                        Console.WriteLine($"✅ Seed admin user created: {seedAdminEmail}");
+                    }
+                    else
+                    {
+                        if (!string.Equals(seedAdmin.Role, "Admin", StringComparison.OrdinalIgnoreCase))
+                        {
+                            seedAdmin.Role = "Admin";
+                            changed = true;
+                        }
 
-                    db.Users.Add(demoAdmin);
-                    await db.SaveChangesAsync();
-                    Console.WriteLine($"✅ Demo admin user created: {demoAdminEmail}");
+                        if (!seedAdmin.IsEmailVerified)
+                        {
+                            seedAdmin.IsEmailVerified = true;
+                            changed = true;
+                        }
+
+                        if (forceResetSeedAdminPassword)
+                        {
+                            seedAdmin.PasswordHash = passwordHasher.HashPassword(seedAdmin, seedAdminPassword);
+                            changed = true;
+                            Console.WriteLine($"✅ Seed admin password reset: {seedAdminEmail}");
+                        }
+                    }
+
+                    if (changed)
+                    {
+                        await db.SaveChangesAsync();
+                    }
                 }
             }
 
@@ -977,5 +1086,7 @@ catch (Exception ex)
 app.Run();
 
 public partial class Program { }
+
+
 
 

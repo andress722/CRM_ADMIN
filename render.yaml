@@ -21,6 +21,14 @@ services:
         value: ecommerce-admin
       - key: Database__SeedData
         value: "true"
+      - key: SeedAdmin__Email
+        value: admin@example.com
+      - key: SeedAdmin__Password
+        value: demo123
+      - key: SeedAdmin__Name
+        value: Admin User
+      - key: SeedAdmin__ForceResetPassword
+        value: "true"
       - key: Cors__AllowedOrigins__0
         value: https://copilot-sdk-admin-staging.vercel.app
       - key: Cors__AllowedOrigins__1
@@ -60,6 +68,6 @@ databases:
     rootDir: .
     envVars:
       - key: NEXT_PUBLIC_API_BASE
-        value: https://copilot-sdk-api-staging.onrender.com/api/v1
+        value: https://crm-admin-8alt.onrender.com/api/v1
       - key: NODE_ENV
         value: production
