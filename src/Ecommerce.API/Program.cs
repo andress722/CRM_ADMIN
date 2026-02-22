@@ -804,6 +804,11 @@ try
         var db = scope.ServiceProvider.GetRequiredService<EcommerceDbContext>();
         var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<Ecommerce.Domain.Entities.User>>();
         var seedDataEnabled = builder.Configuration.GetValue("Database:SeedData", builder.Environment.IsDevelopment());
+        var configuredSeedAdminEmail = builder.Configuration["SeedAdmin:Email"] ?? "admin@example.com";
+        var configuredSeedAdminPassword = builder.Configuration["SeedAdmin:Password"] ?? "demo123";
+        var configuredSeedAdminForceReset = builder.Configuration.GetValue("SeedAdmin:ForceResetPassword", false);
+
+        Console.WriteLine($"ℹ️ Seed bootstrap config: Database:SeedData={seedDataEnabled}, SeedAdmin:Email={configuredSeedAdminEmail}, SeedAdmin:ForceResetPassword={configuredSeedAdminForceReset}, SeedAdmin:PasswordProvided={!string.IsNullOrWhiteSpace(configuredSeedAdminPassword)}");
         if (db.Database.IsRelational())
         {
             await db.Database.MigrateAsync();
@@ -881,7 +886,15 @@ try
                     {
                         await db.SaveChangesAsync();
                     }
+                    else
+                    {
+                        Console.WriteLine($"Seed admin already up-to-date: {seedAdminEmail}");
+                    }
                 }
+            }
+            else
+            {
+                Console.WriteLine("Seed admin skipped because Users table was not found.");
             }
 
             // Seed products if none exist
@@ -1127,6 +1140,10 @@ catch (Exception ex)
 app.Run();
 
 public partial class Program { }
+
+
+
+
 
 
 
