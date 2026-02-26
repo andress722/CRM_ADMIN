@@ -439,6 +439,7 @@ if (app.Environment.IsDevelopment())
 
 var swaggerEnabled = builder.Configuration.GetValue<bool?>("Swagger:Enabled")
     ?? app.Environment.IsDevelopment();
+Log.Information("Swagger enabled: {Enabled}", swaggerEnabled);
 if (swaggerEnabled)
 {
     app.UseSwagger();
@@ -507,6 +508,9 @@ app.UseIpRateLimiting();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+app.MapGet("/", () => Results.Ok(new { service = "Ecommerce API", status = "running", timestamp = DateTime.UtcNow }))
+    .WithName("Root");
 
 // Health check endpoint
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }))
@@ -839,6 +843,9 @@ catch (Exception ex)
 app.Run();
 
 public partial class Program { }
+
+
+
 
 
 
