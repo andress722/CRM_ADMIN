@@ -435,6 +435,12 @@ var requestLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogg
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
+}
+
+var swaggerEnabled = builder.Configuration.GetValue<bool?>("Swagger:Enabled")
+    ?? app.Environment.IsDevelopment();
+if (swaggerEnabled)
+{
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
@@ -833,6 +839,7 @@ catch (Exception ex)
 app.Run();
 
 public partial class Program { }
+
 
 
 
