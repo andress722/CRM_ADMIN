@@ -11,8 +11,7 @@ namespace Ecommerce.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "Leads");
+            migrationBuilder.Sql("DROP TABLE IF EXISTS \"Leads\";");
         }
 
         /// <inheritdoc />
@@ -62,4 +61,5 @@ namespace Ecommerce.Infrastructure.Migrations
         }
     }
 }
+
 
