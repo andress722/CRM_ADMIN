@@ -11,16 +11,19 @@
 ## Environment Variables
 
 Backend (appsettings.json or environment overrides):
+
 - `ConnectionStrings__DefaultConnection`
 - `Jwt__SecretKey`
 - `Cors__AllowedOrigins` (array, or `*` for any origin)
 - `Sentry__Dsn` (optional)
 
 Admin frontend (admin-frontend/.env.local):
+
 - `NEXT_PUBLIC_API_URL`
 - `NEXT_PUBLIC_LEGACY_API_URL`
 
-Storefront (info-tech-gamer-storefront-build/.env.local):
+Storefront (storefront/.env.local):
+
 - `NEXT_PUBLIC_API_URL`
 - `NEXT_PUBLIC_SITE_URL`
 
@@ -31,6 +34,7 @@ From the repo root:
 - `dotnet run --project src/Ecommerce.API`
 
 The API listens on the configured port and exposes:
+
 - `GET /health`
 - `GET /metrics`
 
@@ -46,24 +50,28 @@ From the repo root:
 
 From the repo root:
 
-- `cd info-tech-gamer-storefront-build`
+- `cd storefront`
 - `npm install`
 - `npm run dev`
 
 ## Performance Tests (k6)
 
 The k6 checkout flow test lives at:
+
 - `test/performance/checkout.js`
 
 Required environment variables:
+
 - `API_BASE_URL` (e.g. `http://localhost:5071`)
 - `AUTH_TOKEN` (valid JWT)
 
 Optional variables:
+
 - `PRODUCT_ID`
 - `SHIPPING_ADDRESS_ID`
 
 Example:
+
 - `API_BASE_URL=http://localhost:5071 AUTH_TOKEN=... k6 run test/performance/checkout.js`
 
 ## Troubleshooting
@@ -71,4 +79,3 @@ Example:
 - CORS errors: update `Cors__AllowedOrigins` in appsettings or environment variables.
 - 401s in frontends: verify `NEXT_PUBLIC_API_URL` and the backend auth configuration.
 - Missing traces: set `Observability__EnableOpenTelemetry=true` and `Observability__OtlpEndpoint`.
-

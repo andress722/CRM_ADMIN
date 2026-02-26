@@ -1,9 +1,8 @@
 // Listagem de pedidos com filtros avançados
-import React, { useEffect, useState } from 'react';
-import { LEGACY_API_URL } from '@/services/endpoints';
-import { fetchJson } from '@/services/fetch-client';
-import OrderDetailsModal from './OrderDetailsModal';
-import OrderExport from './OrderExport';
+import { useEffect, useState } from "react";
+import { LEGACY_API_URL } from "../lib/legacy-api";
+import OrderDetailsModal from "./OrderDetailsModal";
+import OrderExport from "./OrderExport";
 
 interface Order {
   id: string;
@@ -16,33 +15,28 @@ interface Order {
 export default function OrderList() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('');
-  const [customerFilter, setCustomerFilter] = useState('');
-  const [dateFilter, setDateFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState("");
+  const [customerFilter, setCustomerFilter] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
 
   useEffect(() => {
-    let mounted = true;
-
-    const load = async () => {
-      try {
-        const data = await fetchJson<Order[]>(`${LEGACY_API_URL}/orders`);
-        if (!mounted) return;
+    fetch(`${LEGACY_API_URL}/orders`)
+      .then((res) => res.json())
+      .then((data) => {
         setOrders(data);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    void load();
-    return () => {
-      mounted = false;
-    };
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
-  const filtered = orders.filter(order =>
-    (!statusFilter || order.status === statusFilter) &&
-    (!customerFilter || order.customerName.toLowerCase().includes(customerFilter.toLowerCase())) &&
-    (!dateFilter || order.createdAt.startsWith(dateFilter))
+  const filtered = orders.filter(
+    (order) =>
+      (!statusFilter || order.status === statusFilter) &&
+      (!customerFilter ||
+        order.customerName
+          .toLowerCase()
+          .includes(customerFilter.toLowerCase())) &&
+      (!dateFilter || order.createdAt.startsWith(dateFilter)),
   );
 
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -51,7 +45,11 @@ export default function OrderList() {
     <div className="p-4">
       <h2 className="text-xl font-bold mb-4">Pedidos</h2>
       <div className="flex gap-4 mb-4">
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="border rounded px-2 py-1">
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="border rounded px-2 py-1"
+        >
           <option value="">Status</option>
           <option value="Pending">Pendente</option>
           <option value="Processing">Processando</option>
@@ -59,8 +57,18 @@ export default function OrderList() {
           <option value="Delivered">Entregue</option>
           <option value="Cancelled">Cancelado</option>
         </select>
-        <input value={customerFilter} onChange={e => setCustomerFilter(e.target.value)} placeholder="Cliente" className="border rounded px-2 py-1" />
-        <input value={dateFilter} onChange={e => setDateFilter(e.target.value)} placeholder="Data (YYYY-MM-DD)" className="border rounded px-2 py-1" />
+        <input
+          value={customerFilter}
+          onChange={(e) => setCustomerFilter(e.target.value)}
+          placeholder="Cliente"
+          className="border rounded px-2 py-1"
+        />
+        <input
+          value={dateFilter}
+          onChange={(e) => setDateFilter(e.target.value)}
+          placeholder="Data (YYYY-MM-DD)"
+          className="border rounded px-2 py-1"
+        />
       </div>
       <OrderExport orders={filtered} />
       {loading ? (
@@ -79,15 +87,24 @@ export default function OrderList() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(order => (
+              {filtered.map((order) => (
                 <tr key={order.id} className="border-b">
                   <td className="p-2 whitespace-nowrap">{order.id}</td>
-                  <td className="p-2 whitespace-nowrap">{order.customerName}</td>
+                  <td className="p-2 whitespace-nowrap">
+                    {order.customerName}
+                  </td>
                   <td className="p-2 whitespace-nowrap">{order.status}</td>
                   <td className="p-2 whitespace-nowrap">{order.createdAt}</td>
-                  <td className="p-2 whitespace-nowrap">R$ {order.totalAmount.toFixed(2)}</td>
                   <td className="p-2 whitespace-nowrap">
-                    <button className="bg-gray-200 px-2 py-1 rounded" onClick={() => setSelectedOrderId(order.id)}>Detalhes</button>
+                    R$ {order.totalAmount.toFixed(2)}
+                  </td>
+                  <td className="p-2 whitespace-nowrap">
+                    <button
+                      className="bg-gray-200 px-2 py-1 rounded"
+                      onClick={() => setSelectedOrderId(order.id)}
+                    >
+                      Detalhes
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -96,10 +113,11 @@ export default function OrderList() {
         </div>
       )}
       {selectedOrderId && (
-        <OrderDetailsModal orderId={selectedOrderId} onClose={() => setSelectedOrderId(null)} />
+        <OrderDetailsModal
+          orderId={selectedOrderId}
+          onClose={() => setSelectedOrderId(null)}
+        />
       )}
     </div>
   );
 }
-
-

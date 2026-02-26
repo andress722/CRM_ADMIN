@@ -1,7 +1,6 @@
 // Painel de notificações internas (alertas)
-import React, { useEffect, useState } from 'react';
-import { LEGACY_API_URL } from '@/services/endpoints';
-import { fetchJson } from '@/services/fetch-client';
+import { useEffect, useState } from "react";
+import { LEGACY_API_URL } from "../lib/legacy-api";
 
 interface Notification {
   id: string;
@@ -14,38 +13,37 @@ interface Notification {
 export default function InternalNotificationsPanel() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [typeFilter, setTypeFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState("");
 
   useEffect(() => {
-    let mounted = true;
-
-    const load = async () => {
-      try {
-        const data = await fetchJson<Notification[]>(`${LEGACY_API_URL}/notifications`);
-        if (!mounted) return;
+    fetch(`${LEGACY_API_URL}/notifications`)
+      .then((res) => res.json())
+      .then((data) => {
         setNotifications(data);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    void load();
-    return () => {
-      mounted = false;
-    };
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
   function markAsRead(id: string) {
-    setNotifications(notifications => notifications.map(n => n.id === id ? { ...n, status: 'lido' } : n));
+    setNotifications((notifications) =>
+      notifications.map((n) => (n.id === id ? { ...n, status: "lido" } : n)),
+    );
   }
 
-  const filtered = notifications.filter(n => !typeFilter || n.type === typeFilter);
+  const filtered = notifications.filter(
+    (n) => !typeFilter || n.type === typeFilter,
+  );
 
   return (
     <div className="p-4">
       <h2 className="text-xl font-bold mb-4">Notificações Internas</h2>
       <div className="mb-4">
-        <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="border rounded px-2 py-1">
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+          className="border rounded px-2 py-1"
+        >
           <option value="">Todos</option>
           <option value="pagamento">Pagamento</option>
           <option value="estoque">Estoque</option>
@@ -66,15 +64,21 @@ export default function InternalNotificationsPanel() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map(n => (
-              <tr key={n.id} className={n.status === 'novo' ? 'bg-yellow-100' : ''}>
+            {filtered.map((n) => (
+              <tr
+                key={n.id}
+                className={n.status === "novo" ? "bg-yellow-100" : ""}
+              >
                 <td className="p-2">{n.type}</td>
                 <td className="p-2">{n.message}</td>
                 <td className="p-2">{n.status}</td>
                 <td className="p-2">{n.createdAt}</td>
                 <td className="p-2">
-                  {n.status === 'novo' && (
-                    <button className="bg-blue-600 text-white px-2 py-1 rounded" onClick={() => markAsRead(n.id)}>
+                  {n.status === "novo" && (
+                    <button
+                      className="bg-blue-600 text-white px-2 py-1 rounded"
+                      onClick={() => markAsRead(n.id)}
+                    >
                       Marcar como lido
                     </button>
                   )}
@@ -87,5 +91,3 @@ export default function InternalNotificationsPanel() {
     </div>
   );
 }
-
-

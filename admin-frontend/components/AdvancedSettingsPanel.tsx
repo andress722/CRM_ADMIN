@@ -1,7 +1,6 @@
 // Painel de configurações avançadas
-import React, { useEffect, useState } from 'react';
-import { LEGACY_API_URL } from '@/services/endpoints';
-import { fetchJson, fetchText } from '@/services/fetch-client';
+import { useEffect, useState } from "react";
+import { LEGACY_API_URL } from "../lib/legacy-api";
 
 interface BusinessParams {
   minOrderValue: number;
@@ -20,37 +19,26 @@ export default function AdvancedSettingsPanel() {
   const [params, setParams] = useState<BusinessParams | null>(null);
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [loading, setLoading] = useState(true);
-  const [emailTemplate, setEmailTemplate] = useState('');
+  const [emailTemplate, setEmailTemplate] = useState("");
 
   useEffect(() => {
-    let mounted = true;
-
-    const load = async () => {
-      try {
-        const [paramsData, integrationsData, emailData] = await Promise.all([
-          fetchJson<BusinessParams>(`${LEGACY_API_URL}/business-params`),
-          fetchJson<Integration[]>(`${LEGACY_API_URL}/integrations`),
-          fetchText(`${LEGACY_API_URL}/email-template`),
-        ]);
-
-        if (!mounted) return;
+    Promise.all([
+      fetch(`${LEGACY_API_URL}/business-params`).then((res) => res.json()),
+      fetch(`${LEGACY_API_URL}/integrations`).then((res) => res.json()),
+      fetch(`${LEGACY_API_URL}/email-template`).then((res) => res.text()),
+    ])
+      .then(([paramsData, integrationsData, emailData]) => {
         setParams(paramsData);
         setIntegrations(integrationsData);
         setEmailTemplate(emailData);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    void load();
-    return () => {
-      mounted = false;
-    };
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
   function saveEmailTemplate() {
     // Simula salvar template
-    alert('Template de e-mail salvo!');
+    alert("Template de e-mail salvo!");
   }
 
   return (
@@ -63,7 +51,9 @@ export default function AdvancedSettingsPanel() {
           <div className="mb-8">
             <h3 className="font-semibold mb-2">Parâmetros de Negócio</h3>
             <ul className="mb-4">
-              <li>Valor mínimo do pedido: R$ {params?.minOrderValue.toFixed(2)}</li>
+              <li>
+                Valor mínimo do pedido: R$ {params?.minOrderValue.toFixed(2)}
+              </li>
               <li>Máximo de parcelas: {params?.maxInstallments}</li>
               <li>Remetente de e-mails: {params?.emailSender}</li>
             </ul>
@@ -79,7 +69,7 @@ export default function AdvancedSettingsPanel() {
                 </tr>
               </thead>
               <tbody>
-                {integrations.map(i => (
+                {integrations.map((i) => (
                   <tr key={i.id} className="border-b">
                     <td className="p-2">{i.name}</td>
                     <td className="p-2">{i.type}</td>
@@ -91,13 +81,21 @@ export default function AdvancedSettingsPanel() {
           </div>
           <div>
             <h3 className="font-semibold mb-2">Personalização de E-mails</h3>
-            <textarea value={emailTemplate} onChange={e => setEmailTemplate(e.target.value)} rows={8} className="w-full border rounded mb-2 px-2 py-1" />
-            <button className="bg-blue-600 text-white px-4 py-2 rounded font-bold" onClick={saveEmailTemplate}>Salvar Template</button>
+            <textarea
+              value={emailTemplate}
+              onChange={(e) => setEmailTemplate(e.target.value)}
+              rows={8}
+              className="w-full border rounded mb-2 px-2 py-1"
+            />
+            <button
+              className="bg-blue-600 text-white px-4 py-2 rounded font-bold"
+              onClick={saveEmailTemplate}
+            >
+              Salvar Template
+            </button>
           </div>
         </>
       )}
     </div>
   );
 }
-
-

@@ -1,7 +1,6 @@
 // Painel de movimentações de estoque
-import React, { useEffect, useState } from 'react';
-import { API_URL } from '@/services/endpoints';
-import { fetchJson } from '@/services/fetch-client';
+import { API_URL } from "@/services/endpoints";
+import { useEffect, useState } from "react";
 
 interface Movement {
   id: string;
@@ -16,33 +15,31 @@ interface Movement {
 export default function StockMovementsPanel() {
   const [movements, setMovements] = useState<Movement[]>([]);
   const [loading, setLoading] = useState(true);
-  const [typeFilter, setTypeFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState("");
 
   useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      try {
-        const data = await fetchJson<Movement[]>(`${API_URL}/movements`);
-        if (!mounted) return;
+    fetch(`${API_URL}/movements`)
+      .then((res) => res.json())
+      .then((data) => {
         setMovements(data);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    void load();
-    return () => {
-      mounted = false;
-    };
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
-  const filtered = movements.filter(m => !typeFilter || m.type === typeFilter);
+  const filtered = movements.filter(
+    (m) => !typeFilter || m.type === typeFilter,
+  );
 
   return (
     <div className="p-4">
       <h2 className="text-xl font-bold mb-4">Movimentações de Estoque</h2>
       <div className="mb-4">
-        <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="border rounded px-2 py-1">
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+          className="border rounded px-2 py-1"
+        >
           <option value="">Tipo</option>
           <option value="Entrada">Entrada</option>
           <option value="Saída">Saída</option>
@@ -65,7 +62,7 @@ export default function StockMovementsPanel() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map(m => (
+            {filtered.map((m) => (
               <tr key={m.id} className="border-b">
                 <td className="p-2">{m.id}</td>
                 <td className="p-2">{m.productId}</td>

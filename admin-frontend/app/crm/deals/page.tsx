@@ -15,6 +15,7 @@ const STAGES = ['Prospecting', 'Discovery', 'Proposal', 'Negotiation', 'Won', 'L
 
 type Stage = (typeof STAGES)[number];
 
+
 type Deal = {
   id: string;
   title: string;
@@ -25,6 +26,13 @@ type Deal = {
   probability: number;
   expectedClose: string;
 };
+
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (!error || typeof error !== 'object') return fallback;
+  const e = error as { message?: string; response?: { data?: { message?: string } } };
+  return e.response?.data?.message || e.message || fallback;
+}
 
 export default function DealsPage() {
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -88,8 +96,8 @@ export default function DealsPage() {
         },
         body: JSON.stringify({ stage }),
       });
-    } catch {
-      setError('Erro ao atualizar estágio do negócio.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Erro ao atualizar estágio do negócio.'));
     }
   };
 
@@ -137,8 +145,8 @@ export default function DealsPage() {
       await runBulkRequests(requests, token);
       setSelectedIds(new Set());
       setBulkTaskDueDate('');
-    } catch {
-      setError('Erro ao executar ação em massa.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Erro ao executar ação em massa.'));
     } finally {
       setBulkEmailing(false);
       setBulkTasking(false);
@@ -167,8 +175,8 @@ export default function DealsPage() {
       await runBulkRequests(requests, token);
       setSelectedIds(new Set());
       setBulkOwner('');
-    } catch {
-      setError('Erro ao reatribuir negócios.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Erro ao reatribuir negócios.'));
     } finally {
       setBulkReassigning(false);
     }
@@ -196,8 +204,8 @@ export default function DealsPage() {
       await runBulkRequests(requests, token);
       setSelectedIds(new Set());
       setBulkStage('');
-    } catch {
-      setError('Erro ao atualizar estágio em massa.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Erro ao atualizar estágio em massa.'));
     } finally {
       setBulkStageUpdating(false);
     }
@@ -343,6 +351,9 @@ export default function DealsPage() {
     </div>
   );
 }
+
+
+
 
 
 

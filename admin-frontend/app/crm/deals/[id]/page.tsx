@@ -13,7 +13,7 @@ import DateInput from '@/components/DateInput';
 const STAGES = ['Prospecting', 'Discovery', 'Proposal', 'Negotiation', 'Won', 'Lost'] as const;
 const ACTIVITY_TYPES = ['Call', 'Email', 'Meeting', 'Task'] as const;
 
-const STAGE_STYLES: Record<Stage, string> = {
+const STAGE_STYLES: Record<(typeof STAGES)[number], string> = {
   Prospecting: 'bg-blue-100 text-blue-700',
   Discovery: 'bg-indigo-100 text-indigo-700',
   Proposal: 'bg-amber-100 text-amber-700',
@@ -21,8 +21,8 @@ const STAGE_STYLES: Record<Stage, string> = {
   Won: 'bg-green-100 text-green-700',
   Lost: 'bg-red-100 text-red-700',
 };
-
 type Stage = (typeof STAGES)[number];
+
 type ActivityType = (typeof ACTIVITY_TYPES)[number];
 
 type Deal = {
@@ -35,6 +35,29 @@ type Deal = {
   probability: number;
   expectedClose: string;
 };
+
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (!error || typeof error !== 'object') return fallback;
+  const e = error as { message?: string; response?: { data?: { message?: string } } };
+  return e.response?.data?.message || e.message || fallback;
+}
+
+function validateDealForm(input: Deal): string | null {
+  const title = input.title.trim();
+  const company = input.company.trim();
+  const owner = input.owner.trim();
+
+  if (title.length < 3 || title.length > 160) return 'Titulo deve ter entre 3 e 160 caracteres.';
+  if (company.length < 2 || company.length > 120) return 'Empresa deve ter entre 2 e 120 caracteres.';
+  if (owner.length < 2 || owner.length > 120) return 'Responsavel deve ter entre 2 e 120 caracteres.';
+  if (!Number.isFinite(input.value) || input.value < 0) return 'Valor deve ser maior ou igual a zero.';
+  if (!Number.isFinite(input.probability) || input.probability < 0 || input.probability > 100) {
+    return 'Probabilidade deve estar entre 0 e 100.';
+  }
+
+  return null;
+}
 
 export default function DealDetailPage() {
   const params = useParams();
@@ -82,6 +105,11 @@ export default function DealDetailPage() {
 
   const handleSave = async () => {
     if (!form || !id) return;
+    const validationError = validateDealForm(form);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
     setSaving(true);
     setError(null);
     const token = AuthService.getToken();
@@ -102,8 +130,8 @@ export default function DealDetailPage() {
       const updated = await res.json();
       setDeal(updated);
       setForm(updated);
-    } catch {
-      setError('Erro ao salvar negócio.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Erro ao salvar negócio.'));
     } finally {
       setSaving(false);
     }
@@ -111,6 +139,7 @@ export default function DealDetailPage() {
 
   const handleDelete = async () => {
     if (!id) return;
+    if (!confirm('Tem certeza que deseja excluir este negócio?')) return;
     setDeleting(true);
     setError(null);
     const token = AuthService.getToken();
@@ -126,8 +155,8 @@ export default function DealDetailPage() {
       });
       if (!res.ok) throw new Error('Erro ao remover negócio');
       router.push('/crm/deals');
-    } catch {
-      setError('Erro ao remover negócio.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Erro ao remover negócio.'));
     } finally {
       setDeleting(false);
     }
@@ -464,6 +493,13 @@ export default function DealDetailPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
 
 
 

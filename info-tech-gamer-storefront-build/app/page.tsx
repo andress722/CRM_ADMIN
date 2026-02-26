@@ -10,7 +10,7 @@ import { ProductCard } from "@/components/product-card"
 import { SearchFilters } from "@/components/search-filters"
 import { PaginationControls } from "@/components/pagination-controls"
 import { RecommendationGrid } from "@/components/recommendation-grid"
-import { searchProducts, getRecommendations } from "@/lib/api"
+import { searchProducts, getRecommendations, getProductCategories } from "@/lib/api"
 import type { Product, ProductSummary } from "@/lib/types"
 
 const PAGE_SIZE = 6
@@ -28,6 +28,7 @@ function HomeContent() {
 
   const [query, setQuery] = useState(initialQuery)
   const [category, setCategory] = useState("All")
+  const [categories, setCategories] = useState<string[]>(["All"])
   const [minPrice, setMinPrice] = useState("")
   const [maxPrice, setMaxPrice] = useState("")
   const [page, setPage] = useState(1)
@@ -65,6 +66,7 @@ function HomeContent() {
 
   useEffect(() => {
     getRecommendations().then(setRecommendations).catch(() => {})
+    getProductCategories().then(setCategories).catch(() => setCategories(["All"]))
   }, [])
 
   useEffect(() => {
@@ -73,12 +75,9 @@ function HomeContent() {
 
   return (
     <div>
-      {/* Hero */}
       <section className="relative overflow-hidden border-b border-border">
-        {/* Animated bg grid */}
         <div className="absolute inset-0 bg-[linear-gradient(hsl(175_100%_42%/0.03)_1px,transparent_1px),linear-gradient(90deg,hsl(175_100%_42%/0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />
-        {/* Glow orb */}
         <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-primary/5 blur-[120px]" />
         <div className="absolute -left-20 bottom-0 h-64 w-64 rounded-full bg-primary/3 blur-[100px]" />
 
@@ -110,7 +109,6 @@ function HomeContent() {
         </div>
       </section>
 
-      {/* Trust Signals */}
       <section className="border-b border-border bg-card/50">
         <div className="mx-auto grid max-w-[1200px] grid-cols-2 gap-4 px-6 py-6 lg:grid-cols-4">
           {trustSignals.map((signal) => (
@@ -127,7 +125,6 @@ function HomeContent() {
         </div>
       </section>
 
-      {/* Catalog */}
       <section id="catalog" className="mx-auto max-w-[1200px] px-6 py-12">
         <div className="mb-6 flex items-center gap-3">
           <div className="h-6 w-1 bg-primary" />
@@ -138,6 +135,7 @@ function HomeContent() {
           query={query}
           onQueryChange={setQuery}
           category={category}
+          categories={categories}
           onCategoryChange={setCategory}
           minPrice={minPrice}
           onMinPriceChange={setMinPrice}
@@ -179,7 +177,6 @@ function HomeContent() {
         )}
       </section>
 
-      {/* Recommendations */}
       {recommendations.length > 0 && (
         <section className="mx-auto max-w-[1200px] px-6 pb-12">
           <RecommendationGrid items={recommendations} />

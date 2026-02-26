@@ -1,22 +1,22 @@
-import { authFetch } from './auth-fetch';
-
 export type BulkRequest = {
   url: string;
-  method: 'POST' | 'PATCH' | 'PUT' | 'DELETE';
+  method: "POST" | "PATCH" | "PUT" | "DELETE";
   body?: unknown;
 };
 
-export async function runBulkRequests(requests: BulkRequest[], _token: string) {
-  void _token;
+export async function runBulkRequests(requests: BulkRequest[], token: string) {
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+
   await Promise.all(
     requests.map(({ url, method, body }) =>
-      authFetch(url, {
+      fetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: body ? JSON.stringify(body) : undefined,
-      })
-    )
+      }),
+    ),
   );
 }

@@ -1,10 +1,10 @@
 // src/hooks/useAuth.ts
 
-'use client';
+"use client";
 
-import { AuthService } from '@/services/auth';
-import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { AuthService } from "@/services/auth";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
 type JwtPayload = Record<string, unknown>;
 
@@ -60,11 +60,12 @@ export function useAuth(): UseAuthReturn {
         setIsAuthenticated(true);
         const decoded = AuthService.decodeToken();
         setUser(decoded);
-        
+
         // Redirect to admin dashboard
-        router.push('/admin');
+        router.push("/admin");
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Login failed';
+        const errorMessage =
+          err instanceof Error ? err.message : "Login failed";
         setError(errorMessage);
         setIsAuthenticated(false);
         setUser(null);
@@ -72,7 +73,7 @@ export function useAuth(): UseAuthReturn {
         setIsLoading(false);
       }
     },
-    [router]
+    [router],
   );
 
   const logout = useCallback(() => {
@@ -83,7 +84,7 @@ export function useAuth(): UseAuthReturn {
       setIsAuthenticated(false);
       setUser(null);
       setError(null);
-      router.push('/login');
+      router.push("/login");
     })();
   }, [router]);
 

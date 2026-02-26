@@ -55,11 +55,13 @@ NEXT_PUBLIC_API_URL=http://localhost:5071
 ## 📋 Funcionalidades
 
 ### Dashboard
+
 - Visualização de KPIs principais
 - Resumo de pedidos recentes
 - Status de pedidos
 
 ### Produtos
+
 - Listar todos os produtos
 - Criar novo produto
 - Editar produto existente
@@ -67,22 +69,26 @@ NEXT_PUBLIC_API_URL=http://localhost:5071
 - Filtrar por nome ou categoria
 
 ### Pedidos
+
 - Listar todos os pedidos
 - Atualizar status do pedido
 - Visualizar detalhes dos itens
 - Filtrar por status
 
 ### Usuários
+
 - Listar todos os usuários
 - Visualizar status de verificação de email
 - Informações de cadastro
 
 ### Relatórios
+
 - Gráfico de top 10 produtos
 - Distribuição por categorias (Pie chart)
 - Receita por produto (Bar chart)
 
 ### CRM
+
 - Leads, negócios (deals), contatos e atividades
 - Pipeline visual com movimentação de estágio
 - Ações rápidas e ações em massa (bulk)
@@ -91,6 +97,7 @@ NEXT_PUBLIC_API_URL=http://localhost:5071
 ## 🔌 API Endpoints Utilizados
 
 **Estatísticas:**
+
 - GET `/admin/statistics/dashboard` - Dashboard stats
 - GET `/admin/statistics/sales` - Sales statistics
 - GET `/admin/statistics/top-products` - Top selling products
@@ -98,6 +105,7 @@ NEXT_PUBLIC_API_URL=http://localhost:5071
 - GET `/admin/statistics/revenue` - Revenue stats
 
 **Admin core:**
+
 - GET `/admin/overview`
 - GET `/admin/logs`
 - GET `/admin/notifications`
@@ -109,6 +117,7 @@ NEXT_PUBLIC_API_URL=http://localhost:5071
 - GET `/admin/profile`
 
 **Produtos:**
+
 - GET `/admin/products` - Listar todos
 - POST `/admin/products` - Criar
 - PUT `/admin/products/{id}` - Atualizar
@@ -116,15 +125,18 @@ NEXT_PUBLIC_API_URL=http://localhost:5071
 - PATCH `/admin/products/{id}/stock` - Atualizar estoque
 
 **Pedidos:**
+
 - GET `/admin/orders` - Listar todos
 - GET `/admin/orders/{id}` - Detalhes
 - PATCH `/admin/orders/{id}/status` - Atualizar status
 
 **Usuários:**
+
 - GET `/admin/customers` - Listar clientes
 - GET `/admin/customers/{id}` - Detalhes
 
 **CRM:**
+
 - GET `/admin/crm/leads` | POST `/admin/crm/leads`
 - GET `/admin/crm/leads/{id}` | PUT `/admin/crm/leads/{id}` | PATCH `/admin/crm/leads/{id}` | DELETE `/admin/crm/leads/{id}`
 - GET `/admin/crm/deals` | POST `/admin/crm/deals`
@@ -166,7 +178,7 @@ admin-frontend/
 ├── package.json
 ├── tsconfig.json
 ├── tailwind.config.js
-└── next.config.mjs
+└── next.config.js
 ```
 
 ## 🎨 Componentes Principais

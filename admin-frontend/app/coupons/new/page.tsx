@@ -1,13 +1,12 @@
 "use client";
-import React, { useState } from 'react';
-import { endpoints } from '@/services/endpoints';
-import { AuthService } from '@/services/auth';
-import { authFetch } from '@/services/auth-fetch';
-import { useRouter } from 'next/navigation';
+import { AuthService } from "@/services/auth";
+import { endpoints } from "@/services/endpoints";
+import { useRouter } from "next/navigation";
+import React, { useState } from "react";
 
 export default function NewCouponPage() {
-  const [code, setCode] = useState('');
-  const [discount, setDiscount] = useState('');
+  const [code, setCode] = useState("");
+  const [discount, setDiscount] = useState("");
   const [active, setActive] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,22 +18,23 @@ export default function NewCouponPage() {
     setError(null);
     const token = AuthService.getToken();
     if (!token) {
-      setError('Usuário não autenticado.');
+      setError("Usuário não autenticado.");
       setLoading(false);
       return;
     }
     try {
-      const res = await authFetch(endpoints.admin.coupons, {
-        method: 'POST',
+      const res = await fetch(endpoints.admin.coupons, {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ code, discount: Number(discount), active }),
       });
-      if (!res.ok) throw new Error('Erro ao criar cupom');
-      router.push('/coupons');
+      if (!res.ok) throw new Error("Erro ao criar cupom");
+      router.push("/coupons");
     } catch {
-      setError('Erro ao criar cupom.');
+      setError("Erro ao criar cupom.");
     } finally {
       setLoading(false);
     }
@@ -48,7 +48,7 @@ export default function NewCouponPage() {
           type="text"
           placeholder="Código do cupom"
           value={code}
-          onChange={e => setCode(e.target.value)}
+          onChange={(e) => setCode(e.target.value)}
           className="border rounded px-2 py-1"
           required
         />
@@ -56,22 +56,27 @@ export default function NewCouponPage() {
           type="number"
           placeholder="Desconto (%)"
           value={discount}
-          onChange={e => setDiscount(e.target.value)}
+          onChange={(e) => setDiscount(e.target.value)}
           className="border rounded px-2 py-1"
           required
         />
         <label className="flex items-center gap-2">
-          <input type="checkbox" checked={active} onChange={e => setActive(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={active}
+            onChange={(e) => setActive(e.target.checked)}
+          />
           Ativo
         </label>
         {error && <div className="text-red-600">{error}</div>}
-        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded font-bold" disabled={loading}>
-          {loading ? 'Salvando...' : 'Salvar'}
+        <button
+          type="submit"
+          className="bg-blue-600 text-white px-4 py-2 rounded font-bold"
+          disabled={loading}
+        >
+          {loading ? "Salvando..." : "Salvar"}
         </button>
       </form>
     </div>
   );
 }
-
-
-

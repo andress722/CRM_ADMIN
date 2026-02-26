@@ -1,7 +1,6 @@
 // Painel de logs estruturados
-import React, { useEffect, useState } from 'react';
-import { LEGACY_API_URL } from '@/services/endpoints';
-import { fetchJson } from '@/services/fetch-client';
+import { useEffect, useState } from "react";
+import { LEGACY_API_URL } from "../lib/legacy-api";
 
 interface Log {
   id: string;
@@ -14,34 +13,29 @@ interface Log {
 export default function LogsPanel() {
   const [logs, setLogs] = useState<Log[]>([]);
   const [loading, setLoading] = useState(true);
-  const [typeFilter, setTypeFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState("");
 
   useEffect(() => {
-    let mounted = true;
-
-    const load = async () => {
-      try {
-        const data = await fetchJson<Log[]>(`${LEGACY_API_URL}/logs`);
-        if (!mounted) return;
+    fetch(`${LEGACY_API_URL}/logs`)
+      .then((res) => res.json())
+      .then((data) => {
         setLogs(data);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    void load();
-    return () => {
-      mounted = false;
-    };
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
-  const filtered = logs.filter(l => !typeFilter || l.type === typeFilter);
+  const filtered = logs.filter((l) => !typeFilter || l.type === typeFilter);
 
   return (
     <div className="p-4">
       <h2 className="text-xl font-bold mb-4">Logs Estruturados</h2>
       <div className="mb-4">
-        <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="border rounded px-2 py-1">
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+          className="border rounded px-2 py-1"
+        >
           <option value="">Todos</option>
           <option value="erro">Erro</option>
           <option value="acesso">Acesso</option>
@@ -61,11 +55,11 @@ export default function LogsPanel() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map(l => (
+            {filtered.map((l) => (
               <tr key={l.id} className="border-b">
                 <td className="p-2">{l.type}</td>
                 <td className="p-2">{l.message}</td>
-                <td className="p-2">{l.user || '-'}</td>
+                <td className="p-2">{l.user || "-"}</td>
                 <td className="p-2">{l.timestamp}</td>
               </tr>
             ))}
@@ -75,5 +69,3 @@ export default function LogsPanel() {
     </div>
   );
 }
-
-

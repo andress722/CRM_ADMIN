@@ -12,7 +12,6 @@ import Select from '@/components/Select';
 import DateInput from '@/components/DateInput';
 
 const TYPES = ['Call', 'Email', 'Meeting', 'Task'] as const;
-
 type Activity = {
   id: string;
   subject: string;
@@ -22,6 +21,13 @@ type Activity = {
   dueDate: string;
   status: 'Open' | 'Done' | 'Overdue';
 };
+
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (!error || typeof error !== 'object') return fallback;
+  const e = error as { message?: string; response?: { data?: { message?: string } } };
+  return e.response?.data?.message || e.message || fallback;
+}
 
 export default function ActivitiesPage() {
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -83,15 +89,16 @@ export default function ActivitiesPage() {
     const current = activities.find((activity) => activity.id === id);
     const nextStatus = current?.status === 'Done' ? 'Open' : 'Done';
     try {
-      await authFetch(endpoints.admin.crmActivityDetail(id), {
+      const res = await authFetch(endpoints.admin.crmActivityDetail(id), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ status: nextStatus }),
       });
-    } catch {
-      setError('Erro ao atualizar status da atividade.');
+      if (!res.ok) throw new Error('Erro ao atualizar status da atividade.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Erro ao atualizar status da atividade.'));
     }
   };
 
@@ -140,8 +147,8 @@ export default function ActivitiesPage() {
       }));
       await runBulkRequests(requests, token);
       setSelectedIds(new Set());
-    } catch {
-      setError('Erro ao atualizar atividades em massa.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Erro ao atualizar atividades em massa.'));
     } finally {
       setBulkUpdating(false);
     }
@@ -171,8 +178,8 @@ export default function ActivitiesPage() {
       await runBulkRequests(requests, token);
       setSelectedIds(new Set());
       setBulkOwner('');
-    } catch {
-      setError('Erro ao reatribuir responsável em massa.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Erro ao reatribuir responsável em massa.'));
     } finally {
       setBulkReassigning(false);
     }
@@ -202,8 +209,8 @@ export default function ActivitiesPage() {
       await runBulkRequests(requests, token);
       setSelectedIds(new Set());
       setBulkDueDate('');
-    } catch {
-      setError('Erro ao atualizar prazo em massa.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Erro ao atualizar prazo em massa.'));
     } finally {
       setBulkDateUpdating(false);
     }
@@ -351,6 +358,9 @@ export default function ActivitiesPage() {
     </div>
   );
 }
+
+
+
 
 
 

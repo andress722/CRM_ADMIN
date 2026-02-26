@@ -1,7 +1,6 @@
 // Painel de cupons e promoções avançadas
-import React, { useEffect, useState } from 'react';
-import { LEGACY_API_URL } from '@/services/endpoints';
-import { fetchJson } from '@/services/fetch-client';
+import { useEffect, useState } from "react";
+import { LEGACY_API_URL } from "../lib/legacy-api";
 
 interface Coupon {
   id: string;
@@ -21,27 +20,20 @@ export default function CouponsPanel() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let mounted = true;
-
-    const load = async () => {
-      try {
-        const data = await fetchJson<Coupon[]>(`${LEGACY_API_URL}/coupons`);
-        if (!mounted) return;
+    fetch(`${LEGACY_API_URL}/coupons`)
+      .then((res) => res.json())
+      .then((data) => {
         setCoupons(data);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    void load();
-    return () => {
-      mounted = false;
-    };
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
   function toggleCoupon(id: string) {
     // Simula ativação/desativação
-    setCoupons(coupons => coupons.map(c => c.id === id ? { ...c, active: !c.active } : c));
+    setCoupons((coupons) =>
+      coupons.map((c) => (c.id === id ? { ...c, active: !c.active } : c)),
+    );
   }
 
   return (
@@ -64,18 +56,25 @@ export default function CouponsPanel() {
             </tr>
           </thead>
           <tbody>
-            {coupons.map(c => (
+            {coupons.map((c) => (
               <tr key={c.id} className="border-b">
                 <td className="p-2">{c.code}</td>
                 <td className="p-2">{c.description}</td>
-                <td className="p-2">{c.type === 'Percentual' ? `${c.discount}%` : `R$ ${c.discount.toFixed(2)}`}</td>
+                <td className="p-2">
+                  {c.type === "Percentual"
+                    ? `${c.discount}%`
+                    : `R$ ${c.discount.toFixed(2)}`}
+                </td>
                 <td className="p-2">{c.type}</td>
-                <td className="p-2">{c.active ? 'Sim' : 'Não'}</td>
+                <td className="p-2">{c.active ? "Sim" : "Não"}</td>
                 <td className="p-2">{c.usageCount}</td>
                 <td className="p-2">{c.createdAt}</td>
                 <td className="p-2">
-                  <button className="bg-blue-600 text-white px-2 py-1 rounded" onClick={() => toggleCoupon(c.id)}>
-                    {c.active ? 'Desativar' : 'Ativar'}
+                  <button
+                    className="bg-blue-600 text-white px-2 py-1 rounded"
+                    onClick={() => toggleCoupon(c.id)}
+                  >
+                    {c.active ? "Desativar" : "Ativar"}
                   </button>
                 </td>
               </tr>
@@ -86,5 +85,3 @@ export default function CouponsPanel() {
     </div>
   );
 }
-
-

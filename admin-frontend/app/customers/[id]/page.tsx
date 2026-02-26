@@ -1,18 +1,15 @@
 "use client";
-
-import React, { useState, useEffect } from 'react';
-import { LoadingState, ErrorState } from '@/components/ui/AsyncState';
-import { useRouter, useParams } from 'next/navigation';
-import { endpoints } from '@/services/endpoints';
-import { AuthService } from '@/services/auth';
-import { authFetch } from '@/services/auth-fetch';
+import { AuthService } from "@/services/auth";
+import { endpoints } from "@/services/endpoints";
+import { useParams, useRouter } from "next/navigation";
+import React, { useEffect, useState } from "react";
 
 export default function EditCustomerPage() {
   const router = useRouter();
   const params = useParams();
   const id = Array.isArray(params?.id) ? params?.id[0] : params?.id;
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [blocked, setBlocked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -21,22 +18,22 @@ export default function EditCustomerPage() {
     if (!id) return;
     const token = AuthService.getToken();
     if (!token) {
-      setError('Usuário não autenticado.');
+      setError("Usuário não autenticado.");
       setLoading(false);
       return;
     }
-    authFetch(endpoints.admin.customerDetail(id as string), {
-      headers: {},
+    fetch(endpoints.admin.customerDetail(id as string), {
+      headers: { Authorization: `Bearer ${token}` },
     })
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         setName(data.name);
         setEmail(data.email);
         setBlocked(data.blocked);
         setLoading(false);
       })
       .catch(() => {
-        setError('Erro ao carregar cliente.');
+        setError("Erro ao carregar cliente.");
         setLoading(false);
       });
   }, [id]);
@@ -47,22 +44,23 @@ export default function EditCustomerPage() {
     setError(null);
     const token = AuthService.getToken();
     if (!token) {
-      setError('Usuário não autenticado.');
+      setError("Usuário não autenticado.");
       setLoading(false);
       return;
     }
     try {
-      const res = await authFetch(endpoints.admin.customerDetail(id as string), {
-        method: 'PUT',
+      const res = await fetch(endpoints.admin.customerDetail(id as string), {
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ name, email, blocked }),
       });
-      if (!res.ok) throw new Error('Erro ao salvar cliente');
-      router.push('/customers');
+      if (!res.ok) throw new Error("Erro ao salvar cliente");
+      router.push("/customers");
     } catch {
-      setError('Erro ao salvar cliente.');
+      setError("Erro ao salvar cliente.");
     } finally {
       setLoading(false);
     }
@@ -73,29 +71,30 @@ export default function EditCustomerPage() {
     setError(null);
     const token = AuthService.getToken();
     if (!token) {
-      setError('Usuário não autenticado.');
+      setError("Usuário não autenticado.");
       setLoading(false);
       return;
     }
     try {
-      const res = await authFetch(endpoints.admin.customerDetail(id as string), {
-        method: 'PATCH',
+      const res = await fetch(endpoints.admin.customerDetail(id as string), {
+        method: "PATCH",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ blocked: !blocked }),
       });
-      if (!res.ok) throw new Error('Erro ao atualizar status');
+      if (!res.ok) throw new Error("Erro ao atualizar status");
       setBlocked(!blocked);
     } catch {
-      setError('Erro ao atualizar status.');
+      setError("Erro ao atualizar status.");
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) return <LoadingState message="Carregando cliente..." />;
-  if (error) return <ErrorState message={error} />;
+  if (loading) return <div>Carregando cliente...</div>;
+  if (error) return <div className="text-red-600">{error}</div>;
 
   return (
     <div className="max-w-lg mx-auto p-6 bg-white border rounded-xl shadow">
@@ -105,7 +104,7 @@ export default function EditCustomerPage() {
           type="text"
           placeholder="Nome do cliente"
           value={name}
-          onChange={e => setName(e.target.value)}
+          onChange={(e) => setName(e.target.value)}
           className="border rounded px-2 py-1"
           required
         />
@@ -113,28 +112,29 @@ export default function EditCustomerPage() {
           type="email"
           placeholder="Email"
           value={email}
-          onChange={e => setEmail(e.target.value)}
+          onChange={(e) => setEmail(e.target.value)}
           className="border rounded px-2 py-1"
           required
         />
         {error && <div className="text-red-600">{error}</div>}
         <div className="flex gap-2">
-          <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded font-bold" disabled={loading}>
+          <button
+            type="submit"
+            className="bg-blue-600 text-white px-4 py-2 rounded font-bold"
+            disabled={loading}
+          >
             Salvar
           </button>
-          <button type="button" className={`px-4 py-2 rounded font-bold ${blocked ? 'bg-green-600' : 'bg-red-600'} text-white`} onClick={handleBlockToggle} disabled={loading}>
-            {blocked ? 'Desbloquear' : 'Bloquear'}
+          <button
+            type="button"
+            className={`px-4 py-2 rounded font-bold ${blocked ? "bg-green-600" : "bg-red-600"} text-white`}
+            onClick={handleBlockToggle}
+            disabled={loading}
+          >
+            {blocked ? "Desbloquear" : "Bloquear"}
           </button>
         </div>
       </form>
     </div>
   );
 }
-
-
-
-
-
-
-
-

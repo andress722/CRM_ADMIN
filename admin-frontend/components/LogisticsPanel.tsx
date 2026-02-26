@@ -1,7 +1,6 @@
 // Painel de logística: entregas, cotação de frete, status
-import React, { useEffect, useState } from 'react';
-import { LEGACY_API_URL } from '@/services/endpoints';
-import { fetchJson } from '@/services/fetch-client';
+import { useEffect, useState } from "react";
+import { LEGACY_API_URL } from "../lib/legacy-api";
 
 interface Delivery {
   id: string;
@@ -16,34 +15,31 @@ interface Delivery {
 export default function LogisticsPanel() {
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState("");
 
   useEffect(() => {
-    let mounted = true;
-
-    const load = async () => {
-      try {
-        const data = await fetchJson<Delivery[]>(`${LEGACY_API_URL}/deliveries`);
-        if (!mounted) return;
+    fetch(`${LEGACY_API_URL}/deliveries`)
+      .then((res) => res.json())
+      .then((data) => {
         setDeliveries(data);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    void load();
-    return () => {
-      mounted = false;
-    };
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
-  const filtered = deliveries.filter(d => !statusFilter || d.status === statusFilter);
+  const filtered = deliveries.filter(
+    (d) => !statusFilter || d.status === statusFilter,
+  );
 
   return (
     <div className="p-4">
       <h2 className="text-xl font-bold mb-4">Logística</h2>
       <div className="mb-4">
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="border rounded px-2 py-1">
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="border rounded px-2 py-1"
+        >
           <option value="">Status</option>
           <option value="Separando">Separando</option>
           <option value="Enviado">Enviado</option>
@@ -66,7 +62,7 @@ export default function LogisticsPanel() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map(d => (
+            {filtered.map((d) => (
               <tr key={d.id} className="border-b">
                 <td className="p-2">{d.id}</td>
                 <td className="p-2">{d.orderId}</td>
@@ -74,7 +70,7 @@ export default function LogisticsPanel() {
                 <td className="p-2">{d.status}</td>
                 <td className="p-2">{d.estimatedDate}</td>
                 <td className="p-2">R$ {d.freightCost.toFixed(2)}</td>
-                <td className="p-2">{d.trackingCode || '-'}</td>
+                <td className="p-2">{d.trackingCode || "-"}</td>
               </tr>
             ))}
           </tbody>
@@ -83,5 +79,3 @@ export default function LogisticsPanel() {
     </div>
   );
 }
-
-

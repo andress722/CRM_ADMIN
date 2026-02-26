@@ -9,12 +9,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { categories } from "@/lib/mock-data"
 
 interface SearchFiltersProps {
   query: string
   onQueryChange: (v: string) => void
   category: string
+  categories: string[]
   onCategoryChange: (v: string) => void
   minPrice: string
   onMinPriceChange: (v: string) => void
@@ -26,6 +26,7 @@ export function SearchFilters({
   query,
   onQueryChange,
   category,
+  categories,
   onCategoryChange,
   minPrice,
   onMinPriceChange,

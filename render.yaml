@@ -7,40 +7,23 @@ services:
     rootDir: .
     buildCommand: dotnet publish src/Ecommerce.API/Ecommerce.API.csproj -c Release -o out
     startCommand: dotnet out/Ecommerce.API.dll
-    healthCheckPath: /health
     envVars:
       - key: ASPNETCORE_URLS
         value: http://0.0.0.0:$PORT
       - key: ConnectionStrings__DefaultConnection
-        value: "postgresql://copilot_sdk_db_staging_user:0FbGPJEnXUJ0arpvqYtwbGotXEORRke7@dpg-d6bac5buibrs73ej77cg-a/copilot_sdk_db_staging"
+        fromDatabase:
+          name: copilot-sdk-db-staging
+          property: connectionString
       - key: Jwt__SecretKey
-        generateValue: true
+        value: CHANGE_ME_STAGING
       - key: Jwt__Issuer
         value: ecommerce-api
       - key: Jwt__Audience
         value: ecommerce-admin
-      - key: Database__SeedData
-        value: "true"
-      - key: Runtime__AllowInsecureProvidersInProduction
-        value: "true"
-      - key: Payments__Provider
-        value: Stub
-      - key: Email__Provider
-        value: Console
-      - key: SeedAdmin__Email
-        value: admin@example.com
-      - key: SeedAdmin__Password
-        value: demo123
-      - key: SeedAdmin__Name
-        value: Admin User
-      - key: SeedAdmin__ForceResetPassword
-        value: "true"
       - key: Cors__AllowedOrigins__0
         value: https://copilot-sdk-admin-staging.vercel.app
       - key: Cors__AllowedOrigins__1
         value: https://copilot-sdk-storefront-staging.vercel.app
-      - key: Cors__AllowedOriginPatterns__0
-        value: https://*.vercel.app
       - key: Observability__EnableOpenTelemetry
         value: "false"
       - key: Sentry__Dsn
@@ -57,23 +40,11 @@ services:
     startCommand: dotnet ef database update --startup-project src/Ecommerce.API/Ecommerce.API.csproj --connection "$ConnectionStrings__DefaultConnection"
     envVars:
       - key: ConnectionStrings__DefaultConnection
-        value: "postgresql://copilot_sdk_db_staging_user:0FbGPJEnXUJ0arpvqYtwbGotXEORRke7@dpg-d6bac5buibrs73ej77cg-a/copilot_sdk_db_staging"
+        fromDatabase:
+          name: copilot-sdk-db-staging
+          property: connectionString
 
 databases:
   - name: copilot-sdk-db-staging
     plan: free
     region: oregon
-
-  # Admin frontend service (build using Dockerfile located in admin-frontend/)
-  - type: web
-    name: copilot-sdk-admin-frontend-staging
-    env: docker
-    plan: free
-    region: oregon
-    dockerfilePath: admin-frontend/Dockerfile
-    rootDir: .
-    envVars:
-      - key: NEXT_PUBLIC_API_BASE
-        value: https://crm-admin-8alt.onrender.com/api/v1
-      - key: NODE_ENV
-        value: production

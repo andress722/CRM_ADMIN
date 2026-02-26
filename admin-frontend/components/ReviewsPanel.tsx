@@ -1,7 +1,6 @@
 // Painel de reviews e recomendações
-import React, { useEffect, useState } from 'react';
-import { LEGACY_API_URL } from '@/services/endpoints';
-import { fetchJson } from '@/services/fetch-client';
+import { useEffect, useState } from "react";
+import { LEGACY_API_URL } from "../lib/legacy-api";
 
 interface Review {
   id: string;
@@ -17,39 +16,38 @@ interface Review {
 export default function ReviewsPanel() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState("");
 
   useEffect(() => {
-    let mounted = true;
-
-    const load = async () => {
-      try {
-        const data = await fetchJson<Review[]>(`${LEGACY_API_URL}/reviews`);
-        if (!mounted) return;
+    fetch(`${LEGACY_API_URL}/reviews`)
+      .then((res) => res.json())
+      .then((data) => {
         setReviews(data);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    void load();
-    return () => {
-      mounted = false;
-    };
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
-  const filtered = reviews.filter(r => !statusFilter || r.status === statusFilter);
+  const filtered = reviews.filter(
+    (r) => !statusFilter || r.status === statusFilter,
+  );
 
   function moderateReview(id: string, status: string) {
     // Simula moderação
-    setReviews(reviews => reviews.map(r => r.id === id ? { ...r, status } : r));
+    setReviews((reviews) =>
+      reviews.map((r) => (r.id === id ? { ...r, status } : r)),
+    );
   }
 
   return (
     <div className="p-4">
       <h2 className="text-xl font-bold mb-4">Reviews e Recomendações</h2>
       <div className="mb-4">
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="border rounded px-2 py-1">
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="border rounded px-2 py-1"
+        >
           <option value="">Status</option>
           <option value="Aprovado">Aprovado</option>
           <option value="Pendente">Pendente</option>
@@ -72,7 +70,7 @@ export default function ReviewsPanel() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map(r => (
+            {filtered.map((r) => (
               <tr key={r.id} className="border-b">
                 <td className="p-2">{r.productName}</td>
                 <td className="p-2">{r.customerName}</td>
@@ -81,8 +79,18 @@ export default function ReviewsPanel() {
                 <td className="p-2">{r.status}</td>
                 <td className="p-2">{r.createdAt}</td>
                 <td className="p-2">
-                  <button className="bg-green-600 text-white px-2 py-1 rounded mr-2" onClick={() => moderateReview(r.id, 'Aprovado')}>Aprovar</button>
-                  <button className="bg-red-600 text-white px-2 py-1 rounded" onClick={() => moderateReview(r.id, 'Recusado')}>Recusar</button>
+                  <button
+                    className="bg-green-600 text-white px-2 py-1 rounded mr-2"
+                    onClick={() => moderateReview(r.id, "Aprovado")}
+                  >
+                    Aprovar
+                  </button>
+                  <button
+                    className="bg-red-600 text-white px-2 py-1 rounded"
+                    onClick={() => moderateReview(r.id, "Recusado")}
+                  >
+                    Recusar
+                  </button>
                 </td>
               </tr>
             ))}
@@ -92,5 +100,3 @@ export default function ReviewsPanel() {
     </div>
   );
 }
-
-

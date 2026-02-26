@@ -16,6 +16,7 @@ const STATUSES = ['New', 'Qualified', 'Contacted', 'Unqualified'] as const;
 
 type LeadStatus = (typeof STATUSES)[number];
 
+
 type Lead = {
   id: string;
   name: string;
@@ -27,6 +28,36 @@ type Lead = {
   status: LeadStatus;
   createdAt: string;
 };
+
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (!error || typeof error !== 'object') return fallback;
+  const e = error as { message?: string; response?: { data?: { message?: string } } };
+  return e.response?.data?.message || e.message || fallback;
+}
+
+function validateLeadInput(form: {
+  name: string;
+  email: string;
+  company: string;
+  value: string;
+  source: string;
+}): string | null {
+  const name = form.name.trim();
+  const email = form.email.trim();
+  const company = form.company.trim();
+  const value = Number(form.value || 0);
+
+  if (name.length < 3 || name.length > 120) return 'Nome deve ter entre 3 e 120 caracteres.';
+  if (!EMAIL_PATTERN.test(email)) return 'Email invalido.';
+  if (company.length < 2 || company.length > 120) return 'Empresa deve ter entre 2 e 120 caracteres.';
+  if (!Number.isFinite(value) || value < 0) return 'Valor deve ser maior ou igual a zero.';
+  if (!SOURCES.includes(form.source as (typeof SOURCES)[number])) return 'Origem invalida.';
+
+  return null;
+}
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -89,38 +120,44 @@ export default function LeadsPage() {
   const handleCreate = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
-    const newLead: Lead = {
-      id: `L-${Math.floor(Math.random() * 9000) + 1000}`,
-      name: form.name,
-      email: form.email,
-      company: form.company,
-      value: Number(form.value || 0),
-      owner: 'Equipe CRM',
-      source: form.source as Lead['source'],
-      status: 'New',
-      createdAt: new Date().toISOString().slice(0, 10),
-    };
-    setLeads((prev) => [newLead, ...prev]);
-    setForm({ name: '', email: '', company: '', value: '', source: 'Website' });
+
+    const validationError = validateLeadInput(form);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
     const token = AuthService.getToken();
     if (!token) {
       setError('Usuário não autenticado.');
       return;
     }
+
+    const payload = {
+      name: form.name.trim(),
+      email: form.email.trim(),
+      company: form.company.trim(),
+      value: Number(form.value || 0),
+      owner: 'Equipe CRM',
+      source: form.source as Lead['source'],
+      status: 'New' as LeadStatus,
+      createdAt: new Date().toISOString().slice(0, 10),
+    };
+
     try {
       const res = await authFetch(endpoints.admin.crmLeads, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(newLead),
+        body: JSON.stringify(payload),
       });
-      if (res.ok) {
-        const created = await res.json();
-        setLeads((prev) => [created, ...prev.filter((lead) => lead.id !== newLead.id)]);
-      }
-    } catch {
-      setError('Erro ao criar lead.');
+      if (!res.ok) throw new Error('Erro ao criar lead.');
+      const created = await res.json();
+      setLeads((prev) => [created, ...prev]);
+      setForm({ name: '', email: '', company: '', value: '', source: 'Website' });
+    } catch (err) {
+      setError(getErrorMessage(err, 'Erro ao criar lead.'));
     }
   };
 
@@ -136,8 +173,8 @@ export default function LeadsPage() {
         },
         body: JSON.stringify({ status }),
       });
-    } catch {
-      setError('Erro ao atualizar status do lead.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Erro ao atualizar status do lead.'));
     }
   };
 
@@ -461,6 +498,9 @@ export default function LeadsPage() {
     </div>
   );
 }
+
+
+
 
 
 

@@ -1,7 +1,6 @@
 // Painel de reserva de estoque
-import React, { useEffect, useState } from 'react';
-import { API_URL } from '@/services/endpoints';
-import { fetchJson } from '@/services/fetch-client';
+import { API_URL } from "@/services/endpoints";
+import { useEffect, useState } from "react";
 
 interface Reservation {
   id: string;
@@ -15,33 +14,31 @@ interface Reservation {
 export default function StockReservationPanel() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState("");
 
   useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      try {
-        const data = await fetchJson<Reservation[]>(`${API_URL}/reservations`);
-        if (!mounted) return;
+    fetch(`${API_URL}/reservations`)
+      .then((res) => res.json())
+      .then((data) => {
         setReservations(data);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    void load();
-    return () => {
-      mounted = false;
-    };
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
-  const filtered = reservations.filter(r => !statusFilter || r.status === statusFilter);
+  const filtered = reservations.filter(
+    (r) => !statusFilter || r.status === statusFilter,
+  );
 
   return (
     <div className="p-4">
       <h2 className="text-xl font-bold mb-4">Reservas de Estoque</h2>
       <div className="mb-4">
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="border rounded px-2 py-1">
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="border rounded px-2 py-1"
+        >
           <option value="">Status</option>
           <option value="Reservado">Reservado</option>
           <option value="Liberado">Liberado</option>
@@ -63,7 +60,7 @@ export default function StockReservationPanel() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map(r => (
+            {filtered.map((r) => (
               <tr key={r.id} className="border-b">
                 <td className="p-2">{r.id}</td>
                 <td className="p-2">{r.orderId}</td>

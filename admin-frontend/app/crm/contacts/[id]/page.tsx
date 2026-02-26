@@ -30,8 +30,29 @@ type Contact = {
   lifecycle: string;
   notes?: string;
 };
-
 type ActivityType = (typeof ACTIVITY_TYPES)[number];
+
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (!error || typeof error !== 'object') return fallback;
+  const e = error as { message?: string; response?: { data?: { message?: string } } };
+  return e.response?.data?.message || e.message || fallback;
+}
+
+function validateContactForm(input: Contact): string | null {
+  const name = input.name.trim();
+  const email = input.email.trim();
+  const company = input.company.trim();
+  const lifecycle = input.lifecycle.trim();
+
+  if (name.length < 3 || name.length > 120) return 'Nome deve ter entre 3 e 120 caracteres.';
+  if (!EMAIL_PATTERN.test(email)) return 'Email invalido.';
+  if (company.length < 2 || company.length > 120) return 'Empresa deve ter entre 2 e 120 caracteres.';
+  if (lifecycle.length < 2 || lifecycle.length > 80) return 'Lifecycle deve ter entre 2 e 80 caracteres.';
+  return null;
+}
 
 export default function ContactDetailPage() {
   const params = useParams();
@@ -81,6 +102,11 @@ export default function ContactDetailPage() {
 
   const handleSave = async () => {
     if (!form || !id) return;
+    const validationError = validateContactForm(form);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
     setSaving(true);
     setError(null);
     const token = AuthService.getToken();
@@ -101,8 +127,8 @@ export default function ContactDetailPage() {
       const updated = await res.json();
       setContact(updated);
       setForm(updated);
-    } catch {
-      setError('Erro ao salvar contato.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Erro ao salvar contato.'));
     } finally {
       setSaving(false);
     }
@@ -110,6 +136,7 @@ export default function ContactDetailPage() {
 
   const handleDelete = async () => {
     if (!id) return;
+    if (!confirm('Tem certeza que deseja excluir este contato?')) return;
     setDeleting(true);
     setError(null);
     const token = AuthService.getToken();
@@ -125,8 +152,8 @@ export default function ContactDetailPage() {
       });
       if (!res.ok) throw new Error('Erro ao remover contato');
       router.push('/crm/contacts');
-    } catch {
-      setError('Erro ao remover contato.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Erro ao remover contato.'));
     } finally {
       setDeleting(false);
     }
@@ -505,6 +532,8 @@ export default function ContactDetailPage() {
     </div>
   );
 }
+
+
 
 
 

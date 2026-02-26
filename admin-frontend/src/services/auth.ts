@@ -1,12 +1,12 @@
 // src/services/auth.ts
 
-import { LoginResponse } from '@/types/api';
-import ApiClient from './api-client';
-import { endpoints } from './endpoints';
+import { LoginResponse } from "@/types/api";
+import ApiClient from "./api-client";
+import { endpoints } from "./endpoints";
 
-const TOKEN_KEY = 'accessToken';
-const USER_ROLE_KEY = 'userRole';
-const USER_EMAIL_KEY = 'userEmail';
+const TOKEN_KEY = "accessToken";
+const USER_ROLE_KEY = "userRole";
+const USER_EMAIL_KEY = "userEmail";
 
 type JwtPayload = {
   exp?: number;
@@ -14,27 +14,36 @@ type JwtPayload = {
 };
 
 const decodeBase64 = (value: string): string | null => {
-  const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
-  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
 
-  if (typeof atob === 'function') {
+  if (typeof atob === "function") {
     try {
       const decoded = atob(padded);
       return decodeURIComponent(
         decoded
-          .split('')
-          .map((c) => `%${c.charCodeAt(0).toString(16).padStart(2, '0')}`)
-          .join('')
+          .split("")
+          .map((c) => `%${c.charCodeAt(0).toString(16).padStart(2, "0")}`)
+          .join(""),
       );
     } catch {
       return null;
     }
   }
 
-  const buffer = (globalThis as { Buffer?: { from: (input: string, encoding: string) => { toString: (encoding: string) => string } } }).Buffer;
+  const buffer = (
+    globalThis as {
+      Buffer?: {
+        from: (
+          input: string,
+          encoding: string,
+        ) => { toString: (encoding: string) => string };
+      };
+    }
+  ).Buffer;
   if (buffer) {
     try {
-      return buffer.from(padded, 'base64').toString('utf-8');
+      return buffer.from(padded, "base64").toString("utf-8");
     } catch {
       return null;
     }
@@ -49,7 +58,11 @@ export const AuthService = {
    */
   async login(email: string, password: string): Promise<LoginResponse> {
     try {
-      const response = await ApiClient.post<LoginResponse>(endpoints.auth.login, { email, password }, { withCredentials: true });
+      const response = await ApiClient.post<LoginResponse>(
+        endpoints.auth.login,
+        { email, password },
+        { withCredentials: true },
+      );
 
       if (response.accessToken) {
         AuthService.setToken(response.accessToken);
@@ -58,15 +71,17 @@ export const AuthService = {
 
       // persist user role/email for quick UI checks
       try {
-        if (typeof window !== 'undefined' && response.user) {
-          if (response.user.role) window.localStorage.setItem(USER_ROLE_KEY, response.user.role);
-          if (response.user.email) window.localStorage.setItem(USER_EMAIL_KEY, response.user.email);
+        if (typeof window !== "undefined" && response.user) {
+          if (response.user.role)
+            window.localStorage.setItem(USER_ROLE_KEY, response.user.role);
+          if (response.user.email)
+            window.localStorage.setItem(USER_EMAIL_KEY, response.user.email);
         }
       } catch {}
 
       return response;
     } catch {
-      throw new Error('Failed to login. Please check your credentials.');
+      throw new Error("Failed to login. Please check your credentials.");
     }
   },
 
@@ -76,10 +91,12 @@ export const AuthService = {
   async logout(): Promise<void> {
     try {
       // call server to revoke refresh cookie/token
-      await ApiClient.post(endpoints.auth.logout, undefined, { withCredentials: true }).catch(() => {});
+      await ApiClient.post(endpoints.auth.logout, undefined, {
+        withCredentials: true,
+      }).catch(() => {});
     } catch {}
 
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       localStorage.removeItem(TOKEN_KEY);
       // refresh token stored as HttpOnly cookie on server
       localStorage.removeItem(USER_ROLE_KEY);
@@ -91,7 +108,7 @@ export const AuthService = {
    * Get stored access token
    */
   getToken(): string | null {
-    if (typeof window === 'undefined') return null;
+    if (typeof window === "undefined") return null;
     return localStorage.getItem(TOKEN_KEY);
   },
 
@@ -99,7 +116,7 @@ export const AuthService = {
    * Set access token
    */
   setToken(token: string): void {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       localStorage.setItem(TOKEN_KEY, token);
     }
   },
@@ -126,16 +143,22 @@ export const AuthService = {
   async refreshToken(): Promise<string | null> {
     try {
       // Call refresh endpoint without body; server reads refresh token from HttpOnly cookie
-      const response = await ApiClient.post<LoginResponse>(endpoints.auth.refresh, undefined, { withCredentials: true });
+      const response = await ApiClient.post<LoginResponse>(
+        endpoints.auth.refresh,
+        undefined,
+        { withCredentials: true },
+      );
 
       if (response.accessToken) {
         AuthService.setToken(response.accessToken);
         // server rotates refresh cookie; do not persist refresh token in localStorage
         // update stored user info if present
         try {
-          if (typeof window !== 'undefined' && response.user) {
-            if (response.user.role) window.localStorage.setItem(USER_ROLE_KEY, response.user.role);
-            if (response.user.email) window.localStorage.setItem(USER_EMAIL_KEY, response.user.email);
+          if (typeof window !== "undefined" && response.user) {
+            if (response.user.role)
+              window.localStorage.setItem(USER_ROLE_KEY, response.user.role);
+            if (response.user.email)
+              window.localStorage.setItem(USER_EMAIL_KEY, response.user.email);
           }
         } catch {}
         return response.accessToken;
@@ -165,7 +188,7 @@ export const AuthService = {
       const t = token || AuthService.getToken();
       if (!t) return null;
 
-      const parts = t.split('.');
+      const parts = t.split(".");
       if (parts.length !== 3) return null;
 
       const decoded = decodeBase64(parts[1]);

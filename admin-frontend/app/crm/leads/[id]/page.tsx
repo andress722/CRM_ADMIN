@@ -35,6 +35,28 @@ type Lead = {
   createdAt?: string;
 };
 
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (!error || typeof error !== 'object') return fallback;
+  const e = error as { message?: string; response?: { data?: { message?: string } } };
+  return e.response?.data?.message || e.message || fallback;
+}
+
+function validateLeadForm(input: Lead): string | null {
+  const name = input.name.trim();
+  const email = input.email.trim();
+  const company = input.company.trim();
+
+  if (name.length < 3 || name.length > 120) return 'Nome deve ter entre 3 e 120 caracteres.';
+  if (!EMAIL_PATTERN.test(email)) return 'Email invalido.';
+  if (company.length < 2 || company.length > 120) return 'Empresa deve ter entre 2 e 120 caracteres.';
+  if (!Number.isFinite(input.value) || input.value < 0) return 'Valor deve ser maior ou igual a zero.';
+
+  return null;
+}
+
 export default function LeadDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -86,6 +108,11 @@ export default function LeadDetailPage() {
 
   const handleSave = async () => {
     if (!form || !id) return;
+    const validationError = validateLeadForm(form);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
     setSaving(true);
     setError(null);
     const token = AuthService.getToken();
@@ -106,8 +133,8 @@ export default function LeadDetailPage() {
       const updated = await res.json();
       setLead(updated);
       setForm(updated);
-    } catch {
-      setError('Erro ao salvar lead.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Erro ao salvar lead.'));
     } finally {
       setSaving(false);
     }
@@ -115,6 +142,7 @@ export default function LeadDetailPage() {
 
   const handleDelete = async () => {
     if (!id) return;
+    if (!confirm('Tem certeza que deseja excluir este lead?')) return;
     setDeleting(true);
     setError(null);
     const token = AuthService.getToken();
@@ -130,8 +158,8 @@ export default function LeadDetailPage() {
       });
       if (!res.ok) throw new Error('Erro ao remover lead');
       router.push('/crm/leads');
-    } catch {
-      setError('Erro ao remover lead.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Erro ao remover lead.'));
     } finally {
       setDeleting(false);
     }
@@ -515,6 +543,10 @@ export default function LeadDetailPage() {
     </div>
   );
 }
+
+
+
+
 
 
 

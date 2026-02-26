@@ -1,14 +1,13 @@
 "use client";
 
-import React, { useState } from 'react';
-import { endpoints } from '@/services/endpoints';
-import { AuthService } from '@/services/auth';
-import { authFetch } from '@/services/auth-fetch';
-import { useRouter } from 'next/navigation';
+import { AuthService } from "@/services/auth";
+import { endpoints } from "@/services/endpoints";
+import { useRouter } from "next/navigation";
+import React, { useState } from "react";
 
 export default function NewProductPage() {
-  const [name, setName] = useState('');
-  const [price, setPrice] = useState('');
+  const [name, setName] = useState("");
+  const [price, setPrice] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -19,22 +18,23 @@ export default function NewProductPage() {
     setError(null);
     const token = AuthService.getToken();
     if (!token) {
-      setError('Usuário não autenticado.');
+      setError("Usuário não autenticado.");
       setLoading(false);
       return;
     }
     try {
-      const res = await authFetch(endpoints.admin.products, {
-        method: 'POST',
+      const res = await fetch(endpoints.admin.products, {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ name, price: Number(price) }),
       });
-      if (!res.ok) throw new Error('Erro ao criar produto');
-      router.push('/products');
+      if (!res.ok) throw new Error("Erro ao criar produto");
+      router.push("/products");
     } catch {
-      setError('Erro ao criar produto.');
+      setError("Erro ao criar produto.");
     } finally {
       setLoading(false);
     }
@@ -48,7 +48,7 @@ export default function NewProductPage() {
           type="text"
           placeholder="Nome do produto"
           value={name}
-          onChange={e => setName(e.target.value)}
+          onChange={(e) => setName(e.target.value)}
           className="border rounded px-2 py-1"
           required
         />
@@ -56,18 +56,19 @@ export default function NewProductPage() {
           type="number"
           placeholder="Preço"
           value={price}
-          onChange={e => setPrice(e.target.value)}
+          onChange={(e) => setPrice(e.target.value)}
           className="border rounded px-2 py-1"
           required
         />
         {error && <div className="text-red-600">{error}</div>}
-        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded font-bold" disabled={loading}>
-          {loading ? 'Salvando...' : 'Salvar'}
+        <button
+          type="submit"
+          className="bg-blue-600 text-white px-4 py-2 rounded font-bold"
+          disabled={loading}
+        >
+          {loading ? "Salvando..." : "Salvar"}
         </button>
       </form>
     </div>
   );
 }
-
-
-

@@ -17,19 +17,13 @@ public class AdminController : ControllerBase
     private readonly ProductService _productService;
     private readonly OrderService _orderService;
     private readonly UserService _userService;
-    private readonly ILogger<AdminController> _logger;
     private static readonly Dictionary<Guid, List<string>> _productImages = new();
 
-    public AdminController(
-        ProductService productService,
-        OrderService orderService,
-        UserService userService,
-        ILogger<AdminController> logger)
+    public AdminController(ProductService productService, OrderService orderService, UserService userService)
     {
         _productService = productService;
         _orderService = orderService;
         _userService = userService;
-        _logger = logger;
     }
 
     /// <summary>
@@ -87,8 +81,7 @@ public class AdminController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving admin dashboard overview");
-            return StatusCode(500, new { message = "Error retrieving dashboard overview" });
+            return StatusCode(500, new { message = "Error retrieving dashboard overview", error = ex.Message });
         }
     }
 
@@ -152,8 +145,7 @@ public class AdminController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving admin products");
-            return StatusCode(500, new { message = "Error retrieving products" });
+            return StatusCode(500, new { message = "Error retrieving products", error = ex.Message });
         }
     }
 
@@ -385,7 +377,7 @@ public class AdminController : ControllerBase
             var allOrders = (await _orderService.GetAllOrdersAsync()).ToList();
             var users = (await _userService.GetAllUsersAsync()).ToList();
             var ordersList = allOrders.ToList();
-            
+
             // Filter by status if provided
             if (!string.IsNullOrEmpty(status) && Enum.TryParse<OrderStatus>(status, true, out var orderStatus))
             {
@@ -444,8 +436,7 @@ public class AdminController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving admin orders");
-            return StatusCode(500, new { message = "Error retrieving orders" });
+            return StatusCode(500, new { message = "Error retrieving orders", error = ex.Message });
         }
     }
 
@@ -679,8 +670,7 @@ public class AdminController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving admin customers");
-            return StatusCode(500, new { message = "Error retrieving customers" });
+            return StatusCode(500, new { message = "Error retrieving customers", error = ex.Message });
         }
     }
 

@@ -1,7 +1,6 @@
 // Painel de SEO e busca
-import React, { useEffect, useState } from 'react';
-import { API_URL } from '@/services/endpoints';
-import { fetchJson } from '@/services/fetch-client';
+import { useEffect, useState } from "react";
+import { API_URL } from "../src/services/endpoints";
 
 interface SearchReport {
   id: string;
@@ -24,25 +23,16 @@ export default function SeoSearchPanel() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      try {
-        const [searchData, seoData] = await Promise.all([
-          fetchJson<SearchReport[]>(`${API_URL}/search-reports`),
-          fetchJson<SeoReport[]>(`${API_URL}/seo-reports`),
-        ]);
-        if (!mounted) return;
+    Promise.all([
+      fetch(`${API_URL}/search-reports`).then((res) => res.json()),
+      fetch(`${API_URL}/seo-reports`).then((res) => res.json()),
+    ])
+      .then(([searchData, seoData]) => {
         setSearchReports(searchData);
         setSeoReports(seoData);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    void load();
-    return () => {
-      mounted = false;
-    };
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
   return (
@@ -63,7 +53,7 @@ export default function SeoSearchPanel() {
                 </tr>
               </thead>
               <tbody>
-                {searchReports.map(r => (
+                {searchReports.map((r) => (
                   <tr key={r.id} className="border-b">
                     <td className="p-2">{r.query}</td>
                     <td className="p-2">{r.resultsCount}</td>
@@ -85,11 +75,11 @@ export default function SeoSearchPanel() {
                 </tr>
               </thead>
               <tbody>
-                {seoReports.map(r => (
+                {seoReports.map((r) => (
                   <tr key={r.id} className="border-b">
                     <td className="p-2">{r.page}</td>
                     <td className="p-2">{r.score}</td>
-                    <td className="p-2">{r.issues.join(', ')}</td>
+                    <td className="p-2">{r.issues.join(", ")}</td>
                     <td className="p-2">{r.lastChecked}</td>
                   </tr>
                 ))}

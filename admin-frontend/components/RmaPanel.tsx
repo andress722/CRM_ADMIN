@@ -1,7 +1,6 @@
 // Painel de RMA/trocas/devoluções
-import React, { useEffect, useState } from 'react';
-import { API_URL } from '@/services/endpoints';
-import { fetchJson } from '@/services/fetch-client';
+import { useEffect, useState } from "react";
+import { API_URL } from "../src/services/endpoints";
 
 interface RmaRequest {
   id: string;
@@ -18,33 +17,31 @@ interface RmaRequest {
 export default function RmaPanel() {
   const [requests, setRequests] = useState<RmaRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState("");
 
   useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      try {
-        const data = await fetchJson<RmaRequest[]>(`${API_URL}/rma`);
-        if (!mounted) return;
+    fetch(`${API_URL}/rma`)
+      .then((res) => res.json())
+      .then((data) => {
         setRequests(data);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    void load();
-    return () => {
-      mounted = false;
-    };
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
-  const filtered = requests.filter(r => !statusFilter || r.status === statusFilter);
+  const filtered = requests.filter(
+    (r) => !statusFilter || r.status === statusFilter,
+  );
 
   return (
     <div className="p-4">
       <h2 className="text-xl font-bold mb-4">RMA / Trocas / Devoluções</h2>
       <div className="mb-4">
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="border rounded px-2 py-1">
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="border rounded px-2 py-1"
+        >
           <option value="">Status</option>
           <option value="Pendente">Pendente</option>
           <option value="Aprovado">Aprovado</option>
@@ -70,7 +67,7 @@ export default function RmaPanel() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map(r => (
+            {filtered.map((r) => (
               <tr key={r.id} className="border-b">
                 <td className="p-2">{r.id}</td>
                 <td className="p-2">{r.orderId}</td>
@@ -79,7 +76,19 @@ export default function RmaPanel() {
                 <td className="p-2">{r.type}</td>
                 <td className="p-2">{r.status}</td>
                 <td className="p-2">{r.reason}</td>
-                <td className="p-2">{r.evidenceUrl ? <a href={r.evidenceUrl} target="_blank" rel="noopener noreferrer">Ver</a> : '-'}</td>
+                <td className="p-2">
+                  {r.evidenceUrl ? (
+                    <a
+                      href={r.evidenceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Ver
+                    </a>
+                  ) : (
+                    "-"
+                  )}
+                </td>
                 <td className="p-2">{r.createdAt}</td>
               </tr>
             ))}

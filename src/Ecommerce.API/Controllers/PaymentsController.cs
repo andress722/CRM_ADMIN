@@ -9,7 +9,6 @@ namespace Ecommerce.API.Controllers;
 /// Controlador para gerenciar pagamentos
 /// </summary>
 [ApiController]
-[Authorize]
 [Route("api/v1/[controller]")]
 public class PaymentsController : ControllerBase
 {

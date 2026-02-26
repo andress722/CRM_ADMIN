@@ -7,6 +7,7 @@ import type {
   OrderWithHistory,
   UserStats,
   CartItem,
+  SubscriptionPlan,
 } from "./types"
 
 const RAW_BASE_URL =
@@ -219,6 +220,32 @@ export async function verifyEmail(token: string) {
 }
 
 // --- Products ---
+export async function getProductCategories(): Promise<string[]> {
+  const data = await apiFetch<any[]>("/products")
+  const categories = new Set<string>()
+
+  for (const raw of data || []) {
+    const category = String(raw?.category ?? raw?.Category ?? "").trim()
+    if (category.length > 0) categories.add(category)
+  }
+
+  const sorted = Array.from(categories).sort((a, b) => a.localeCompare(b))
+  return ["All", ...sorted]
+}
+
+export async function getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+  const data = await apiFetch<any[]>("/subscriptions/plans")
+  return (data || []).map((plan) => ({
+    id: String(plan?.id ?? plan?.Id ?? ""),
+    name: String(plan?.name ?? plan?.Name ?? ""),
+    price: Number(plan?.price ?? plan?.Price ?? 0),
+    interval: String(plan?.interval ?? plan?.Interval ?? "month"),
+    features: Array.isArray(plan?.features ?? plan?.Features)
+      ? (plan.features ?? plan.Features).map((f: unknown) => String(f))
+      : [],
+    highlighted: Boolean(plan?.highlighted ?? plan?.Highlighted),
+  }))
+}
 
 export async function searchProducts(params: {
   query?: string
@@ -559,3 +586,5 @@ export async function trackEvent(data: {
     // Analytics failures are silent
   }
 }
+
+

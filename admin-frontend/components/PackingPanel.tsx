@@ -1,7 +1,6 @@
 // Painel de etiquetas, packing list e picking list
-import React, { useEffect, useState } from 'react';
-import { LEGACY_API_URL } from '@/services/endpoints';
-import { fetchJson } from '@/services/fetch-client';
+import { useEffect, useState } from "react";
+import { LEGACY_API_URL } from "../lib/legacy-api";
 
 interface Packing {
   id: string;
@@ -14,28 +13,21 @@ interface Packing {
 export default function PackingPanel() {
   const [packings, setPackings] = useState<Packing[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState("");
 
   useEffect(() => {
-    let mounted = true;
-
-    const load = async () => {
-      try {
-        const data = await fetchJson<Packing[]>(`${LEGACY_API_URL}/packing`);
-        if (!mounted) return;
+    fetch(`${LEGACY_API_URL}/packing`)
+      .then((res) => res.json())
+      .then((data) => {
         setPackings(data);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    void load();
-    return () => {
-      mounted = false;
-    };
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
-  const filtered = packings.filter(p => !statusFilter || p.status === statusFilter);
+  const filtered = packings.filter(
+    (p) => !statusFilter || p.status === statusFilter,
+  );
 
   function printPacking() {
     // Simula impressão
@@ -44,9 +36,15 @@ export default function PackingPanel() {
 
   return (
     <div className="p-4">
-      <h2 className="text-xl font-bold mb-4">Etiquetas / Packing List / Picking List</h2>
+      <h2 className="text-xl font-bold mb-4">
+        Etiquetas / Packing List / Picking List
+      </h2>
       <div className="mb-4">
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="border rounded px-2 py-1">
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="border rounded px-2 py-1"
+        >
           <option value="">Status</option>
           <option value="Pendente">Pendente</option>
           <option value="Pronto">Pronto</option>
@@ -68,17 +66,22 @@ export default function PackingPanel() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map(p => (
+            {filtered.map((p) => (
               <tr key={p.id} className="border-b">
                 <td className="p-2">{p.id}</td>
                 <td className="p-2">{p.orderId}</td>
                 <td className="p-2">
-                  {p.items.map(i => `${i.name} x${i.quantity}`).join(', ')}
+                  {p.items.map((i) => `${i.name} x${i.quantity}`).join(", ")}
                 </td>
                 <td className="p-2">{p.status}</td>
                 <td className="p-2">{p.createdAt}</td>
                 <td className="p-2">
-                  <button className="bg-blue-600 text-white px-2 py-1 rounded" onClick={() => printPacking()}>Imprimir</button>
+                  <button
+                    className="bg-blue-600 text-white px-2 py-1 rounded"
+                    onClick={() => printPacking()}
+                  >
+                    Imprimir
+                  </button>
                 </td>
               </tr>
             ))}
@@ -88,5 +91,3 @@ export default function PackingPanel() {
     </div>
   );
 }
-
-

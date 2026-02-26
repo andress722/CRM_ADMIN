@@ -1,12 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-
-import { LoadingState, ErrorState } from '@/components/ui/AsyncState';
-import { endpoints } from '@/services/endpoints';
-import { AuthService } from '@/services/auth';
-import { authFetch } from '@/services/auth-fetch';
-import { ApiRecord } from '@/types';
+import { AuthService } from "@/services/auth";
+import { endpoints } from "@/services/endpoints";
+import { ApiRecord } from "@/types";
+import React, { useEffect, useState } from "react";
 
 type SettingsState = ApiRecord & {
   storeName?: string;
@@ -24,20 +21,20 @@ export default function SettingsPage() {
   useEffect(() => {
     const token = AuthService.getToken();
     if (!token) {
-      setError('Usuário não autenticado.');
+      setError("Usuário não autenticado.");
       setLoading(false);
       return;
     }
-    authFetch(endpoints.admin.settings, {
-      headers: {},
+    fetch(endpoints.admin.settings, {
+      headers: { Authorization: `Bearer ${token}` },
     })
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         setSettings(data);
         setLoading(false);
       })
       .catch(() => {
-        setError('Erro ao carregar configurações.');
+        setError("Erro ao carregar configurações.");
         setLoading(false);
       });
   }, []);
@@ -46,30 +43,32 @@ export default function SettingsPage() {
     const { name, value, type, checked } = e.target;
     setSettings((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: type === "checkbox" ? checked : value,
     }));
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    const token = AuthService.getToken();
     try {
-      await authFetch(endpoints.admin.settings, {
-        method: 'PUT',
+      await fetch(endpoints.admin.settings, {
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(settings),
       });
     } catch {
-      setError('Erro ao salvar configurações.');
+      setError("Erro ao salvar configurações.");
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) return <LoadingState message="Carregando configurações..." />;
-  if (error) return <ErrorState message={error} />;
+  if (loading) return <div>Carregando configurações...</div>;
+  if (error) return <div className="text-red-600">{error}</div>;
 
   return (
     <div className="max-w-xl mx-auto p-6 bg-white border rounded-xl shadow">
@@ -80,7 +79,7 @@ export default function SettingsPage() {
           <input
             type="text"
             name="storeName"
-            value={settings.storeName || ''}
+            value={settings.storeName || ""}
             onChange={handleChange}
             className="border rounded px-2 py-1 w-full"
             required
@@ -91,7 +90,7 @@ export default function SettingsPage() {
           <input
             type="email"
             name="contactEmail"
-            value={settings.contactEmail || ''}
+            value={settings.contactEmail || ""}
             onChange={handleChange}
             className="border rounded px-2 py-1 w-full"
             required
@@ -117,19 +116,14 @@ export default function SettingsPage() {
             className="ml-2"
           />
         </div>
-        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded font-semibold" disabled={saving}>
-          {saving ? 'Salvando...' : 'Salvar configurações'}
+        <button
+          type="submit"
+          className="bg-blue-600 text-white px-4 py-2 rounded font-semibold"
+          disabled={saving}
+        >
+          {saving ? "Salvando..." : "Salvar configurações"}
         </button>
       </form>
     </div>
   );
 }
-
-
-
-
-
-
-
-
-

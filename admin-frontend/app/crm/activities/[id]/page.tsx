@@ -12,11 +12,6 @@ import Select from '@/components/Select';
 
 const TYPES = ['Call', 'Email', 'Meeting', 'Task'] as const;
 
-const STATUS_STYLES: Record<Activity['status'], string> = {
-  Open: 'bg-blue-100 text-blue-700',
-  Done: 'bg-green-100 text-green-700',
-  Overdue: 'bg-red-100 text-red-700',
-};
 
 type Activity = {
   id: string;
@@ -28,6 +23,31 @@ type Activity = {
   status: 'Open' | 'Done' | 'Overdue';
   notes?: string;
 };
+const STATUS_STYLES: Record<'Open' | 'Done' | 'Overdue', string> = {
+  Open: 'bg-blue-100 text-blue-700',
+  Done: 'bg-green-100 text-green-700',
+  Overdue: 'bg-red-100 text-red-700',
+};
+
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (!error || typeof error !== 'object') return fallback;
+  const e = error as { message?: string; response?: { data?: { message?: string } } };
+  return e.response?.data?.message || e.message || fallback;
+}
+
+function validateActivityForm(input: { subject: string; owner: string; contact: string; notes?: string }): string | null {
+  const subject = input.subject.trim();
+  const owner = input.owner.trim();
+  const contact = input.contact.trim();
+
+  if (subject.length < 3 || subject.length > 200) return 'Assunto deve ter entre 3 e 200 caracteres.';
+  if (owner.length < 2 || owner.length > 120) return 'Responsavel deve ter entre 2 e 120 caracteres.';
+  if (contact.length < 2 || contact.length > 120) return 'Contato deve ter entre 2 e 120 caracteres.';
+  if (input.notes && input.notes.length > 2000) return 'Notas excedem o limite de 2000 caracteres.';
+
+  return null;
+}
 
 export default function ActivityDetailPage() {
   const params = useParams();
@@ -68,6 +88,11 @@ export default function ActivityDetailPage() {
 
   const handleSave = async () => {
     if (!form || !id) return;
+    const validationError = validateActivityForm(form);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
     setSaving(true);
     setError(null);
     const token = AuthService.getToken();
@@ -88,8 +113,8 @@ export default function ActivityDetailPage() {
       const updated = await res.json();
       setActivity(updated);
       setForm(updated);
-    } catch {
-      setError('Erro ao salvar atividade.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Erro ao salvar atividade.'));
     } finally {
       setSaving(false);
     }
@@ -97,6 +122,7 @@ export default function ActivityDetailPage() {
 
   const handleDelete = async () => {
     if (!id) return;
+    if (!confirm('Tem certeza que deseja excluir esta atividade?')) return;
     setDeleting(true);
     setError(null);
     const token = AuthService.getToken();
@@ -112,8 +138,8 @@ export default function ActivityDetailPage() {
       });
       if (!res.ok) throw new Error('Erro ao remover atividade');
       router.push('/crm/activities');
-    } catch {
-      setError('Erro ao remover atividade.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Erro ao remover atividade.'));
     } finally {
       setDeleting(false);
     }
@@ -273,6 +299,14 @@ export default function ActivityDetailPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
 
 
 

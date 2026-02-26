@@ -9,27 +9,18 @@ using Ecommerce.Application.Services;
 using Ecommerce.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using System.Diagnostics;
-using System.Security.Cryptography;
 using AspNetCoreRateLimit;
 using Ecommerce.Infrastructure.Email;
 using Ecommerce.Infrastructure.Payments;
-using Npgsql;
 using Polly;
 using Polly.Extensions.Http;
 using Sentry;
 
 var builder = WebApplication.CreateBuilder(args);
-var renderPort = Environment.GetEnvironmentVariable("PORT");
-var aspnetUrls = Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
-if (!string.IsNullOrWhiteSpace(renderPort) && string.IsNullOrWhiteSpace(aspnetUrls))
-{
-    builder.WebHost.UseUrls($"http://0.0.0.0:{renderPort}");
-}
 
 // Configure Serilog early
 Log.Logger = new LoggerConfiguration()
@@ -55,9 +46,6 @@ if (!string.IsNullOrWhiteSpace(sentryDsn))
 // Add CORS
 var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
 corsOrigins = corsOrigins?.Where(origin => !string.IsNullOrWhiteSpace(origin)).ToArray();
-var corsOriginPatterns = builder.Configuration.GetSection("Cors:AllowedOriginPatterns").Get<string[]>();
-corsOriginPatterns = corsOriginPatterns?.Where(pattern => !string.IsNullOrWhiteSpace(pattern)).ToArray()
-    ?? Array.Empty<string>();
 if (corsOrigins == null || corsOrigins.Length == 0)
 {
     corsOrigins = new[]
@@ -79,84 +67,12 @@ builder.Services.AddCors(options =>
         }
 
         policy
-            .SetIsOriginAllowed(origin => IsCorsOriginAllowed(origin, corsOrigins, corsOriginPatterns))
+            .WithOrigins(corsOrigins)
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials();
     });
 });
-
-static bool IsCorsOriginAllowed(string? origin, string[] allowedOrigins, string[] allowedOriginPatterns)
-{
-    if (string.IsNullOrWhiteSpace(origin))
-    {
-        return false;
-    }
-
-    if (allowedOrigins.Any(allowed => string.Equals(allowed, origin, StringComparison.OrdinalIgnoreCase)))
-    {
-        return true;
-    }
-
-    if (!Uri.TryCreate(origin, UriKind.Absolute, out var originUri))
-    {
-        return false;
-    }
-
-    foreach (var pattern in allowedOriginPatterns)
-    {
-        if (!TryMatchOriginPattern(originUri, pattern))
-        {
-            continue;
-        }
-
-        return true;
-    }
-
-    return false;
-}
-
-static bool TryMatchOriginPattern(Uri originUri, string pattern)
-{
-    if (string.IsNullOrWhiteSpace(pattern))
-    {
-        return false;
-    }
-
-    if (Uri.TryCreate(pattern, UriKind.Absolute, out var patternUri))
-    {
-        if (!string.Equals(patternUri.Scheme, originUri.Scheme, StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        if (!patternUri.IsDefaultPort && patternUri.Port != originUri.Port)
-        {
-            return false;
-        }
-
-        return TryMatchHostPattern(originUri.Host, patternUri.Host);
-    }
-
-    return TryMatchHostPattern(originUri.Host, pattern);
-}
-
-static bool TryMatchHostPattern(string host, string hostPattern)
-{
-    if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(hostPattern))
-    {
-        return false;
-    }
-
-    if (!hostPattern.StartsWith("*.", StringComparison.Ordinal))
-    {
-        return string.Equals(host, hostPattern, StringComparison.OrdinalIgnoreCase);
-    }
-
-    var suffix = hostPattern[2..];
-    return host.Length > suffix.Length
-        && host.EndsWith("." + suffix, StringComparison.OrdinalIgnoreCase);
-}
 
 // Add services to the container
 builder.Services.AddControllers();
@@ -225,94 +141,6 @@ builder.Services.AddSwaggerGen(c =>
     c.CustomSchemaIds(type => (type.FullName ?? type.Name).Replace('+', '.'));
 });
 
-static bool IsLocalPostgresConnection(string? connectionString)
-{
-    if (string.IsNullOrWhiteSpace(connectionString))
-    {
-        return false;
-    }
-
-    return connectionString.Contains("Host=localhost", StringComparison.OrdinalIgnoreCase)
-        || connectionString.Contains("Host=127.0.0.1", StringComparison.OrdinalIgnoreCase)
-        || connectionString.Contains("Host=postgres", StringComparison.OrdinalIgnoreCase)
-        || connectionString.Contains("Host=db", StringComparison.OrdinalIgnoreCase)
-        || connectionString.Contains("Port=5433", StringComparison.OrdinalIgnoreCase);
-}
-
-static string NormalizePostgresConnectionString(string connectionString)
-{
-    if (string.IsNullOrWhiteSpace(connectionString))
-    {
-        return connectionString;
-    }
-
-    // Already in ADO.NET key/value format.
-    if (connectionString.Contains('='))
-    {
-        return connectionString;
-    }
-
-    if (!Uri.TryCreate(connectionString, UriKind.Absolute, out var uri))
-    {
-        return connectionString;
-    }
-
-    if (!uri.Scheme.Equals("postgres", StringComparison.OrdinalIgnoreCase)
-        && !uri.Scheme.Equals("postgresql", StringComparison.OrdinalIgnoreCase))
-    {
-        return connectionString;
-    }
-
-    var builder = new NpgsqlConnectionStringBuilder
-    {
-        Host = uri.Host,
-        Port = uri.IsDefaultPort ? 5432 : uri.Port
-    };
-
-    var dbName = uri.AbsolutePath.Trim('/');
-    if (!string.IsNullOrWhiteSpace(dbName))
-    {
-        builder.Database = dbName;
-    }
-
-    if (!string.IsNullOrWhiteSpace(uri.UserInfo))
-    {
-        var parts = uri.UserInfo.Split(':', 2);
-        if (parts.Length >= 1)
-        {
-            builder.Username = Uri.UnescapeDataString(parts[0]);
-        }
-
-        if (parts.Length == 2)
-        {
-            builder.Password = Uri.UnescapeDataString(parts[1]);
-        }
-    }
-
-    var query = uri.Query.TrimStart('?');
-    if (!string.IsNullOrWhiteSpace(query))
-    {
-        foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
-        {
-            var split = pair.Split('=', 2);
-            var key = Uri.UnescapeDataString(split[0]).Trim().ToLowerInvariant();
-            var value = split.Length == 2 ? Uri.UnescapeDataString(split[1]).Trim() : string.Empty;
-
-            switch (key)
-            {
-                case "sslmode":
-                    if (Enum.TryParse<SslMode>(value, true, out var sslMode))
-                    {
-                        builder.SslMode = sslMode;
-                    }
-                    break;
-            }
-        }
-    }
-
-    return builder.ConnectionString;
-}
-
 // Add DbContext - use PostgreSQL by default
 builder.Services.AddDbContext<EcommerceDbContext>(options =>
 {
@@ -324,27 +152,6 @@ builder.Services.AddDbContext<EcommerceDbContext>(options =>
     else
     {
         var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-        var renderDatabaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
-
-        if ((string.IsNullOrWhiteSpace(connectionString) || IsLocalPostgresConnection(connectionString))
-            && !string.IsNullOrWhiteSpace(renderDatabaseUrl))
-        {
-            connectionString = renderDatabaseUrl;
-        }
-
-        if (string.IsNullOrWhiteSpace(connectionString))
-        {
-            throw new InvalidOperationException(
-                "Connection string not configured. Set ConnectionStrings__DefaultConnection or DATABASE_URL.");
-        }
-
-        if (builder.Environment.IsProduction() && IsLocalPostgresConnection(connectionString))
-        {
-            Log.Warning(
-                "Production is using a local Postgres connection string. Configure ConnectionStrings__DefaultConnection or DATABASE_URL for managed DB.");
-        }
-
-        connectionString = NormalizePostgresConnectionString(connectionString);
         options.UseNpgsql(connectionString);
     }
 });
@@ -413,151 +220,34 @@ builder.Services.AddScoped<SocialAuthService>();
 builder.Services.AddScoped<PushDeviceService>();
 builder.Services.AddScoped<CrmService>();
 builder.Services.AddScoped<IShippingProvider, Ecommerce.Infrastructure.Shipping.CorreiosShippingProvider>();
-var isProduction = builder.Environment.IsProduction();
-var allowInsecureProvidersInProduction = builder.Configuration.GetValue("Runtime:AllowInsecureProvidersInProduction", false);
-var enforceProviderSafety = isProduction && !allowInsecureProvidersInProduction;
-
-if (isProduction && allowInsecureProvidersInProduction)
-{
-    Log.Warning("Runtime:AllowInsecureProvidersInProduction=true. Unsafe provider fallbacks are enabled for this deployment.");
-}
-
-var paymentProvider = (builder.Configuration.GetValue<string>("Payments:Provider") ?? "Stub").Trim();
+var paymentProvider = builder.Configuration.GetValue<string>("Payments:Provider") ?? "Stub";
 if (paymentProvider.Equals("MercadoPago", StringComparison.OrdinalIgnoreCase))
 {
-    var mpAccessToken = builder.Configuration["Payments:MercadoPago:AccessToken"];
-    var missingAccessToken = string.IsNullOrWhiteSpace(mpAccessToken)
-        || mpAccessToken.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase);
-
-    if (missingAccessToken)
-    {
-        if (enforceProviderSafety)
-        {
-            throw new InvalidOperationException(
-                "Payments:MercadoPago:AccessToken must be configured in production when using MercadoPago provider.");
-        }
-
-        Log.Warning("MercadoPago configured without valid token. Falling back to StubPaymentGateway.");
-        builder.Services.AddScoped<IPaymentGateway, StubPaymentGateway>();
-    }
-    else
-    {
-        builder.Services.AddScoped<IPaymentGateway, MercadoPagoPaymentGateway>();
-    }
-}
-else if (paymentProvider.Equals("Stub", StringComparison.OrdinalIgnoreCase))
-{
-    if (enforceProviderSafety)
-    {
-        throw new InvalidOperationException("Payments:Provider=Stub is not allowed in production.");
-    }
-
-    if (isProduction)
-    {
-        Log.Warning("Payments:Provider=Stub enabled in production due to Runtime:AllowInsecureProvidersInProduction=true.");
-    }
-
-    builder.Services.AddScoped<IPaymentGateway, StubPaymentGateway>();
+    builder.Services.AddScoped<IPaymentGateway, MercadoPagoPaymentGateway>();
 }
 else
 {
-    if (enforceProviderSafety)
-    {
-        throw new InvalidOperationException($"Unsupported Payments:Provider '{paymentProvider}'.");
-    }
-
-    Log.Warning("Unsupported Payments:Provider '{Provider}'. Falling back to StubPaymentGateway.", paymentProvider);
     builder.Services.AddScoped<IPaymentGateway, StubPaymentGateway>();
 }
-
-var emailProvider = (builder.Configuration.GetValue<string>("Email:Provider") ?? "Console").Trim();
+var emailProvider = builder.Configuration.GetValue<string>("Email:Provider") ?? "Console";
 if (emailProvider.Equals("SendGrid", StringComparison.OrdinalIgnoreCase))
 {
     var sendGridKey = builder.Configuration["Email:SendGrid:ApiKey"];
-    var missingSendGridKey = string.IsNullOrWhiteSpace(sendGridKey)
-        || sendGridKey.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase);
-
-    if (missingSendGridKey)
+    if (!string.IsNullOrWhiteSpace(sendGridKey))
     {
-        if (enforceProviderSafety)
-        {
-            throw new InvalidOperationException(
-                "Email:SendGrid:ApiKey must be configured in production when Email:Provider=SendGrid.");
-        }
-
-        Log.Warning("SendGrid configured without API key. Falling back to ConsoleEmailService.");
-        builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
+        builder.Services.AddScoped<IEmailService, SendGridEmailService>();
     }
     else
     {
-        builder.Services.AddScoped<IEmailService, SendGridEmailService>();
+        builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
     }
 }
 else if (emailProvider.Equals("SES", StringComparison.OrdinalIgnoreCase))
 {
-    var sesRegion = builder.Configuration["Email:Ses:Region"];
-    if (string.IsNullOrWhiteSpace(sesRegion))
-    {
-        if (enforceProviderSafety)
-        {
-            throw new InvalidOperationException("Email:Ses:Region must be configured in production when Email:Provider=SES.");
-        }
-
-        Log.Warning("SES configured without region. Falling back to ConsoleEmailService.");
-        builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
-    }
-    else
-    {
-        builder.Services.AddScoped<IEmailService, SesEmailService>();
-    }
-}
-else if (emailProvider.Equals("Gmail", StringComparison.OrdinalIgnoreCase))
-{
-    var gmailUser = builder.Configuration["Email:Gmail:User"];
-    var gmailPass = builder.Configuration["Email:Gmail:Pass"];
-    var missingGmailCredentials = string.IsNullOrWhiteSpace(gmailUser)
-        || string.IsNullOrWhiteSpace(gmailPass)
-        || gmailUser.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase)
-        || gmailPass.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase);
-
-    if (missingGmailCredentials)
-    {
-        if (enforceProviderSafety)
-        {
-            throw new InvalidOperationException(
-                "Email:Gmail:User and Email:Gmail:Pass must be configured in production when Email:Provider=Gmail.");
-        }
-
-        Log.Warning("Gmail configured without valid credentials. Falling back to ConsoleEmailService.");
-        builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
-    }
-    else
-    {
-        builder.Services.AddScoped<IEmailService, GmailSmtpEmailService>();
-    }
-}
-else if (emailProvider.Equals("Console", StringComparison.OrdinalIgnoreCase))
-{
-    if (enforceProviderSafety)
-    {
-        throw new InvalidOperationException("Email:Provider=Console is not allowed in production.");
-    }
-
-    if (isProduction)
-    {
-        Log.Warning("Email:Provider=Console enabled in production due to Runtime:AllowInsecureProvidersInProduction=true.");
-    }
-
-    builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
+    builder.Services.AddScoped<IEmailService, SesEmailService>();
 }
 else
 {
-    if (enforceProviderSafety)
-    {
-        throw new InvalidOperationException($"Unsupported Email:Provider '{emailProvider}'.");
-    }
-
-    Log.Warning("Unsupported Email:Provider '{Provider}'. Falling back to ConsoleEmailService.", emailProvider);
     builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
 }
 builder.Services.AddScoped<ITokenService, TokenService>();
@@ -566,27 +256,6 @@ builder.Services.AddScoped<IPasswordHasher<Ecommerce.Domain.Entities.User>, Pass
 builder.Services.AddHostedService<WebhookDeliveryWorker>();
 builder.Services.AddHostedService<AnalyticsAggregationWorker>();
 builder.Services.AddHostedService<Ecommerce.Infrastructure.BackgroundServices.EventWorker>();
-builder.Services.Configure<ForwardedHeadersOptions>(options =>
-{
-    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    options.ForwardLimit = 2;
-
-    var trustedProxies = builder.Configuration.GetSection("Networking:TrustedProxies").Get<string[]>() ?? Array.Empty<string>();
-    foreach (var proxy in trustedProxies)
-    {
-        if (System.Net.IPAddress.TryParse(proxy, out var ip))
-        {
-            options.KnownProxies.Add(ip);
-        }
-    }
-
-    // If no proxies are configured, allow local/dev reverse-proxy setups.
-    if (trustedProxies.Length == 0 && builder.Environment.IsDevelopment())
-    {
-        options.KnownNetworks.Clear();
-        options.KnownProxies.Clear();
-    }
-});
 
 // Auth
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -594,27 +263,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     {
         var issuer = builder.Configuration["Jwt:Issuer"] ?? "ecommerce-api";
         var audience = builder.Configuration["Jwt:Audience"] ?? "ecommerce-admin";
-        var secret = builder.Configuration["Jwt:SecretKey"];
-        var hasValidConfiguredSecret = !string.IsNullOrWhiteSpace(secret)
-            && !secret.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase);
-
-        if (!hasValidConfiguredSecret)
-        {
-            if (builder.Environment.IsDevelopment())
-            {
-                secret = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
-                Log.Warning("Jwt:SecretKey is not configured. Using an ephemeral development key.");
-            }
-            else
-            {
-                throw new InvalidOperationException("Jwt:SecretKey must be configured outside development.");
-            }
-        }
-
-        if (string.IsNullOrWhiteSpace(secret))
-        {
-            throw new InvalidOperationException("Unable to initialize Jwt:SecretKey.");
-        }
+        var secret = builder.Configuration["Jwt:SecretKey"] ?? "";
 
         options.TokenValidationParameters = new TokenValidationParameters
         {
@@ -631,7 +280,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("OwnerOrAdmin", policy => policy.Requirements.Add(new Ecommerce.API.Authorization.OwnerOrAdminRequirement()));
-    options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
 });
 
 // Register authorization handler
@@ -691,7 +339,6 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseForwardedHeaders();
 app.Use(async (context, next) =>
 {
     var correlationId = context.Request.Headers["X-Correlation-Id"].FirstOrDefault();
@@ -746,18 +393,13 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-// Root endpoint keeps Render internal health checks green when probing '/'.
-app.MapGet("/", () => Results.Ok(new { service = "Ecommerce API", status = "running", timestamp = DateTime.UtcNow }))
-    .WithName("Root");
-
 // Health check endpoint
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }))
     .WithName("Health");
 
 app.MapGet("/metrics", (MetricsRegistry registry) =>
         Results.Text(registry.ToPrometheus(), "text/plain"))
-    .WithName("Metrics")
-    .RequireAuthorization("AdminOnly");
+    .WithName("Metrics");
 
 static IAsyncPolicy<HttpResponseMessage> GetMercadoPagoRetryPolicy()
     => HttpPolicyExtensions
@@ -804,11 +446,6 @@ try
         var db = scope.ServiceProvider.GetRequiredService<EcommerceDbContext>();
         var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<Ecommerce.Domain.Entities.User>>();
         var seedDataEnabled = builder.Configuration.GetValue("Database:SeedData", builder.Environment.IsDevelopment());
-        var configuredSeedAdminEmail = builder.Configuration["SeedAdmin:Email"] ?? "admin@example.com";
-        var configuredSeedAdminPassword = builder.Configuration["SeedAdmin:Password"] ?? "demo123";
-        var configuredSeedAdminForceReset = builder.Configuration.GetValue("SeedAdmin:ForceResetPassword", false);
-
-        Console.WriteLine($"ℹ️ Seed bootstrap config: Database:SeedData={seedDataEnabled}, SeedAdmin:Email={configuredSeedAdminEmail}, SeedAdmin:ForceResetPassword={configuredSeedAdminForceReset}, SeedAdmin:PasswordProvided={!string.IsNullOrWhiteSpace(configuredSeedAdminPassword)}");
         if (db.Database.IsRelational())
         {
             await db.Database.MigrateAsync();
@@ -821,87 +458,35 @@ try
         if (!seedDataEnabled)
         {
             Console.WriteLine("ℹ️ Seed data disabled (Database:SeedData=false)");
+            return;
         }
-        else
+
+        // Seed demo user if no users exist
+        if (await TableExistsAsync(db, "Users") && !db.Users.Any())
         {
-            // Ensure seed admin user exists (and optionally reset password) even when database already has users.
-            if (await TableExistsAsync(db, "Users"))
+            var demoUser = new Ecommerce.Domain.Entities.User
             {
-                var seedAdminEmail = builder.Configuration["SeedAdmin:Email"] ?? "admin@example.com";
-                var seedAdminPassword = builder.Configuration["SeedAdmin:Password"] ?? "demo123";
-                var seedAdminName = builder.Configuration["SeedAdmin:Name"] ?? "Admin User";
-                var forceResetSeedAdminPassword = builder.Configuration.GetValue("SeedAdmin:ForceResetPassword", false);
+                Id = Guid.NewGuid(),
+                Email = "admin@example.com",
+                FullName = "Admin User",
+                PasswordHash = "",
+                IsEmailVerified = true,
+                Role = "Admin",
+                CreatedAt = DateTime.UtcNow
+            };
 
-                if (string.IsNullOrWhiteSpace(seedAdminEmail) || string.IsNullOrWhiteSpace(seedAdminPassword))
-                {
-                    Console.WriteLine("⚠️ Seed admin skipped because SeedAdmin:Email/Password is empty.");
-                }
-                else
-                {
-                    var normalizedEmail = seedAdminEmail.Trim().ToLowerInvariant();
-                    var seedAdmin = await db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == normalizedEmail);
-                    var changed = false;
+            demoUser.PasswordHash = passwordHasher.HashPassword(demoUser, "demo123");
 
-                    if (seedAdmin == null)
-                    {
-                        seedAdmin = new Ecommerce.Domain.Entities.User
-                        {
-                            Id = Guid.NewGuid(),
-                            Email = seedAdminEmail.Trim(),
-                            FullName = seedAdminName,
-                            PasswordHash = "",
-                            IsEmailVerified = true,
-                            Role = "Admin",
-                            CreatedAt = DateTime.UtcNow
-                        };
+            db.Users.Add(demoUser);
+            await db.SaveChangesAsync();
+            Console.WriteLine("✅ Demo user created: admin@example.com");
+        }
 
-                        seedAdmin.PasswordHash = passwordHasher.HashPassword(seedAdmin, seedAdminPassword);
-                        db.Users.Add(seedAdmin);
-                        changed = true;
-                        Console.WriteLine($"✅ Seed admin user created: {seedAdminEmail}");
-                    }
-                    else
-                    {
-                        if (!string.Equals(seedAdmin.Role, "Admin", StringComparison.OrdinalIgnoreCase))
-                        {
-                            seedAdmin.Role = "Admin";
-                            changed = true;
-                        }
-
-                        if (!seedAdmin.IsEmailVerified)
-                        {
-                            seedAdmin.IsEmailVerified = true;
-                            changed = true;
-                        }
-
-                        if (forceResetSeedAdminPassword)
-                        {
-                            seedAdmin.PasswordHash = passwordHasher.HashPassword(seedAdmin, seedAdminPassword);
-                            changed = true;
-                            Console.WriteLine($"✅ Seed admin password reset: {seedAdminEmail}");
-                        }
-                    }
-
-                    if (changed)
-                    {
-                        await db.SaveChangesAsync();
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Seed admin already up-to-date: {seedAdminEmail}");
-                    }
-                }
-            }
-            else
+        // Seed products if none exist
+        if (await TableExistsAsync(db, "Products") && !db.Products.Any())
+        {
+            var products = new[]
             {
-                Console.WriteLine("Seed admin skipped because Users table was not found.");
-            }
-
-            // Seed products if none exist
-            if (await TableExistsAsync(db, "Products") && !db.Products.Any())
-            {
-                var products = new[]
-                {
                 new Ecommerce.Domain.Entities.Product
                 {
                     Id = Guid.NewGuid(),
@@ -1084,20 +669,20 @@ try
                 }
             };
 
-                db.Products.AddRange(products);
-                await db.SaveChangesAsync();
-                Console.WriteLine($"✅ {products.Length} demo products created");
-            }
+            db.Products.AddRange(products);
+            await db.SaveChangesAsync();
+            Console.WriteLine($"✅ {products.Length} demo products created");
+        }
 
-            // Seed demo orders if none exist
-            if (await TableExistsAsync(db, "Orders") && !db.Orders.Any())
+        // Seed demo orders if none exist
+        if (await TableExistsAsync(db, "Orders") && !db.Orders.Any())
+        {
+            var users = await db.Users.ToListAsync();
+            if (users.Any())
             {
-                var users = await db.Users.ToListAsync();
-                if (users.Any())
+                var products = await db.Products.ToListAsync();
+                var orders = new[]
                 {
-                    var products = await db.Products.ToListAsync();
-                    var orders = new[]
-                    {
                     new Ecommerce.Domain.Entities.Order
                     {
                         Id = Guid.NewGuid(),
@@ -1124,10 +709,9 @@ try
                     }
                 };
 
-                    db.Orders.AddRange(orders);
-                    await db.SaveChangesAsync();
-                    Console.WriteLine($"✅ {orders.Length} demo orders created");
-                }
+                db.Orders.AddRange(orders);
+                await db.SaveChangesAsync();
+                Console.WriteLine($"✅ {orders.Length} demo orders created");
             }
         }
     }
@@ -1140,12 +724,3 @@ catch (Exception ex)
 app.Run();
 
 public partial class Program { }
-
-
-
-
-
-
-
-
-

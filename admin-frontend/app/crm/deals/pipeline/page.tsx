@@ -1,18 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
-import { LoadingState, ErrorState } from '@/components/ui/AsyncState';
-import { endpoints } from '@/services/endpoints';
-import { AuthService } from '@/services/auth';
-import { authFetch } from '@/services/auth-fetch';
-import Link from 'next/link';
-import BulkActionsBar from '@/components/BulkActionsBar';
-import BackButton from '@/components/BackButton';
-import { runBulkRequests } from '@/services/bulk';
-import Select from '@/components/Select';
-import DateInput from '@/components/DateInput';
+import BackButton from "@/components/BackButton";
+import BulkActionsBar from "@/components/BulkActionsBar";
+import DateInput from "@/components/DateInput";
+import Select from "@/components/Select";
+import { AuthService } from "@/services/auth";
+import { runBulkRequests } from "@/services/bulk";
+import { endpoints } from "@/services/endpoints";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 
-const STAGES = ['Prospecting', 'Discovery', 'Proposal', 'Negotiation', 'Won', 'Lost'] as const;
+const STAGES = [
+  "Prospecting",
+  "Discovery",
+  "Proposal",
+  "Negotiation",
+  "Won",
+  "Lost",
+] as const;
 
 type Stage = (typeof STAGES)[number];
 
@@ -32,22 +37,22 @@ export default function DealsPipelinePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkOwner, setBulkOwner] = useState('');
+  const [bulkOwner, setBulkOwner] = useState("");
   const [bulkReassigning, setBulkReassigning] = useState(false);
-  const [bulkStage, setBulkStage] = useState<Stage | ''>('');
+  const [bulkStage, setBulkStage] = useState<Stage | "">("");
   const [bulkStageUpdating, setBulkStageUpdating] = useState(false);
-  const [bulkCloseDate, setBulkCloseDate] = useState('');
+  const [bulkCloseDate, setBulkCloseDate] = useState("");
   const [bulkCloseUpdating, setBulkCloseUpdating] = useState(false);
 
   useEffect(() => {
     const token = AuthService.getToken();
     if (!token) {
-      setError('Usuário não autenticado.');
+      setError("Usuário não autenticado.");
       setLoading(false);
       return;
     }
-    authFetch(endpoints.admin.crmDeals, {
-      headers: {},
+    fetch(endpoints.admin.crmDeals, {
+      headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => res.json())
       .then((data) => {
@@ -57,32 +62,40 @@ export default function DealsPipelinePage() {
         setLoading(false);
       })
       .catch(() => {
-        setError('Erro ao carregar pipeline.');
+        setError("Erro ao carregar pipeline.");
         setLoading(false);
       });
   }, []);
 
   const totals = useMemo(() => {
-    return STAGES.reduce((acc, stage) => {
-      acc[stage] = deals.filter((deal) => deal.stage === stage).reduce((sum, deal) => sum + deal.value, 0);
-      return acc;
-    }, {} as Record<Stage, number>);
+    return STAGES.reduce(
+      (acc, stage) => {
+        acc[stage] = deals
+          .filter((deal) => deal.stage === stage)
+          .reduce((sum, deal) => sum + deal.value, 0);
+        return acc;
+      },
+      {} as Record<Stage, number>,
+    );
   }, [deals]);
 
   const moveDeal = async (id: string, stage: Stage) => {
-    setDeals((prev) => prev.map((deal) => (deal.id === id ? { ...deal, stage } : deal)));
+    setDeals((prev) =>
+      prev.map((deal) => (deal.id === id ? { ...deal, stage } : deal)),
+    );
     const token = AuthService.getToken();
     if (!token) return;
     try {
-      await authFetch(endpoints.admin.crmDealDetail(id), {
-        method: 'PATCH',
+      await fetch(endpoints.admin.crmDealDetail(id), {
+        method: "PATCH",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ stage }),
       });
     } catch {
-      setError('Erro ao mover negócio.');
+      setError("Erro ao mover negócio.");
     }
   };
 
@@ -102,26 +115,28 @@ export default function DealsPipelinePage() {
     if (selectedIds.size === 0 || !bulkOwner.trim()) return;
     const token = AuthService.getToken();
     if (!token) {
-      setError('Usuário não autenticado.');
+      setError("Usuário não autenticado.");
       return;
     }
     setBulkReassigning(true);
     setError(null);
     setDeals((prev) =>
-      prev.map((deal) => (selectedIds.has(deal.id) ? { ...deal, owner: bulkOwner.trim() } : deal))
+      prev.map((deal) =>
+        selectedIds.has(deal.id) ? { ...deal, owner: bulkOwner.trim() } : deal,
+      ),
     );
     try {
       const selected = deals.filter((deal) => selectedIds.has(deal.id));
       const requests = selected.map((deal) => ({
         url: endpoints.admin.crmDealDetail(deal.id),
-        method: 'PATCH' as const,
+        method: "PATCH" as const,
         body: { owner: bulkOwner.trim() },
       }));
       await runBulkRequests(requests, token);
       setSelectedIds(new Set());
-      setBulkOwner('');
+      setBulkOwner("");
     } catch {
-      setError('Erro ao reatribuir negócios em massa.');
+      setError("Erro ao reatribuir negócios em massa.");
     } finally {
       setBulkReassigning(false);
     }
@@ -131,26 +146,28 @@ export default function DealsPipelinePage() {
     if (selectedIds.size === 0 || !bulkStage) return;
     const token = AuthService.getToken();
     if (!token) {
-      setError('Usuário não autenticado.');
+      setError("Usuário não autenticado.");
       return;
     }
     setBulkStageUpdating(true);
     setError(null);
     setDeals((prev) =>
-      prev.map((deal) => (selectedIds.has(deal.id) ? { ...deal, stage: bulkStage } : deal))
+      prev.map((deal) =>
+        selectedIds.has(deal.id) ? { ...deal, stage: bulkStage } : deal,
+      ),
     );
     try {
       const selected = deals.filter((deal) => selectedIds.has(deal.id));
       const requests = selected.map((deal) => ({
         url: endpoints.admin.crmDealDetail(deal.id),
-        method: 'PATCH' as const,
+        method: "PATCH" as const,
         body: { stage: bulkStage },
       }));
       await runBulkRequests(requests, token);
       setSelectedIds(new Set());
-      setBulkStage('');
+      setBulkStage("");
     } catch {
-      setError('Erro ao atualizar etapa em massa.');
+      setError("Erro ao atualizar etapa em massa.");
     } finally {
       setBulkStageUpdating(false);
     }
@@ -160,35 +177,37 @@ export default function DealsPipelinePage() {
     if (selectedIds.size === 0 || !bulkCloseDate) return;
     const token = AuthService.getToken();
     if (!token) {
-      setError('Usuário não autenticado.');
+      setError("Usuário não autenticado.");
       return;
     }
     setBulkCloseUpdating(true);
     setError(null);
     setDeals((prev) =>
       prev.map((deal) =>
-        selectedIds.has(deal.id) ? { ...deal, expectedClose: bulkCloseDate } : deal
-      )
+        selectedIds.has(deal.id)
+          ? { ...deal, expectedClose: bulkCloseDate }
+          : deal,
+      ),
     );
     try {
       const selected = deals.filter((deal) => selectedIds.has(deal.id));
       const requests = selected.map((deal) => ({
         url: endpoints.admin.crmDealDetail(deal.id),
-        method: 'PATCH' as const,
+        method: "PATCH" as const,
         body: { expectedClose: bulkCloseDate },
       }));
       await runBulkRequests(requests, token);
       setSelectedIds(new Set());
-      setBulkCloseDate('');
+      setBulkCloseDate("");
     } catch {
-      setError('Erro ao atualizar fechamento em massa.');
+      setError("Erro ao atualizar fechamento em massa.");
     } finally {
       setBulkCloseUpdating(false);
     }
   };
 
-  if (loading) return <LoadingState message="Carregando pipeline..." />;
-  if (error) return <ErrorState message={error} />;
+  if (loading) return <div className="p-6">Carregando pipeline...</div>;
+  if (error) return <div className="p-6 text-red-600">{error}</div>;
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
@@ -197,10 +216,15 @@ export default function DealsPipelinePage() {
           <BackButton />
           <div>
             <h1 className="text-2xl font-bold">CRM • Pipeline</h1>
-            <p className="text-slate-500">Arraste visualmente seus negócios por etapa (versão inicial).</p>
+            <p className="text-slate-500">
+              Arraste visualmente seus negócios por etapa (versão inicial).
+            </p>
           </div>
         </div>
-        <Link href="/crm/deals" className="text-sm text-blue-600 hover:underline">
+        <Link
+          href="/crm/deals"
+          className="text-sm text-blue-600 hover:underline"
+        >
           Ver lista
         </Link>
       </header>
@@ -209,7 +233,9 @@ export default function DealsPipelinePage() {
         {STAGES.map((stage) => (
           <div key={stage} className="flex-1 min-w-[160px]">
             <p className="text-xs uppercase text-slate-400">{stage}</p>
-            <p className="text-lg font-semibold">R$ {totals[stage]?.toLocaleString()}</p>
+            <p className="text-lg font-semibold">
+              R$ {totals[stage]?.toLocaleString()}
+            </p>
           </div>
         ))}
       </section>
@@ -226,16 +252,18 @@ export default function DealsPipelinePage() {
             <button
               type="button"
               onClick={handleBulkOwner}
-              disabled={bulkReassigning || selectedIds.size === 0 || !bulkOwner.trim()}
+              disabled={
+                bulkReassigning || selectedIds.size === 0 || !bulkOwner.trim()
+              }
               className="border px-3 py-1 rounded disabled:opacity-60"
             >
-              {bulkReassigning ? 'Atribuindo...' : 'Reatribuir'}
+              {bulkReassigning ? "Atribuindo..." : "Reatribuir"}
             </button>
           </div>
           <div className="flex items-center gap-2">
             <Select
               value={bulkStage}
-              onChange={(value) => setBulkStage(value as Stage | '')}
+              onChange={(value) => setBulkStage(value as Stage | "")}
               options={STAGES.map((stage) => ({ value: stage, label: stage }))}
               placeholder="Mover para etapa"
               buttonClassName="border rounded px-2 py-1 text-sm"
@@ -243,10 +271,12 @@ export default function DealsPipelinePage() {
             <button
               type="button"
               onClick={handleBulkStage}
-              disabled={bulkStageUpdating || selectedIds.size === 0 || !bulkStage}
+              disabled={
+                bulkStageUpdating || selectedIds.size === 0 || !bulkStage
+              }
               className="border px-3 py-1 rounded disabled:opacity-60"
             >
-              {bulkStageUpdating ? 'Movendo...' : 'Atualizar etapa'}
+              {bulkStageUpdating ? "Movendo..." : "Atualizar etapa"}
             </button>
           </div>
           <div className="flex items-center gap-2">
@@ -254,10 +284,12 @@ export default function DealsPipelinePage() {
             <button
               type="button"
               onClick={handleBulkCloseDate}
-              disabled={bulkCloseUpdating || selectedIds.size === 0 || !bulkCloseDate}
+              disabled={
+                bulkCloseUpdating || selectedIds.size === 0 || !bulkCloseDate
+              }
               className="border px-3 py-1 rounded disabled:opacity-60"
             >
-              {bulkCloseUpdating ? 'Atualizando...' : 'Atualizar fechamento'}
+              {bulkCloseUpdating ? "Atualizando..." : "Atualizar fechamento"}
             </button>
           </div>
         </BulkActionsBar>
@@ -271,7 +303,10 @@ export default function DealsPipelinePage() {
               {deals
                 .filter((deal) => deal.stage === stage)
                 .map((deal) => (
-                  <div key={deal.id} className="bg-white border rounded-lg p-3 shadow-sm">
+                  <div
+                    key={deal.id}
+                    className="bg-white border rounded-lg p-3 shadow-sm"
+                  >
                     <label className="flex items-center gap-2 text-xs text-slate-500 mb-2">
                       <input
                         type="checkbox"
@@ -282,20 +317,34 @@ export default function DealsPipelinePage() {
                     </label>
                     <p className="font-semibold">{deal.title}</p>
                     <p className="text-sm text-slate-500">{deal.company}</p>
-                    <p className="text-xs text-slate-400">Owner: {deal.owner}</p>
+                    <p className="text-xs text-slate-400">
+                      Owner: {deal.owner}
+                    </p>
                     <div className="flex items-center justify-between mt-2 text-sm">
-                      <span className="font-semibold">R$ {deal.value.toLocaleString()}</span>
-                      <span className="text-slate-400">{deal.probability}%</span>
+                      <span className="font-semibold">
+                        R$ {deal.value.toLocaleString()}
+                      </span>
+                      <span className="text-slate-400">
+                        {deal.probability}%
+                      </span>
                     </div>
-                    <div className="text-xs text-slate-400">Fechamento: {deal.expectedClose}</div>
+                    <div className="text-xs text-slate-400">
+                      Fechamento: {deal.expectedClose}
+                    </div>
                     <div className="mt-2 flex items-center gap-2">
                       <Select
                         value={deal.stage}
                         onChange={(value) => moveDeal(deal.id, value as Stage)}
-                        options={STAGES.map((option) => ({ value: option, label: option }))}
+                        options={STAGES.map((option) => ({
+                          value: option,
+                          label: option,
+                        }))}
                         buttonClassName="border rounded px-2 py-1 text-xs"
                       />
-                      <Link href={`/crm/deals/${deal.id}`} className="text-xs text-blue-600 hover:underline">
+                      <Link
+                        href={`/crm/deals/${deal.id}`}
+                        className="text-xs text-blue-600 hover:underline"
+                      >
                         Abrir
                       </Link>
                     </div>
@@ -308,12 +357,3 @@ export default function DealsPipelinePage() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-

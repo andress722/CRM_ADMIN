@@ -1,7 +1,6 @@
 // Painel de carrinho abandonado
-import React, { useEffect, useState } from 'react';
-import { LEGACY_API_URL } from '@/services/endpoints';
-import { fetchJson } from '@/services/fetch-client';
+import { useEffect, useState } from "react";
+import { LEGACY_API_URL } from "../lib/legacy-api";
 
 interface AbandonedCart {
   id: string;
@@ -15,28 +14,21 @@ interface AbandonedCart {
 export default function AbandonedCartPanel() {
   const [carts, setCarts] = useState<AbandonedCart[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState("");
 
   useEffect(() => {
-    let mounted = true;
-
-    const load = async () => {
-      try {
-        const data = await fetchJson<AbandonedCart[]>(`${LEGACY_API_URL}/abandoned-carts`);
-        if (!mounted) return;
+    fetch(`${LEGACY_API_URL}/abandoned-carts`)
+      .then((res) => res.json())
+      .then((data) => {
         setCarts(data);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    void load();
-    return () => {
-      mounted = false;
-    };
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
-  const filtered = carts.filter(c => !statusFilter || c.recoveryStatus === statusFilter);
+  const filtered = carts.filter(
+    (c) => !statusFilter || c.recoveryStatus === statusFilter,
+  );
 
   function sendRecoveryEmail(cart: AbandonedCart) {
     // Simula envio de e-mail/WhatsApp
@@ -47,7 +39,11 @@ export default function AbandonedCartPanel() {
     <div className="p-4">
       <h2 className="text-xl font-bold mb-4">Carrinhos Abandonados</h2>
       <div className="mb-4">
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="border rounded px-2 py-1">
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="border rounded px-2 py-1"
+        >
           <option value="">Status</option>
           <option value="Pendente">Pendente</option>
           <option value="Recuperado">Recuperado</option>
@@ -68,15 +64,20 @@ export default function AbandonedCartPanel() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map(c => (
+            {filtered.map((c) => (
               <tr key={c.id} className="border-b">
                 <td className="p-2">{c.customerName}</td>
                 <td className="p-2">{c.email}</td>
-                <td className="p-2">{c.items.map(i => `${i.name} x${i.quantity}`).join(', ')}</td>
+                <td className="p-2">
+                  {c.items.map((i) => `${i.name} x${i.quantity}`).join(", ")}
+                </td>
                 <td className="p-2">{c.lastUpdated}</td>
                 <td className="p-2">{c.recoveryStatus}</td>
                 <td className="p-2">
-                  <button className="bg-green-600 text-white px-2 py-1 rounded" onClick={() => sendRecoveryEmail(c)}>
+                  <button
+                    className="bg-green-600 text-white px-2 py-1 rounded"
+                    onClick={() => sendRecoveryEmail(c)}
+                  >
                     Enviar recuperação
                   </button>
                 </td>
@@ -88,5 +89,3 @@ export default function AbandonedCartPanel() {
     </div>
   );
 }
-
-

@@ -1,7 +1,6 @@
 // Painel de permissões, papéis e auditoria
-import React, { useEffect, useState } from 'react';
-import { API_URL } from '@/services/endpoints';
-import { fetchJson } from '@/services/fetch-client';
+import { API_URL } from "@/services/endpoints";
+import { useEffect, useState } from "react";
 
 interface User {
   id: string;
@@ -22,42 +21,39 @@ export default function UserRolesPanel() {
   const [users, setUsers] = useState<User[]>([]);
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [roleFilter, setRoleFilter] = useState('');
+  const [roleFilter, setRoleFilter] = useState("");
 
   useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      try {
-        const [userData, logData] = await Promise.all([
-          fetchJson<User[]>(`${API_URL}/users`),
-          fetchJson<AuditLog[]>(`${API_URL}/audit-logs`),
-        ]);
-        if (!mounted) return;
+    Promise.all([
+      fetch(`${API_URL}/users`).then((res) => res.json()),
+      fetch(`${API_URL}/audit-logs`).then((res) => res.json()),
+    ])
+      .then(([userData, logData]) => {
         setUsers(userData);
         setLogs(logData);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    void load();
-    return () => {
-      mounted = false;
-    };
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
   function changeRole(id: string, role: string) {
     // Simula alteração de papel
-    setUsers(users => users.map(u => u.id === id ? { ...u, role } : u));
+    setUsers((users) => users.map((u) => (u.id === id ? { ...u, role } : u)));
   }
 
-  const filteredUsers = users.filter(u => !roleFilter || u.role === roleFilter);
+  const filteredUsers = users.filter(
+    (u) => !roleFilter || u.role === roleFilter,
+  );
 
   return (
     <div className="p-4">
       <h2 className="text-xl font-bold mb-4">Permissões, Papéis e Auditoria</h2>
       <div className="mb-4">
-        <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} className="border rounded px-2 py-1">
+        <select
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value)}
+          className="border rounded px-2 py-1"
+        >
           <option value="">Todos</option>
           <option value="admin">Admin</option>
           <option value="operador">Operador</option>
@@ -79,14 +75,18 @@ export default function UserRolesPanel() {
             </tr>
           </thead>
           <tbody>
-            {filteredUsers.map(u => (
+            {filteredUsers.map((u) => (
               <tr key={u.id} className="border-b">
                 <td className="p-2">{u.name}</td>
                 <td className="p-2">{u.email}</td>
                 <td className="p-2">{u.role}</td>
                 <td className="p-2">{u.lastLogin}</td>
                 <td className="p-2">
-                  <select value={u.role} onChange={e => changeRole(u.id, e.target.value)} className="border rounded px-2 py-1">
+                  <select
+                    value={u.role}
+                    onChange={(e) => changeRole(u.id, e.target.value)}
+                    className="border rounded px-2 py-1"
+                  >
                     <option value="admin">Admin</option>
                     <option value="operador">Operador</option>
                     <option value="financeiro">Financeiro</option>
@@ -110,9 +110,11 @@ export default function UserRolesPanel() {
             </tr>
           </thead>
           <tbody>
-            {logs.map(l => (
+            {logs.map((l) => (
               <tr key={l.id} className="border-b">
-                <td className="p-2">{users.find(u => u.id === l.userId)?.name || '-'}</td>
+                <td className="p-2">
+                  {users.find((u) => u.id === l.userId)?.name || "-"}
+                </td>
                 <td className="p-2">{l.action}</td>
                 <td className="p-2">{l.timestamp}</td>
               </tr>

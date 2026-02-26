@@ -1,13 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-
-import { LoadingState, ErrorState } from '@/components/ui/AsyncState';
-import Image from 'next/image';
-import { useRouter, useParams } from 'next/navigation';
-import { endpoints } from '@/services/endpoints';
-import { AuthService } from '@/services/auth';
-import { authFetch } from '@/services/auth-fetch';
+import { AuthService } from "@/services/auth";
+import { endpoints } from "@/services/endpoints";
+import Image from "next/image";
+import { useParams, useRouter } from "next/navigation";
+import React, { useEffect, useState } from "react";
 
 export default function ProductImagesPage() {
   const router = useRouter();
@@ -22,20 +19,20 @@ export default function ProductImagesPage() {
     if (!id) return;
     const token = AuthService.getToken();
     if (!token) {
-      setError('Usuário não autenticado.');
+      setError("Usuário não autenticado.");
       setLoading(false);
       return;
     }
-    authFetch(endpoints.admin.productImages(id as string), {
-      headers: {},
+    fetch(endpoints.admin.productImages(id as string), {
+      headers: { Authorization: `Bearer ${token}` },
     })
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         setImages(data);
         setLoading(false);
       })
       .catch(() => {
-        setError('Erro ao carregar imagens.');
+        setError("Erro ao carregar imagens.");
         setLoading(false);
       });
   }, [id]);
@@ -45,31 +42,40 @@ export default function ProductImagesPage() {
     if (!file || !id) return;
     setLoading(true);
     setError(null);
+    const token = AuthService.getToken();
     try {
       const formData = new FormData();
-      formData.append('image', file);
-      const res = await authFetch(endpoints.admin.productImages(id as string), {
-        method: 'POST',
-        headers: {},
+      formData.append("image", file);
+      const res = await fetch(endpoints.admin.productImages(id as string), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
-      if (!res.ok) throw new Error('Erro ao enviar imagem');
+      if (!res.ok) throw new Error("Erro ao enviar imagem");
       router.refresh();
     } catch {
-      setError('Erro ao enviar imagem.');
+      setError("Erro ao enviar imagem.");
       setLoading(false);
     }
   };
 
-  if (loading) return <LoadingState message="Carregando imagens..." />;
-  if (error) return <ErrorState message={error} />;
+  if (loading) return <div>Carregando imagens...</div>;
+  if (error) return <div className="text-red-600">{error}</div>;
 
   return (
     <div className="max-w-lg mx-auto p-6 bg-white border rounded-xl shadow">
       <h1 className="text-2xl font-bold mb-4">Imagens do Produto</h1>
       <form onSubmit={handleUpload} className="flex flex-col gap-4 mb-4">
-        <input type="file" accept="image/*" onChange={e => setFile(e.target.files?.[0] || null)} />
-        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded font-bold" disabled={loading || !file}>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => setFile(e.target.files?.[0] || null)}
+        />
+        <button
+          type="submit"
+          className="bg-blue-600 text-white px-4 py-2 rounded font-bold"
+          disabled={loading || !file}
+        >
           Enviar Imagem
         </button>
       </form>
@@ -89,11 +95,3 @@ export default function ProductImagesPage() {
     </div>
   );
 }
-
-
-
-
-
-
-
-

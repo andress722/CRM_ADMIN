@@ -1,19 +1,16 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-
-import { LoadingState, ErrorState } from '@/components/ui/AsyncState';
-import { useRouter, useParams } from 'next/navigation';
-import { endpoints } from '@/services/endpoints';
-import { AuthService } from '@/services/auth';
-import { authFetch } from '@/services/auth-fetch';
+import { AuthService } from "@/services/auth";
+import { endpoints } from "@/services/endpoints";
+import { useParams, useRouter } from "next/navigation";
+import React, { useEffect, useState } from "react";
 
 export default function EditProductPage() {
   const router = useRouter();
   const params = useParams();
   const id = Array.isArray(params?.id) ? params?.id[0] : params?.id;
-  const [name, setName] = useState('');
-  const [price, setPrice] = useState('');
+  const [name, setName] = useState("");
+  const [price, setPrice] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,21 +18,21 @@ export default function EditProductPage() {
     if (!id) return;
     const token = AuthService.getToken();
     if (!token) {
-      setError('Usuário não autenticado.');
+      setError("Usuário não autenticado.");
       setLoading(false);
       return;
     }
-    authFetch(endpoints.admin.productDetail(id as string), {
-      headers: {},
+    fetch(endpoints.admin.productDetail(id as string), {
+      headers: { Authorization: `Bearer ${token}` },
     })
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         setName(data.name);
         setPrice(data.price);
         setLoading(false);
       })
       .catch(() => {
-        setError('Erro ao carregar produto.');
+        setError("Erro ao carregar produto.");
         setLoading(false);
       });
   }, [id]);
@@ -46,22 +43,23 @@ export default function EditProductPage() {
     setError(null);
     const token = AuthService.getToken();
     if (!token) {
-      setError('Usuário não autenticado.');
+      setError("Usuário não autenticado.");
       setLoading(false);
       return;
     }
     try {
-      const res = await authFetch(endpoints.admin.productDetail(id as string), {
-        method: 'PUT',
+      const res = await fetch(endpoints.admin.productDetail(id as string), {
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ name, price: Number(price) }),
       });
-      if (!res.ok) throw new Error('Erro ao salvar produto');
-      router.push('/products');
+      if (!res.ok) throw new Error("Erro ao salvar produto");
+      router.push("/products");
     } catch {
-      setError('Erro ao salvar produto.');
+      setError("Erro ao salvar produto.");
     } finally {
       setLoading(false);
     }
@@ -72,26 +70,26 @@ export default function EditProductPage() {
     setError(null);
     const token = AuthService.getToken();
     if (!token) {
-      setError('Usuário não autenticado.');
+      setError("Usuário não autenticado.");
       setLoading(false);
       return;
     }
     try {
-      const res = await authFetch(endpoints.admin.productDetail(id as string), {
-        method: 'DELETE',
-        headers: {},
+      const res = await fetch(endpoints.admin.productDetail(id as string), {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error('Erro ao excluir produto');
-      router.push('/products');
+      if (!res.ok) throw new Error("Erro ao excluir produto");
+      router.push("/products");
     } catch {
-      setError('Erro ao excluir produto.');
+      setError("Erro ao excluir produto.");
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) return <LoadingState message="Carregando produto..." />;
-  if (error) return <ErrorState message={error} />;
+  if (loading) return <div>Carregando produto...</div>;
+  if (error) return <div className="text-red-600">{error}</div>;
 
   return (
     <div className="max-w-lg mx-auto p-6 bg-white border rounded-xl shadow">
@@ -101,7 +99,7 @@ export default function EditProductPage() {
           type="text"
           placeholder="Nome do produto"
           value={name}
-          onChange={e => setName(e.target.value)}
+          onChange={(e) => setName(e.target.value)}
           className="border rounded px-2 py-1"
           required
         />
@@ -109,16 +107,25 @@ export default function EditProductPage() {
           type="number"
           placeholder="Preço"
           value={price}
-          onChange={e => setPrice(e.target.value)}
+          onChange={(e) => setPrice(e.target.value)}
           className="border rounded px-2 py-1"
           required
         />
         {error && <div className="text-red-600">{error}</div>}
         <div className="flex gap-2">
-          <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded font-bold" disabled={loading}>
+          <button
+            type="submit"
+            className="bg-blue-600 text-white px-4 py-2 rounded font-bold"
+            disabled={loading}
+          >
             Salvar
           </button>
-          <button type="button" className="bg-red-600 text-white px-4 py-2 rounded font-bold" onClick={handleDelete} disabled={loading}>
+          <button
+            type="button"
+            className="bg-red-600 text-white px-4 py-2 rounded font-bold"
+            onClick={handleDelete}
+            disabled={loading}
+          >
             Excluir
           </button>
         </div>
@@ -126,11 +133,3 @@ export default function EditProductPage() {
     </div>
   );
 }
-
-
-
-
-
-
-
-

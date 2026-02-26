@@ -14,6 +14,81 @@ interface ProductsFilters {
   pageSize: number;
 }
 
+interface ProductValidationResult {
+  valid: boolean;
+  message?: string;
+  payload?: Partial<Product>;
+}
+
+const SKU_PATTERN = /^[a-zA-Z0-9_-]{3,50}$/;
+
+function extractErrorMessage(error: unknown, fallback: string): string {
+  if (!error || typeof error !== 'object') {
+    return fallback;
+  }
+
+  const e = error as {
+    response?: { data?: { message?: string } };
+    message?: string;
+  };
+
+  if (e.response?.data?.message) {
+    return e.response.data.message;
+  }
+
+  if (e.message) {
+    return e.message;
+  }
+
+  return fallback;
+}
+
+function validateProductInput(data: Partial<Product>): ProductValidationResult {
+  const name = (data.name ?? '').trim();
+  const description = (data.description ?? '').trim();
+  const category = (data.category ?? '').trim();
+  const sku = (data.sku ?? '').trim();
+  const price = Number(data.price);
+  const stock = Number(data.stock);
+
+  if (name.length < 3 || name.length > 120) {
+    return { valid: false, message: 'Nome do produto deve ter entre 3 e 120 caracteres.' };
+  }
+
+  if (description.length > 2000) {
+    return { valid: false, message: 'Descricao excede o limite de 2000 caracteres.' };
+  }
+
+  if (category.length < 2 || category.length > 60) {
+    return { valid: false, message: 'Categoria deve ter entre 2 e 60 caracteres.' };
+  }
+
+  if (!SKU_PATTERN.test(sku)) {
+    return { valid: false, message: 'SKU invalido. Use 3-50 caracteres alfanumericos, "_" ou "-".' };
+  }
+
+  if (!Number.isFinite(price) || price <= 0) {
+    return { valid: false, message: 'Preco deve ser maior que zero.' };
+  }
+
+  if (!Number.isInteger(stock) || stock < 0) {
+    return { valid: false, message: 'Estoque deve ser um inteiro maior ou igual a zero.' };
+  }
+
+  return {
+    valid: true,
+    payload: {
+      ...data,
+      name,
+      description,
+      category,
+      sku,
+      price,
+      stock,
+    },
+  };
+}
+
 export default function ProductsPage() {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
@@ -40,44 +115,57 @@ export default function ProductsPage() {
   const deleteProductMutation = useApiMutation('delete');
 
   const handleCreateProduct = async (data: Partial<Product>) => {
+    const validation = validateProductInput(data);
+    if (!validation.valid || !validation.payload) {
+      addToast(`❌ ${validation.message ?? 'Dados invalidos.'}`, 'error');
+      return;
+    }
+
     try {
       await createProductMutation.mutateAsync({
         url: endpoints.admin.products,
-        data,
+        data: validation.payload,
       });
       queryClient.invalidateQueries({ queryKey: ['products'] });
       setShowCreateModal(false);
       addToast('✅ Product created successfully!', 'success');
-    } catch {
-      addToast('❌ Failed to create product', 'error');
+    } catch (err) {
+      addToast(`❌ ${extractErrorMessage(err, 'Failed to create product')}`, 'error');
     }
   };
 
   const handleUpdateProduct = async (data: Partial<Product>) => {
     if (!editingProduct) return;
+
+    const validation = validateProductInput(data);
+    if (!validation.valid || !validation.payload) {
+      addToast(`❌ ${validation.message ?? 'Dados invalidos.'}`, 'error');
+      return;
+    }
+
     try {
       await updateProductMutation.mutateAsync({
         url: `${endpoints.admin.products}/${editingProduct.id}`,
-        data,
+        data: validation.payload,
       });
       queryClient.invalidateQueries({ queryKey: ['products'] });
       setEditingProduct(null);
       addToast('✅ Product updated successfully!', 'success');
-    } catch {
-      addToast('❌ Failed to update product', 'error');
+    } catch (err) {
+      addToast(`❌ ${extractErrorMessage(err, 'Failed to update product')}`, 'error');
     }
   };
 
-  const handleDeleteProduct = async (productId: string) => {
-    if (!confirm('Are you sure you want to delete this product?')) return;
+  const handleDeleteProduct = async (productId: string, productName: string) => {
+    if (!confirm(`Delete product "${productName}"? This action cannot be undone.`)) return;
     try {
       await deleteProductMutation.mutateAsync({
         url: `${endpoints.admin.products}/${productId}`,
       });
       queryClient.invalidateQueries({ queryKey: ['products'] });
       addToast('✅ Product deleted successfully!', 'success');
-    } catch {
-      addToast('❌ Failed to delete product', 'error');
+    } catch (err) {
+      addToast(`❌ ${extractErrorMessage(err, 'Failed to delete product')}`, 'error');
     }
   };
 
@@ -92,7 +180,6 @@ export default function ProductsPage() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-white">Products</h1>
@@ -110,7 +197,6 @@ export default function ProductsPage() {
         </button>
       </div>
 
-      {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-500" />
         <input
@@ -122,7 +208,6 @@ export default function ProductsPage() {
         />
       </div>
 
-      {/* Loading State */}
       {isLoading && (
         <div className="space-y-2">
           {[1, 2, 3, 4, 5].map((i) => (
@@ -134,14 +219,12 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {/* Error State */}
       {error && (
         <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-4">
           <p className="text-red-400">Failed to load products</p>
         </div>
       )}
 
-      {/* Products Table */}
       {!isLoading && !error && (
         <div className="border border-slate-700 rounded-lg overflow-hidden">
           <table className="w-full">
@@ -192,7 +275,7 @@ export default function ProductsPage() {
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDeleteProduct(product.id)}
+                          onClick={() => handleDeleteProduct(product.id, product.name)}
                           className="p-1.5 hover:bg-red-900/20 text-slate-400 hover:text-red-400 rounded transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -207,7 +290,6 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {/* Pagination */}
       {!isLoading && !error && totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
           <button
@@ -240,7 +322,6 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {/* Product Modal */}
       <ProductModal
         isOpen={showCreateModal || !!editingProduct}
         product={editingProduct}

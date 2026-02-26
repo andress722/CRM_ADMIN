@@ -1,7 +1,6 @@
 // Dashboard de pagamentos e conciliação
-import React, { useEffect, useState } from 'react';
-import { LEGACY_API_URL } from '@/services/endpoints';
-import { fetchJson } from '@/services/fetch-client';
+import { useEffect, useState } from "react";
+import { LEGACY_API_URL } from "../lib/legacy-api";
 
 interface Payment {
   id: string;
@@ -16,34 +15,31 @@ interface Payment {
 export default function PaymentDashboard() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState("");
 
   useEffect(() => {
-    let mounted = true;
-
-    const load = async () => {
-      try {
-        const data = await fetchJson<Payment[]>(`${LEGACY_API_URL}/payments`);
-        if (!mounted) return;
+    fetch(`${LEGACY_API_URL}/payments`)
+      .then((res) => res.json())
+      .then((data) => {
         setPayments(data);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    void load();
-    return () => {
-      mounted = false;
-    };
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
-  const filtered = payments.filter(p => !statusFilter || p.status === statusFilter);
+  const filtered = payments.filter(
+    (p) => !statusFilter || p.status === statusFilter,
+  );
 
   return (
     <div className="p-4">
       <h2 className="text-xl font-bold mb-4">Pagamentos</h2>
       <div className="mb-4">
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="border rounded px-2 py-1">
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="border rounded px-2 py-1"
+        >
           <option value="">Status</option>
           <option value="Pending">Pendente</option>
           <option value="Approved">Aprovado</option>
@@ -67,7 +63,7 @@ export default function PaymentDashboard() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map(p => (
+            {filtered.map((p) => (
               <tr key={p.id} className="border-b">
                 <td className="p-2">{p.id}</td>
                 <td className="p-2">{p.orderId}</td>
@@ -84,5 +80,3 @@ export default function PaymentDashboard() {
     </div>
   );
 }
-
-

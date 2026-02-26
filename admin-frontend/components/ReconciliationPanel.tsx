@@ -1,7 +1,6 @@
 // Painel de conciliação de pagamentos vs pedidos
-import React, { useEffect, useState } from 'react';
-import { LEGACY_API_URL } from '@/services/endpoints';
-import { fetchJson } from '@/services/fetch-client';
+import { useEffect, useState } from "react";
+import { LEGACY_API_URL } from "../lib/legacy-api";
 
 interface Reconciliation {
   id: string;
@@ -16,34 +15,31 @@ interface Reconciliation {
 export default function ReconciliationPanel() {
   const [items, setItems] = useState<Reconciliation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState("");
 
   useEffect(() => {
-    let mounted = true;
-
-    const load = async () => {
-      try {
-        const data = await fetchJson<Reconciliation[]>(`${LEGACY_API_URL}/reconciliation`);
-        if (!mounted) return;
+    fetch(`${LEGACY_API_URL}/reconciliation`)
+      .then((res) => res.json())
+      .then((data) => {
         setItems(data);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    void load();
-    return () => {
-      mounted = false;
-    };
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
-  const filtered = items.filter(i => !statusFilter || i.status === statusFilter);
+  const filtered = items.filter(
+    (i) => !statusFilter || i.status === statusFilter,
+  );
 
   return (
     <div className="p-4">
       <h2 className="text-xl font-bold mb-4">Conciliação</h2>
       <div className="mb-4">
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="border rounded px-2 py-1">
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="border rounded px-2 py-1"
+        >
           <option value="">Status</option>
           <option value="Conciliado">Conciliado</option>
           <option value="Divergente">Divergente</option>
@@ -65,8 +61,11 @@ export default function ReconciliationPanel() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map(i => (
-              <tr key={i.id} className={i.status === 'Divergente' ? 'bg-red-100' : ''}>
+            {filtered.map((i) => (
+              <tr
+                key={i.id}
+                className={i.status === "Divergente" ? "bg-red-100" : ""}
+              >
                 <td className="p-2">{i.id}</td>
                 <td className="p-2">{i.orderId}</td>
                 <td className="p-2">{i.paymentId}</td>
@@ -82,5 +81,3 @@ export default function ReconciliationPanel() {
     </div>
   );
 }
-
-

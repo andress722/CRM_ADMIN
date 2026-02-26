@@ -13,7 +13,6 @@ import DateInput from '@/components/DateInput';
 
 const SEGMENTS = ['VIP', 'High Value', 'At Risk', 'New'] as const;
 const LIFECYCLES = ['Lead', 'Prospect', 'Customer', 'Onboarding', 'Churn Risk'] as const;
-
 type Contact = {
   id: string;
   name: string;
@@ -24,6 +23,13 @@ type Contact = {
   lastTouch: string;
   lifecycle: string;
 };
+
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (!error || typeof error !== 'object') return fallback;
+  const e = error as { message?: string; response?: { data?: { message?: string } } };
+  return e.response?.data?.message || e.message || fallback;
+}
 
 export default function ContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -81,15 +87,16 @@ export default function ContactsPage() {
     const token = AuthService.getToken();
     if (!token) return;
     try {
-      await authFetch(endpoints.admin.crmContactDetail(id), {
+      const res = await authFetch(endpoints.admin.crmContactDetail(id), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ segment }),
       });
-    } catch {
-      setError('Erro ao atualizar segmento.');
+      if (!res.ok) throw new Error('Erro ao atualizar segmento.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Erro ao atualizar segmento.'));
     }
   };
 
@@ -149,8 +156,8 @@ export default function ContactsPage() {
       await runBulkRequests(requests, token);
       setSelectedIds(new Set());
       setBulkTaskDueDate('');
-    } catch {
-      setError('Erro ao executar ação em massa.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Erro ao executar ação em massa.'));
     } finally {
       setBulkEmailing(false);
       setBulkTasking(false);
@@ -179,8 +186,8 @@ export default function ContactsPage() {
       await runBulkRequests(requests, token);
       setSelectedIds(new Set());
       setBulkOwner('');
-    } catch {
-      setError('Erro ao reatribuir contatos.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Erro ao reatribuir contatos.'));
     } finally {
       setBulkReassigning(false);
     }
@@ -208,8 +215,8 @@ export default function ContactsPage() {
       await runBulkRequests(requests, token);
       setSelectedIds(new Set());
       setBulkSegment('');
-    } catch {
-      setError('Erro ao atualizar segmento em massa.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Erro ao atualizar segmento em massa.'));
     } finally {
       setBulkSegmentUpdating(false);
     }
@@ -237,8 +244,8 @@ export default function ContactsPage() {
       await runBulkRequests(requests, token);
       setSelectedIds(new Set());
       setBulkLifecycle('');
-    } catch {
-      setError('Erro ao atualizar lifecycle em massa.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Erro ao atualizar lifecycle em massa.'));
     } finally {
       setBulkLifecycleUpdating(false);
     }
@@ -404,6 +411,8 @@ export default function ContactsPage() {
     </div>
   );
 }
+
+
 
 
 

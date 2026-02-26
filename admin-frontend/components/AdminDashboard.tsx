@@ -1,7 +1,6 @@
 // Dashboard geral do admin: KPIs, gráficos, atalhos
-import React, { useEffect, useState } from 'react';
-import { LEGACY_API_URL } from '@/services/endpoints';
-import { fetchJson } from '@/services/fetch-client';
+import { useEffect, useState } from "react";
+import { LEGACY_API_URL } from "../lib/legacy-api";
 
 interface Kpi {
   label: string;
@@ -22,27 +21,16 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let mounted = true;
-
-    const load = async () => {
-      try {
-        const [kpiData, chartData] = await Promise.all([
-          fetchJson<Kpi[]>(`${LEGACY_API_URL}/kpis`),
-          fetchJson<ChartData[]>(`${LEGACY_API_URL}/charts`),
-        ]);
-
-        if (!mounted) return;
+    Promise.all([
+      fetch(`${LEGACY_API_URL}/kpis`).then((res) => res.json()),
+      fetch(`${LEGACY_API_URL}/charts`).then((res) => res.json()),
+    ])
+      .then(([kpiData, chartData]) => {
         setKpis(kpiData);
         setCharts(chartData);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    void load();
-    return () => {
-      mounted = false;
-    };
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
   return (
@@ -54,7 +42,11 @@ export default function AdminDashboard() {
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             {kpis.map((k, idx) => (
-              <a key={idx} href={k.link || '#'} className="bg-white rounded-lg shadow p-4 flex flex-col items-center justify-center hover:bg-blue-50 transition">
+              <a
+                key={idx}
+                href={k.link || "#"}
+                className="bg-white rounded-lg shadow p-4 flex flex-col items-center justify-center hover:bg-blue-50 transition"
+              >
                 {k.icon && <span className={`mb-2 text-2xl ${k.icon}`}></span>}
                 <span className="text-lg font-bold">{k.value}</span>
                 <span className="text-xs text-gray-500 mt-1">{k.label}</span>
@@ -82,5 +74,3 @@ export default function AdminDashboard() {
     </div>
   );
 }
-
-

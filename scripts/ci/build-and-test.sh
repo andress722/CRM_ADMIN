@@ -6,39 +6,28 @@ cd "$ROOT_DIR"
 echo "==> Running CI build-and-test script"
 
 # .NET projects
-if [ -f "src/Ecommerce.sln" ]; then
-  echo "-- .NET: restore, build & test"
-  dotnet restore src/Ecommerce.sln --configfile NuGet.config -m:1 /p:RestoreDisableParallel=true
-  dotnet build src/Ecommerce.sln -v minimal --no-restore
-  dotnet test tests/Ecommerce.API.Tests/Ecommerce.API.Tests.csproj -v minimal --no-build
+if [ -d "dotnet" ]; then
+  echo "-- .NET: restore, format check, build & test"
+  (
+    cd dotnet
+    dotnet restore
+    dotnet format src/GitHub.Copilot.SDK.csproj --verify-no-changes
+    dotnet build -v minimal
+    dotnet test -v minimal
+  )
 fi
 
 # Node.js projects
-for d in info-tech-gamer-storefront-build admin-frontend; do
+for d in nodejs storefront admin-frontend mobile; do
   if [ -f "$d/package.json" ]; then
     echo "-- Node: $d install, lint, build & test"
     (
       cd "$d"
-      if [ -f "pnpm-lock.yaml" ]; then
-        corepack enable >/dev/null 2>&1 || true
-        pnpm install --frozen-lockfile
-        pnpm run lint --if-present
-        pnpm run typecheck --if-present
-        pnpm run build --if-present
-        pnpm test --if-present
-      elif [ -f "package-lock.json" ]; then
-        npm ci
-        npm run lint --if-present
-        npm run typecheck --if-present
-        npm run build --if-present
-        npm test --if-present
-      else
-        npm install
-        npm run lint --if-present
-        npm run typecheck --if-present
-        npm run build --if-present
-        npm test --if-present
-      fi
+      npm ci
+      npm run lint --if-present
+      npm run typecheck --if-present
+      npm run build --if-present
+      npm test --if-present
     )
   fi
 done

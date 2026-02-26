@@ -1,12 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
-
-import { LoadingState, ErrorState } from '@/components/ui/AsyncState';
-import Image from 'next/image';
-import { endpoints } from '@/services/endpoints';
-import { AuthService } from '@/services/auth';
-import { authFetch } from '@/services/auth-fetch';
+import { AuthService } from "@/services/auth";
+import { endpoints } from "@/services/endpoints";
+import Image from "next/image";
+import React, { useEffect, useRef, useState } from "react";
 
 type ProfilePreferences = {
   darkMode: boolean;
@@ -42,10 +39,10 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [form, setForm] = useState<ProfileForm>({
-    name: '',
-    email: '',
-    avatar: '',
-    password: '',
+    name: "",
+    email: "",
+    avatar: "",
+    password: "",
     preferences: { darkMode: false, notifications: true },
   });
   const [uploading, setUploading] = useState(false);
@@ -55,39 +52,42 @@ export default function ProfilePage() {
   useEffect(() => {
     const token = AuthService.getToken();
     if (!token) {
-      setError('Usuário não autenticado.');
+      setError("Usuário não autenticado.");
       setLoading(false);
       return;
     }
-    authFetch(endpoints.admin.profile, {
-      headers: {},
+    fetch(endpoints.admin.profile, {
+      headers: { Authorization: `Bearer ${token}` },
     })
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         setProfile(data as Profile);
         setForm({
-          name: data.name || '',
-          email: data.email || '',
-          avatar: data.avatar || '',
-          password: '',
-          preferences: data.preferences || { darkMode: false, notifications: true },
+          name: data.name || "",
+          email: data.email || "",
+          avatar: data.avatar || "",
+          password: "",
+          preferences: data.preferences || {
+            darkMode: false,
+            notifications: true,
+          },
         });
         setLoading(false);
       })
       .catch(() => {
-        setError('Erro ao carregar perfil.');
+        setError("Erro ao carregar perfil.");
         setLoading(false);
       });
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
-    if (name.startsWith('pref_')) {
+    if (name.startsWith("pref_")) {
       setForm((f) => ({
         ...f,
         preferences: {
           ...f.preferences,
-          [name.replace('pref_', '')]: type === 'checkbox' ? checked : value,
+          [name.replace("pref_", "")]: type === "checkbox" ? checked : value,
         },
       }));
     } else {
@@ -100,11 +100,12 @@ export default function ProfilePage() {
     setUploading(true);
     const file = e.target.files[0];
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append("file", file);
+    const token = AuthService.getToken();
     try {
-      const res = await authFetch(endpoints.admin.profile + '/avatar', {
-        method: 'POST',
-        headers: {},
+      const res = await fetch(endpoints.admin.profile + "/avatar", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
       const data = await res.json();
@@ -113,7 +114,7 @@ export default function ProfilePage() {
         setForm((f) => ({ ...f, avatar: uploadedUrl }));
       }
     } catch {
-      setError('Erro ao enviar imagem.');
+      setError("Erro ao enviar imagem.");
     } finally {
       setUploading(false);
     }
@@ -122,24 +123,26 @@ export default function ProfilePage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    const token = AuthService.getToken();
     try {
-      await authFetch(endpoints.admin.profile, {
-        method: 'PUT',
+      await fetch(endpoints.admin.profile, {
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(form),
       });
       setEditMode(false);
     } catch {
-      setError('Erro ao salvar perfil.');
+      setError("Erro ao salvar perfil.");
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) return <LoadingState message="Carregando perfil..." />;
-  if (error) return <ErrorState message={error} />;
+  if (loading) return <div>Carregando perfil...</div>;
+  if (error) return <div className="text-red-600">{error}</div>;
   if (!profile) return <div>Perfil não encontrado.</div>;
 
   return (
@@ -148,7 +151,7 @@ export default function ProfilePage() {
       <div className="flex items-center gap-4 mb-6">
         <div className="relative">
           <Image
-            src={form.avatar || '/default-avatar.png'}
+            src={form.avatar || "/default-avatar.png"}
             alt="Avatar"
             width={80}
             height={80}
@@ -162,14 +165,14 @@ export default function ProfilePage() {
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
             >
-              {uploading ? 'Enviando...' : 'Trocar foto'}
+              {uploading ? "Enviando..." : "Trocar foto"}
             </button>
           )}
           <input
             type="file"
             accept="image/*"
             ref={fileInputRef}
-            style={{ display: 'none' }}
+            style={{ display: "none" }}
             onChange={handleAvatarUpload}
             disabled={uploading}
           />
@@ -235,16 +238,32 @@ export default function ProfilePage() {
               Notificações
             </label>
           </div>
-          <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded font-semibold mt-4" disabled={saving}>
-            {saving ? 'Salvando...' : 'Salvar alterações'}
+          <button
+            type="submit"
+            className="bg-blue-600 text-white px-4 py-2 rounded font-semibold mt-4"
+            disabled={saving}
+          >
+            {saving ? "Salvando..." : "Salvar alterações"}
           </button>
         </form>
       ) : (
         <div className="space-y-2">
-          <div><span className="font-semibold">Nome:</span> {profile.name}</div>
-          <div><span className="font-semibold">Email:</span> {profile.email}</div>
-          <div><span className="font-semibold">Preferências:</span> {JSON.stringify(profile.preferences)}</div>
-          <button onClick={() => setEditMode(true)} className="bg-blue-600 text-white px-4 py-2 rounded font-semibold mt-4">Editar perfil</button>
+          <div>
+            <span className="font-semibold">Nome:</span> {profile.name}
+          </div>
+          <div>
+            <span className="font-semibold">Email:</span> {profile.email}
+          </div>
+          <div>
+            <span className="font-semibold">Preferências:</span>{" "}
+            {JSON.stringify(profile.preferences)}
+          </div>
+          <button
+            onClick={() => setEditMode(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded font-semibold mt-4"
+          >
+            Editar perfil
+          </button>
         </div>
       )}
       <div className="mt-8">
@@ -256,8 +275,12 @@ export default function ProfilePage() {
             {history.map((h, idx) => (
               <li key={idx} className="border rounded p-2 bg-gray-50">
                 <div className="text-sm text-gray-700">{h.action}</div>
-                <div className="text-xs text-gray-400">{new Date(h.date).toLocaleString()}</div>
-                {h.details && <div className="text-xs text-gray-600 mt-1">{h.details}</div>}
+                <div className="text-xs text-gray-400">
+                  {new Date(h.date).toLocaleString()}
+                </div>
+                {h.details && (
+                  <div className="text-xs text-gray-600 mt-1">{h.details}</div>
+                )}
               </li>
             ))}
           </ul>
@@ -266,12 +289,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-

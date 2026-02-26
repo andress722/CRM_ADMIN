@@ -1,18 +1,12 @@
 // src/services/endpoints.ts
 
-import { ApiValue } from '@/types';
+import { ApiValue } from "@/types";
 
-const RAW_API_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  (process.env.NODE_ENV === 'development' ? 'http://localhost:5071' : '');
-const API_BASE = RAW_API_URL.replace(/\/+$/, '');
-const API_URL = API_BASE.endsWith('/api/v1') ? API_BASE : `${API_BASE}/api/v1`;
-const RAW_LEGACY_API_URL =
-  process.env.NEXT_PUBLIC_LEGACY_API_URL ||
-  (process.env.NODE_ENV === 'development' ? 'http://localhost:5000/api' : '');
-const LEGACY_API_URL = RAW_LEGACY_API_URL.replace(/\/+$/, '');
+const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5071";
+const API_BASE = RAW_API_URL.replace(/\/+$/, "");
+const API_URL = API_BASE.endsWith("/api/v1") ? API_BASE : `${API_BASE}/api/v1`;
 
-export { API_BASE, API_URL, LEGACY_API_URL };
+export { API_BASE, API_URL };
 
 export const endpoints = {
   // Auth
@@ -74,16 +68,22 @@ export const endpoints = {
   },
 } as const;
 
-export const getApiUrl = (endpoint: string, params?: Record<string, ApiValue>) => {
+export const getApiUrl = (
+  endpoint: string,
+  params?: Record<string, ApiValue>,
+) => {
   let url = endpoint;
   if (params) {
     const queryString = new URLSearchParams(
-      Object.entries(params).reduce((acc, [key, value]) => {
-        if (value !== undefined && value !== null) {
-          acc[key] = String(value);
-        }
-        return acc;
-      }, {} as Record<string, string>)
+      Object.entries(params).reduce(
+        (acc, [key, value]) => {
+          if (value !== undefined && value !== null) {
+            acc[key] = String(value);
+          }
+          return acc;
+        },
+        {} as Record<string, string>,
+      ),
     ).toString();
     url = queryString ? `${endpoint}?${queryString}` : endpoint;
   }
