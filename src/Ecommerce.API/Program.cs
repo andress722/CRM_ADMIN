@@ -19,6 +19,7 @@ using Ecommerce.Infrastructure.Payments;
 using Polly;
 using Polly.Extensions.Http;
 using Sentry;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -141,6 +142,93 @@ builder.Services.AddSwaggerGen(c =>
     c.CustomSchemaIds(type => (type.FullName ?? type.Name).Replace('+', '.'));
 });
 
+static bool IsLocalPostgresConnection(string? connectionString)
+{
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
+        return false;
+    }
+
+    return connectionString.Contains("Host=localhost", StringComparison.OrdinalIgnoreCase)
+        || connectionString.Contains("Host=127.0.0.1", StringComparison.OrdinalIgnoreCase)
+        || connectionString.Contains("Host=postgres", StringComparison.OrdinalIgnoreCase)
+        || connectionString.Contains("Host=db", StringComparison.OrdinalIgnoreCase)
+        || connectionString.Contains("Port=5433", StringComparison.OrdinalIgnoreCase);
+}
+
+static string NormalizePostgresConnectionString(string connectionString)
+{
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
+        return connectionString;
+    }
+
+    if (Uri.TryCreate(connectionString, UriKind.Absolute, out var uri)
+        && (uri.Scheme.Equals("postgres", StringComparison.OrdinalIgnoreCase)
+            || uri.Scheme.Equals("postgresql", StringComparison.OrdinalIgnoreCase)))
+    {
+        var builder = new NpgsqlConnectionStringBuilder
+        {
+            Host = uri.Host,
+            Port = uri.IsDefaultPort ? 5432 : uri.Port
+        };
+
+        var dbName = uri.AbsolutePath.Trim('/');
+        if (!string.IsNullOrWhiteSpace(dbName))
+        {
+            builder.Database = dbName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(uri.UserInfo))
+        {
+            var parts = uri.UserInfo.Split(':', 2);
+            if (parts.Length >= 1)
+            {
+                builder.Username = Uri.UnescapeDataString(parts[0]);
+            }
+
+            if (parts.Length == 2)
+            {
+                builder.Password = Uri.UnescapeDataString(parts[1]);
+            }
+        }
+
+        var query = uri.Query.TrimStart('?');
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var split = pair.Split('=', 2);
+                var key = Uri.UnescapeDataString(split[0]).Trim().ToLowerInvariant();
+                var value = split.Length == 2 ? Uri.UnescapeDataString(split[1]).Trim() : string.Empty;
+
+                switch (key)
+                {
+                    case "sslmode":
+                        if (Enum.TryParse<SslMode>(value, true, out var sslMode))
+                        {
+                            builder.SslMode = sslMode;
+                        }
+                        break;
+                    case "ssl":
+                    case "sslmode=require":
+                        builder.SslMode = SslMode.Require;
+                        break;
+                }
+            }
+        }
+
+        return builder.ConnectionString;
+    }
+
+    // Already in ADO.NET key/value format.
+    if (connectionString.Contains('='))
+    {
+        return connectionString;
+    }
+
+    return connectionString;
+}
 // Add DbContext - use PostgreSQL by default
 builder.Services.AddDbContext<EcommerceDbContext>(options =>
 {
@@ -152,6 +240,27 @@ builder.Services.AddDbContext<EcommerceDbContext>(options =>
     else
     {
         var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+        var renderDatabaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+
+        if ((string.IsNullOrWhiteSpace(connectionString) || IsLocalPostgresConnection(connectionString))
+            && !string.IsNullOrWhiteSpace(renderDatabaseUrl))
+        {
+            connectionString = renderDatabaseUrl;
+        }
+
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
+                "Connection string not configured. Set ConnectionStrings__DefaultConnection or DATABASE_URL.");
+        }
+
+        if (builder.Environment.IsProduction() && IsLocalPostgresConnection(connectionString))
+        {
+            Log.Warning(
+                "Production is using a local Postgres connection string. Configure ConnectionStrings__DefaultConnection or DATABASE_URL for managed DB.");
+        }
+
+        connectionString = NormalizePostgresConnectionString(connectionString);
         options.UseNpgsql(connectionString);
     }
 });
@@ -724,3 +833,7 @@ catch (Exception ex)
 app.Run();
 
 public partial class Program { }
+
+
+
+
