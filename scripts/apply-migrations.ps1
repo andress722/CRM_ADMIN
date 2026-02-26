@@ -3,7 +3,7 @@ param(
   [string]$Connection = "Host=postgres;Port=5432;Database=ecommerce;Username=admin;Password=changeme;SslMode=Disable;"
 )
 
-Write-Host "Applying EF migrations using connection: $Connection"
+Write-Host "Applying EF migrations using provided connection string (redacted)."
 Set-Location -Path "src\Ecommerce.Infrastructure"
 
 dotnet restore --configfile "..\..\NuGet.config" -m:1 /p:RestoreDisableParallel=true
@@ -16,3 +16,4 @@ if (-not (dotnet tool list --global | Select-String -Pattern "dotnet-ef")) {
 dotnet ef database update --startup-project "..\Ecommerce.API\Ecommerce.API.csproj" --connection "$Connection"
 
 Write-Host "Migrations applied."
+

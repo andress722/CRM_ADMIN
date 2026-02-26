@@ -42,7 +42,7 @@ This guide covers safe SDK usage, logging hygiene, and basic observability pract
 
 ## 6) Quick checklist
 
-- [ ] Tokens/secrets never appear in logs.
+- [x] Tokens/secrets never appear in logs (CI guard + redaction on scripts/services).
 - [ ] Sentry PII disabled.
 - [ ] Error rates and latencies visible in dashboards.
 - [ ] Retry/backoff configured for CLI connectivity.
@@ -56,3 +56,4 @@ This guide covers safe SDK usage, logging hygiene, and basic observability pract
   - cookie: `csrf_token`
   - header required: `X-CSRF-Token`
   - enforced on `/api/v1/auth/refresh` and `/api/v1/auth/logout`.
+

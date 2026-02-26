@@ -18,13 +18,13 @@ public class ConsoleEmailService : IEmailService
 
     public Task SendEmailVerificationAsync(string to, string token)
     {
-        _logger.LogInformation("[Email] Verification for {Email}: {Token}", to, token);
+        _logger.LogInformation("[Email] Verification requested for {Email} (token redacted)", to);
         return _logs.AddAsync(new EmailLog
         {
             Id = Guid.NewGuid(),
             To = to,
             Subject = "Email Verification",
-            Body = $"Verification token: {token}",
+            Body = "Verification token: [REDACTED]",
             Status = "Sent",
             CreatedAt = DateTime.UtcNow
         });
@@ -32,13 +32,13 @@ public class ConsoleEmailService : IEmailService
 
     public Task SendPasswordResetAsync(string to, string token)
     {
-        _logger.LogInformation("[Email] Password reset for {Email}: {Token}", to, token);
+        _logger.LogInformation("[Email] Password reset requested for {Email} (token redacted)", to);
         return _logs.AddAsync(new EmailLog
         {
             Id = Guid.NewGuid(),
             To = to,
             Subject = "Password Reset",
-            Body = $"Reset token: {token}",
+            Body = "Reset token: [REDACTED]",
             Status = "Sent",
             CreatedAt = DateTime.UtcNow
         });

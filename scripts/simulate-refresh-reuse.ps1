@@ -29,7 +29,7 @@ $loginUrl = "$ApiBase/login"
 $body = @{ email = $Email; password = $Password } | ConvertTo-Json
 $resp = Invoke-WebRequest -Uri $loginUrl -Method Post -Body $body -ContentType 'application/json' -UseBasicParsing -ErrorAction Stop
 $oldRefresh = Extract-CookieValue $resp 'refresh_token'
-Write-Host "Login completed. Old refresh token: $oldRefresh"
+Write-Host "Login completed. Old refresh token captured (redacted)."
 
 if (-not $oldRefresh) { Write-Error "No refresh_token cookie found on login."; exit 1 }
 
@@ -38,7 +38,7 @@ $refreshUrl = "$ApiBase/refresh"
 $headers = @{ Cookie = "refresh_token=$oldRefresh" }
 $resp2 = Invoke-WebRequest -Uri $refreshUrl -Method Post -Headers $headers -UseBasicParsing -ErrorAction Stop
 $newRefresh = Extract-CookieValue $resp2 'refresh_token'
-Write-Host "Refresh called. New refresh token: $newRefresh"
+Write-Host "Refresh called. New refresh token captured (redacted)."
 
 if (-not $newRefresh) { Write-Error "No new refresh_token cookie found after refresh."; exit 1 }
 

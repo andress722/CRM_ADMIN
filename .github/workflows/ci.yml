@@ -22,7 +22,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-$(hashFiles('**/*.csproj'))
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -36,7 +36,7 @@ jobs:
             **/node_modules
             ~/.npm
             ~/.pnpm-store
-          key: node-modules-${{ runner.os }}-$(hashFiles('**/package-lock.json', '**/pnpm-lock.yaml'))
+          key: node-modules-${{ runner.os }}-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml') }}
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -53,6 +53,22 @@ jobs:
           go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.57.2
           echo "$HOME/go/bin" >> $GITHUB_PATH
 
+      - name: Check OpenTelemetry guard
+        run: |
+          chmod +x scripts/check-otel-ci.sh
+          scripts/check-otel-ci.sh
+      - name: Check observability guard
+        run: |
+          chmod +x scripts/check-observability-ci.sh
+          scripts/check-observability-ci.sh
+      - name: Check production security config
+        run: |
+          chmod +x scripts/check-security-config-ci.sh
+          scripts/check-security-config-ci.sh
+      - name: Check secret logging guard
+        run: |
+          chmod +x scripts/check-log-secrets-ci.sh
+          scripts/check-log-secrets-ci.sh
       - name: Run repository CI script
         run: |
           chmod +x ./scripts/ci/build-and-test.sh
@@ -80,10 +96,18 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
+      - name: Install dotnet-ef
+        run: |
+          dotnet tool install --global dotnet-ef --version 9.*
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+
+      - name: Enable pnpm via corepack
+        run: corepack enable
 
       - name: Restore .NET
         run: dotnet restore src/Ecommerce.sln --configfile NuGet.config -m:1 /p:RestoreDisableParallel=true
@@ -111,6 +135,12 @@ jobs:
           npm ci
           npm run build
 
+      - name: Build storefront frontend
+        working-directory: info-tech-gamer-storefront-build
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+
       - name: Run E2E Playwright tests
         env:
           ASPNETCORE_ENVIRONMENT: Development
@@ -126,3 +156,8 @@ jobs:
           cd admin-frontend
           npx playwright install --with-deps
           npm run test:e2e
+
+
+
+
+

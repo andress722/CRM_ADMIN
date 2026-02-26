@@ -12,3 +12,4 @@ public class EventStoreItem
     public int Attempts { get; set; }
     public string Status { get; set; } = "pending";
 }
+

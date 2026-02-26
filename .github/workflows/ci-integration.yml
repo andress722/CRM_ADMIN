@@ -37,11 +37,25 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Enable pnpm via corepack
+        run: corepack enable
+
       - name: Check OpenTelemetry guard
         run: |
           chmod +x scripts/check-otel-ci.sh
           scripts/check-otel-ci.sh
-
+      - name: Check observability guard
+        run: |
+          chmod +x scripts/check-observability-ci.sh
+          scripts/check-observability-ci.sh
+      - name: Check production security config
+        run: |
+          chmod +x scripts/check-security-config-ci.sh
+          scripts/check-security-config-ci.sh
+      - name: Check secret logging guard
+        run: |
+          chmod +x scripts/check-log-secrets-ci.sh
+          scripts/check-log-secrets-ci.sh
       - name: Restore and run migrations
         run: |
           cd src/Ecommerce.Infrastructure
@@ -58,6 +72,12 @@ jobs:
           cd admin-frontend
           npm ci
           npm run build
+
+      - name: Build storefront frontend
+        run: |
+          cd info-tech-gamer-storefront-build
+          pnpm install --frozen-lockfile
+          pnpm run build
 
       - name: Start services (background)
         run: |
@@ -100,3 +120,8 @@ jobs:
             admin-frontend/test-results
             admin-frontend/playwright-report
             /tmp
+
+
+
+
+
