@@ -31,7 +31,14 @@
 
 # Local env
 .env.local
+.env.api
+!.env.api.example
 
 # Artifacts
 automation.bundle
 automation_artifacts.zip
+artifacts/
+
+# Local workspace/config
+copilot-sdk-main.code-workspace
+.codex/.sandbox-secrets/
