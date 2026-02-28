@@ -1,6 +1,6 @@
 name: CI
 
-on:
+"on":
   push:
     branches: [ main, master ]
   pull_request:
@@ -156,6 +156,7 @@ jobs:
           cd admin-frontend
           npx playwright install --with-deps
           npm run test:e2e
+
 
 
 

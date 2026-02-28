@@ -1,0 +1,161 @@
+name: Staging Release Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_crm_crud:
+        description: "Run CRM create/update/delete checks in staging smoke"
+        required: true
+        default: true
+        type: boolean
+      allow_missing_admin_auth:
+        description: "Allow smoke pass without admin credentials"
+        required: true
+        default: false
+        type: boolean
+      pr_number:
+        description: "Optional PR number to post evidence comment"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  staging-gate:
+    runs-on: ubuntu-latest
+    env:
+      API_BASE_URL: ${{ secrets.STAGING_API_URL }}
+      ADMIN_BASE_URL: ${{ secrets.STAGING_ADMIN_URL }}
+      STOREFRONT_BASE_URL: ${{ secrets.STAGING_STOREFRONT_URL }}
+      ADMIN_EMAIL: ${{ secrets.STAGING_ADMIN_EMAIL }}
+      ADMIN_PASSWORD: ${{ secrets.STAGING_ADMIN_PASSWORD }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate required staging URLs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${API_BASE_URL}" || (echo "Missing secret: STAGING_API_URL" && exit 1)
+          test -n "${ADMIN_BASE_URL}" || (echo "Missing secret: STAGING_ADMIN_URL" && exit 1)
+          test -n "${STOREFRONT_BASE_URL}" || (echo "Missing secret: STAGING_STOREFRONT_URL" && exit 1)
+
+      - name: Run staging URL preflight
+        shell: pwsh
+        run: |
+          pwsh -File scripts/staging/preflight-staging-urls.ps1 `
+            -ApiBaseUrl "$env:API_BASE_URL" `
+            -AdminBaseUrl "$env:ADMIN_BASE_URL" `
+            -StorefrontBaseUrl "$env:STOREFRONT_BASE_URL" `
+            -OutDir "artifacts/staging"
+
+      - name: Run staging smoke gate
+        shell: pwsh
+        run: |
+          $args = @(
+            '-File', 'scripts/staging/run-staging-smoke.ps1',
+            '-ApiBaseUrl', "$env:API_BASE_URL",
+            '-AdminBaseUrl', "$env:ADMIN_BASE_URL",
+            '-StorefrontBaseUrl', "$env:STOREFRONT_BASE_URL",
+            '-OutDir', 'artifacts/staging'
+          )
+
+          if (-not [string]::IsNullOrWhiteSpace($env:ADMIN_EMAIL) -and -not [string]::IsNullOrWhiteSpace($env:ADMIN_PASSWORD)) {
+            $args += @('-AdminEmail', "$env:ADMIN_EMAIL", '-AdminPassword', "$env:ADMIN_PASSWORD")
+          }
+
+          if ('${{ inputs.allow_missing_admin_auth }}' -eq 'true') {
+            $args += '-AllowMissingAdminAuth'
+          }
+
+          if ('${{ inputs.run_crm_crud }}' -eq 'true') {
+            $args += '-RunCrmCrud'
+          }
+
+          & pwsh @args
+
+      - name: Generate staging evidence summary
+        shell: pwsh
+        run: |
+          $latest = Get-ChildItem artifacts/staging/staging-smoke-*.json |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+
+          if ($null -eq $latest) {
+            throw "No staging smoke artifact found in artifacts/staging"
+          }
+
+          pwsh -File scripts/staging/generate-staging-evidence-summary.ps1 `
+            -SmokeJsonPath $latest.FullName `
+            -OutputPath "artifacts/staging/STAGING_EVIDENCE_SUMMARY.md"
+
+      - name: Build release evidence bundle
+        shell: pwsh
+        run: |
+          pwsh -File scripts/staging/build-release-evidence-bundle.ps1 `
+            -StagingArtifactsDir "artifacts/staging" `
+            -OutputDir "artifacts/staging" `
+            -BundlePrefix "staging-release-evidence"
+
+      - name: Build PR evidence comment markdown
+        shell: pwsh
+        run: |
+          pwsh -File scripts/staging/build-pr-evidence-comment.ps1 `
+            -IndexPath "artifacts/staging/RELEASE_EVIDENCE_INDEX.md" `
+            -SummaryPath "artifacts/staging/STAGING_EVIDENCE_SUMMARY.md" `
+            -PreflightPath "artifacts/staging/staging-preflight-latest.json" `
+            -SmokePath "artifacts/staging/staging-smoke-latest.json" `
+            -OutputPath "artifacts/staging/PR_EVIDENCE_COMMENT.md"
+
+      - name: Validate PR evidence comment minimum content
+        shell: pwsh
+        run: |
+          pwsh -File scripts/staging/validate-pr-evidence-comment.ps1 `
+            -CommentPath "artifacts/staging/PR_EVIDENCE_COMMENT.md"
+      - name: Post PR evidence comment
+        if: ${{ inputs.pr_number != '' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = 'artifacts/staging/PR_EVIDENCE_COMMENT.md';
+            const body = fs.readFileSync(path, 'utf8');
+            const issue_number = Number('${{ inputs.pr_number }}');
+            if (!Number.isFinite(issue_number) || issue_number <= 0) {
+              core.setFailed(`Invalid pr_number input: ${{ inputs.pr_number }}`);
+              return;
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number,
+              body,
+            });
+
+      - name: Validate required runbooks/checklists exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f docs/STAGING_RELEASE_EVIDENCE.md
+          test -f docs/ADMIN_RELEASE_CHECKLIST.md
+          test -f docs/CRM_OPERATIONS_RUNBOOK.md
+
+      - name: Upload staging evidence artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-release-evidence
+          path: |
+            artifacts/staging/*.json
+            artifacts/staging/*.md
+            artifacts/staging/*.zip
+            docs/STAGING_RELEASE_EVIDENCE.md
+            docs/ADMIN_RELEASE_CHECKLIST.md
+            docs/CRM_OPERATIONS_RUNBOOK.md
+

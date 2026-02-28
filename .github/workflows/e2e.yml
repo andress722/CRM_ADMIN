@@ -1,6 +1,6 @@
-name: E2E — Playwright tests
+name: E2E - Playwright tests
 
-on:
+"on":
   workflow_dispatch:
   pull_request:
     paths:
@@ -77,3 +77,4 @@ jobs:
         run: |
           cd storefront
           npx playwright test --reporter=list
+

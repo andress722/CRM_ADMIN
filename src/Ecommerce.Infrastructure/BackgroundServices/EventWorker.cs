@@ -8,6 +8,9 @@ namespace Ecommerce.Infrastructure.BackgroundServices;
 
 public class EventWorker : BackgroundService
 {
+    private static readonly TimeSpan IdlePollMinDelay = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan IdlePollMaxDelay = TimeSpan.FromSeconds(30);
+
     private readonly IServiceProvider _services;
     private readonly ILogger<EventWorker> _logger;
 
@@ -20,22 +23,39 @@ public class EventWorker : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("EventWorker started");
+        var emptyPollStreak = 0;
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
                 using var scope = _services.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<Ecommerce.Infrastructure.Data.EcommerceDbContext>();
-                var ev = await db.EventStore.Where(e => e.Status == "pending").OrderBy(e => e.CreatedAt).FirstOrDefaultAsync(stoppingToken);
+                var ev = await db.EventStore
+                    .Where(e => e.Status == "pending")
+                    .OrderBy(e => e.CreatedAt)
+                    .FirstOrDefaultAsync(stoppingToken);
+
                 if (ev == null)
                 {
-                    await Task.Delay(1000, stoppingToken);
+                    emptyPollStreak++;
+                    var delay = ComputeIdleDelay(emptyPollStreak);
+
+                    if (emptyPollStreak == 1 || emptyPollStreak % 10 == 0)
+                    {
+                        _logger.LogDebug(
+                            "EventWorker queue is empty. Poll streak={PollStreak}, next delay={DelayMs}ms",
+                            emptyPollStreak,
+                            delay.TotalMilliseconds);
+                    }
+
+                    await Task.Delay(delay, stoppingToken);
                     continue;
                 }
 
+                emptyPollStreak = 0;
                 _logger.LogInformation("Processing event {EventId} type {EventType}", ev.Id, ev.EventType);
 
-                // Processing: handle PurchaseCompleted by publishing to webhooks and marking processed
                 if (ev.EventType == "PurchaseCompleted")
                 {
                     try
@@ -43,7 +63,6 @@ public class EventWorker : BackgroundService
                         using var doc = JsonDocument.Parse(ev.Payload);
                         _logger.LogInformation("PurchaseCompleted payload: {Payload}", ev.Payload);
 
-                        // Publish to configured webhooks (if any)
                         var webhookService = scope.ServiceProvider.GetService<Ecommerce.Application.Services.WebhookService>();
                         if (webhookService != null)
                         {
@@ -84,9 +103,17 @@ public class EventWorker : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "EventWorker encountered an error");
-                await Task.Delay(2000, stoppingToken);
+                await Task.Delay(TimeSpan.FromSeconds(2), stoppingToken);
             }
         }
+
         _logger.LogInformation("EventWorker stopping");
+    }
+
+    private static TimeSpan ComputeIdleDelay(int emptyPollStreak)
+    {
+        var exponent = Math.Min(emptyPollStreak - 1, 5);
+        var delayMs = IdlePollMinDelay.TotalMilliseconds * Math.Pow(2, exponent);
+        return TimeSpan.FromMilliseconds(Math.Min(delayMs, IdlePollMaxDelay.TotalMilliseconds));
     }
 }

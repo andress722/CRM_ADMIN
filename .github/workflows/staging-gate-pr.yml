@@ -1,0 +1,124 @@
+name: Staging Gate On PR
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  staging-gate-pr:
+    runs-on: ubuntu-latest
+    env:
+      API_BASE_URL: ${{ secrets.STAGING_API_URL }}
+      ADMIN_BASE_URL: ${{ secrets.STAGING_ADMIN_URL }}
+      STOREFRONT_BASE_URL: ${{ secrets.STAGING_STOREFRONT_URL }}
+      ADMIN_EMAIL: ${{ secrets.STAGING_ADMIN_EMAIL }}
+      ADMIN_PASSWORD: ${{ secrets.STAGING_ADMIN_PASSWORD }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check staging secrets availability
+        id: secrets_check
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${API_BASE_URL}" ] || [ -z "${ADMIN_BASE_URL}" ] || [ -z "${STOREFRONT_BASE_URL}" ]; then
+            echo "run_gate=false" >> "$GITHUB_OUTPUT"
+            echo "Staging secrets are missing; skipping staging gate." > artifacts_skip_reason.txt
+          else
+            echo "run_gate=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run staging URL preflight
+        if: steps.secrets_check.outputs.run_gate == 'true'
+        shell: pwsh
+        run: |
+          pwsh -File scripts/staging/preflight-staging-urls.ps1 `
+            -ApiBaseUrl "$env:API_BASE_URL" `
+            -AdminBaseUrl "$env:ADMIN_BASE_URL" `
+            -StorefrontBaseUrl "$env:STOREFRONT_BASE_URL" `
+            -OutDir "artifacts/staging"
+
+      - name: Run staging smoke (PR mode)
+        if: steps.secrets_check.outputs.run_gate == 'true'
+        shell: pwsh
+        run: |
+          $args = @(
+            '-File', 'scripts/staging/run-staging-smoke.ps1',
+            '-ApiBaseUrl', "$env:API_BASE_URL",
+            '-AdminBaseUrl', "$env:ADMIN_BASE_URL",
+            '-StorefrontBaseUrl', "$env:STOREFRONT_BASE_URL",
+            '-OutDir', 'artifacts/staging',
+            '-AllowMissingAdminAuth'
+          )
+
+          if (-not [string]::IsNullOrWhiteSpace($env:ADMIN_EMAIL) -and -not [string]::IsNullOrWhiteSpace($env:ADMIN_PASSWORD)) {
+            $args += @('-AdminEmail', "$env:ADMIN_EMAIL", '-AdminPassword', "$env:ADMIN_PASSWORD", '-RunCrmCrud')
+          }
+
+          & pwsh @args
+
+      - name: Generate summary + bundle + PR comment markdown
+        if: steps.secrets_check.outputs.run_gate == 'true'
+        shell: pwsh
+        run: |
+          $latest = Get-ChildItem artifacts/staging/staging-smoke-*.json |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+
+          if ($null -eq $latest) {
+            throw "No staging smoke artifact found in artifacts/staging"
+          }
+
+          pwsh -File scripts/staging/generate-staging-evidence-summary.ps1 `
+            -SmokeJsonPath $latest.FullName `
+            -OutputPath "artifacts/staging/STAGING_EVIDENCE_SUMMARY.md"
+
+          pwsh -File scripts/staging/build-release-evidence-bundle.ps1 `
+            -StagingArtifactsDir "artifacts/staging" `
+            -OutputDir "artifacts/staging" `
+            -BundlePrefix "staging-release-evidence"
+
+          pwsh -File scripts/staging/build-pr-evidence-comment.ps1 `
+            -IndexPath "artifacts/staging/RELEASE_EVIDENCE_INDEX.md" `
+            -SummaryPath "artifacts/staging/STAGING_EVIDENCE_SUMMARY.md" `
+            -PreflightPath "artifacts/staging/staging-preflight-latest.json" `
+            -SmokePath "artifacts/staging/staging-smoke-latest.json" `
+            -OutputPath "artifacts/staging/PR_EVIDENCE_COMMENT.md"
+
+      - name: Validate PR evidence comment minimum content
+        if: steps.secrets_check.outputs.run_gate == 'true'
+        shell: pwsh
+        run: |
+          pwsh -File scripts/staging/validate-pr-evidence-comment.ps1 `
+            -CommentPath "artifacts/staging/PR_EVIDENCE_COMMENT.md"
+
+      - name: Post PR evidence comment
+        if: steps.secrets_check.outputs.run_gate == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('artifacts/staging/PR_EVIDENCE_COMMENT.md', 'utf8');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+      - name: Upload staging PR gate artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-pr-gate-evidence
+          path: |
+            artifacts/staging/*.json
+            artifacts/staging/*.md
+            artifacts/staging/*.zip
+            artifacts_skip_reason.txt

@@ -1,5 +1,5 @@
 name: CI Integration
-on: [push, pull_request]
+"on": [push, pull_request]
 
 jobs:
   integration:
@@ -120,6 +120,7 @@ jobs:
             admin-frontend/test-results
             admin-frontend/playwright-report
             /tmp
+
 
 
 

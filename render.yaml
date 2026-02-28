@@ -24,6 +24,10 @@ services:
         value: https://copilot-sdk-admin-staging.vercel.app
       - key: Cors__AllowedOrigins__1
         value: https://copilot-sdk-storefront-staging.vercel.app
+      - key: Networking__EnableForwardedHeaders
+        value: "true"
+      - key: Networking__TrustAllForwardedHeaders
+        value: "true"
       - key: Observability__EnableOpenTelemetry
         value: "false"
       - key: Sentry__Dsn

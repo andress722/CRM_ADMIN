@@ -16,10 +16,12 @@ using System.Diagnostics;
 using AspNetCoreRateLimit;
 using Ecommerce.Infrastructure.Email;
 using Ecommerce.Infrastructure.Payments;
+using Microsoft.AspNetCore.HttpOverrides;
 using Polly;
 using Polly.Extensions.Http;
 using Sentry;
 using Npgsql;
+using System.Net;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -228,6 +230,53 @@ static string NormalizePostgresConnectionString(string connectionString)
     }
 
     return connectionString;
+}
+
+static ForwardedHeadersOptions? BuildForwardedHeadersOptions(IConfiguration configuration, bool isDevelopment)
+{
+    var enableForwardedHeaders = configuration.GetValue("Networking:EnableForwardedHeaders", !isDevelopment);
+    if (!enableForwardedHeaders)
+    {
+        return null;
+    }
+
+    var options = new ForwardedHeadersOptions
+    {
+        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost,
+        RequireHeaderSymmetry = false,
+        ForwardLimit = 2
+    };
+
+    var trustedProxies = configuration.GetSection("Networking:TrustedProxies").Get<string[]>()
+        ?.Where(ip => !string.IsNullOrWhiteSpace(ip))
+        .ToArray()
+        ?? Array.Empty<string>();
+
+    foreach (var proxy in trustedProxies)
+    {
+        if (IPAddress.TryParse(proxy, out var ipAddress))
+        {
+            options.KnownProxies.Add(ipAddress);
+        }
+        else
+        {
+            Log.Warning("Ignoring invalid trusted proxy IP configured in Networking:TrustedProxies: {Proxy}", proxy);
+        }
+    }
+
+    var trustAllForwardedHeaders = configuration.GetValue("Networking:TrustAllForwardedHeaders", false);
+    if (trustAllForwardedHeaders && options.KnownProxies.Count == 0)
+    {
+        options.KnownNetworks.Clear();
+        options.KnownProxies.Clear();
+        Log.Warning("Networking:TrustAllForwardedHeaders=true is enabled. Accepting forwarded headers from any proxy.");
+    }
+    else if (!isDevelopment && options.KnownProxies.Count == 0)
+    {
+        Log.Warning("Forwarded headers enabled without trusted proxies configured. Set Networking:TrustedProxies or Networking:TrustAllForwardedHeaders=true for proxy environments.");
+    }
+
+    return options;
 }
 // Add DbContext - use PostgreSQL by default
 builder.Services.AddDbContext<EcommerceDbContext>(options =>
@@ -455,6 +504,12 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+var forwardedHeadersOptions = BuildForwardedHeadersOptions(builder.Configuration, app.Environment.IsDevelopment());
+if (forwardedHeadersOptions != null)
+{
+    app.UseForwardedHeaders(forwardedHeadersOptions);
+}
+
 app.Use(async (context, next) =>
 {
     var correlationId = context.Request.Headers["X-Correlation-Id"].FirstOrDefault();
@@ -577,11 +632,10 @@ try
         if (!seedDataEnabled)
         {
             Console.WriteLine("ℹ️ Seed data disabled (Database:SeedData=false)");
-            return;
         }
 
         // Seed demo user if no users exist
-        if (await TableExistsAsync(db, "Users") && !db.Users.Any())
+        if (seedDataEnabled && await TableExistsAsync(db, "Users") && !db.Users.Any())
         {
             var demoUser = new Ecommerce.Domain.Entities.User
             {
@@ -602,7 +656,7 @@ try
         }
 
         // Seed products if none exist
-        if (await TableExistsAsync(db, "Products") && !db.Products.Any())
+        if (seedDataEnabled && await TableExistsAsync(db, "Products") && !db.Products.Any())
         {
             var products = new[]
             {
@@ -794,7 +848,7 @@ try
         }
 
         // Seed demo orders if none exist
-        if (await TableExistsAsync(db, "Orders") && !db.Orders.Any())
+        if (seedDataEnabled && await TableExistsAsync(db, "Orders") && !db.Orders.Any())
         {
             var users = await db.Users.ToListAsync();
             if (users.Any())
@@ -843,11 +897,4 @@ catch (Exception ex)
 app.Run();
 
 public partial class Program { }
-
-
-
-
-
-
-
 

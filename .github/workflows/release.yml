@@ -1,6 +1,6 @@
-name: Release — Publish SDKs
+name: Release - Publish SDKs
 
-on:
+"on":
   push:
     tags:
       - 'v*'
@@ -41,3 +41,4 @@ jobs:
         run: |
           chmod +x ./scripts/publish-sdk.sh
           ./scripts/publish-sdk.sh
+
