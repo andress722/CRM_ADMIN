@@ -74,6 +74,8 @@ export interface Product {
   stock: number;
   category: string;
   isActive: boolean;
+  isFeatured?: boolean;
+  viewCount?: number;
   imageUrl?: string;
   images?: string[];
   createdAt: string;
@@ -113,4 +115,70 @@ export interface Coupon {
   usedCount: number;
   isActive: boolean;
   createdAt: string;
+}
+
+export interface CustomerViewedItem {
+  productId: string;
+  productName: string;
+  category: string;
+  views: number;
+  lastSeenAt: string;
+}
+
+export interface CustomerFavoritedItem {
+  productId: string;
+  productName: string;
+  category: string;
+  favoritedAt: string;
+}
+
+export interface CustomerSuggestedItem {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  viewCount?: number;
+  isFeatured?: boolean;
+}
+
+export interface ReportProductRow {
+  productId: string;
+  productName: string;
+  category: string;
+  quantity: number;
+  revenue: number;
+}
+
+export interface PeriodReport {
+  period: 'daily' | 'weekly' | 'monthly' | string;
+  startUtc: string;
+  endUtc: string;
+  ordersPlaced: number;
+  ordersSold: number;
+  ordersCancelled: number;
+  soldRevenue: number;
+  productsSoldQuantity: number;
+  productsCancelledQuantity: number;
+  cartItemsAdded: number;
+  cartItemsOpen: number;
+  cartItemsAbandoned: number;
+  signups: number;
+  productViews: number;
+  wishlistAdds: number;
+  cartToSaleConversionRate: number;
+  cancelRate: number;
+  cartAbandonRate: number;
+  topSoldProducts: ReportProductRow[];
+  topAddedToCartProducts: ReportProductRow[];
+  topCancelledProducts: ReportProductRow[];
+  topViewedProducts: ReportProductRow[];
+  topFavoritedProducts: ReportProductRow[];
+  insights: string[];
+}
+
+export interface ReportsOverview {
+  generatedAt: string;
+  daily: PeriodReport;
+  weekly: PeriodReport;
+  monthly: PeriodReport;
 }

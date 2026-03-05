@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using Ecommerce.Application.Services;
+using Ecommerce.Domain.Entities;
 
 namespace Ecommerce.API.Controllers;
 
@@ -12,11 +13,13 @@ public class ReviewsController : ControllerBase
 {
     private readonly ReviewService _reviews;
     private readonly WishlistService _wishlists;
+    private readonly AnalyticsService _analyticsService;
 
-    public ReviewsController(ReviewService reviews, WishlistService wishlists)
+    public ReviewsController(ReviewService reviews, WishlistService wishlists, AnalyticsService analyticsService)
     {
         _reviews = reviews;
         _wishlists = wishlists;
+        _analyticsService = analyticsService;
     }
 
     [HttpPost("products/{id:guid}/reviews")]
@@ -145,6 +148,20 @@ public class ReviewsController : ControllerBase
         }
 
         var item = await _wishlists.AddItemAsync(id, request.ProductId);
+
+        await _analyticsService.TrackAsync(new AnalyticsEvent
+        {
+            Id = Guid.NewGuid(),
+            UserId = wishlist.UserId,
+            Type = "WishlistAdd",
+            Category = "Wishlist",
+            Action = "AddItem",
+            Label = request.ProductId.ToString(),
+            Value = 1,
+            Url = "/wishlist",
+            CreatedAt = DateTime.UtcNow
+        });
+
         var items = await _wishlists.GetItemsAsync(wishlist.Id);
         return Ok(new { wishlist.Id, wishlist.UserId, wishlist.Name, items, addedItem = item });
     }

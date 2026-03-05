@@ -377,6 +377,7 @@ builder.Services.AddScoped<AffiliateService>();
 builder.Services.AddScoped<SocialAuthService>();
 builder.Services.AddScoped<PushDeviceService>();
 builder.Services.AddScoped<CrmService>();
+builder.Services.AddScoped<AdminReportService>();
 builder.Services.AddScoped<IShippingProvider, Ecommerce.Infrastructure.Shipping.CorreiosShippingProvider>();
 var paymentProvider = builder.Configuration.GetValue<string>("Payments:Provider") ?? "Stub";
 if (paymentProvider.Equals("MercadoPago", StringComparison.OrdinalIgnoreCase))
@@ -897,4 +898,6 @@ catch (Exception ex)
 app.Run();
 
 public partial class Program { }
+
+
 

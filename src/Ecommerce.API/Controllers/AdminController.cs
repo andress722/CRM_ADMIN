@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Ecommerce.Application.Services;
+using Ecommerce.Application.Repositories;
 using Ecommerce.Domain.Entities;
 
 namespace Ecommerce.API.Controllers;
@@ -17,13 +18,28 @@ public class AdminController : ControllerBase
     private readonly ProductService _productService;
     private readonly OrderService _orderService;
     private readonly UserService _userService;
+    private readonly IAnalyticsEventRepository _analyticsEvents;
+    private readonly WishlistService _wishlistService;
+    private readonly AdminReportService _adminReportService;
+    private readonly IEmailService _emailService;
     private static readonly Dictionary<Guid, List<string>> _productImages = new();
 
-    public AdminController(ProductService productService, OrderService orderService, UserService userService)
+    public AdminController(
+        ProductService productService,
+        OrderService orderService,
+        UserService userService,
+        IAnalyticsEventRepository analyticsEvents,
+        WishlistService wishlistService,
+        AdminReportService adminReportService,
+        IEmailService emailService)
     {
         _productService = productService;
         _orderService = orderService;
         _userService = userService;
+        _analyticsEvents = analyticsEvents;
+        _wishlistService = wishlistService;
+        _adminReportService = adminReportService;
+        _emailService = emailService;
     }
 
     /// <summary>
@@ -112,11 +128,13 @@ public class AdminController : ControllerBase
                     price = p.Price,
                     stock = p.Stock,
                     category = p.Category,
-                    isActive = true,
+                    isActive = p.IsActive,
+                    isFeatured = p.IsFeatured,
+                    viewCount = p.ViewCount,
                     imageUrl = (string?)null,
                     images = Array.Empty<string>(),
                     createdAt = p.CreatedAt,
-                    updatedAt = p.CreatedAt
+                    updatedAt = p.UpdatedAt ?? p.CreatedAt
                 })
                 .ToList();
 
@@ -174,11 +192,13 @@ public class AdminController : ControllerBase
                 price = product.Price,
                 stock = product.Stock,
                 category = product.Category,
-                isActive = true,
+                isActive = product.IsActive,
+                isFeatured = product.IsFeatured,
+                viewCount = product.ViewCount,
                 imageUrl = (string?)null,
                 images = Array.Empty<string>(),
                 createdAt = product.CreatedAt,
-                updatedAt = product.CreatedAt
+                updatedAt = product.UpdatedAt ?? product.CreatedAt
             });
         }
         catch (InvalidOperationException ex)
@@ -205,11 +225,13 @@ public class AdminController : ControllerBase
                 price = product.Price,
                 stock = product.Stock,
                 category = product.Category,
-                isActive = true,
+                isActive = product.IsActive,
+                isFeatured = product.IsFeatured,
+                viewCount = product.ViewCount,
                 imageUrl = (string?)null,
                 images = Array.Empty<string>(),
                 createdAt = product.CreatedAt,
-                updatedAt = product.CreatedAt
+                updatedAt = product.UpdatedAt ?? product.CreatedAt
             });
         }
         catch (KeyNotFoundException ex)
@@ -272,11 +294,13 @@ public class AdminController : ControllerBase
                 price = product.Price,
                 stock = product.Stock,
                 category = product.Category,
-                isActive = true,
+                isActive = product.IsActive,
+                isFeatured = product.IsFeatured,
+                viewCount = product.ViewCount,
                 imageUrl = (string?)null,
                 images = Array.Empty<string>(),
                 createdAt = product.CreatedAt,
-                updatedAt = product.CreatedAt
+                updatedAt = product.UpdatedAt ?? product.CreatedAt
             });
         }
         catch (KeyNotFoundException ex)
@@ -312,11 +336,13 @@ public class AdminController : ControllerBase
                 price = product.Price,
                 stock = product.Stock,
                 category = product.Category,
-                isActive = true,
+                isActive = product.IsActive,
+                isFeatured = product.IsFeatured,
+                viewCount = product.ViewCount,
                 imageUrl = (string?)null,
                 images = Array.Empty<string>(),
                 createdAt = product.CreatedAt,
-                updatedAt = product.CreatedAt
+                updatedAt = product.UpdatedAt ?? product.CreatedAt
             });
         }
         catch (KeyNotFoundException ex)
@@ -720,10 +746,196 @@ public class AdminController : ControllerBase
         return await UpdateCustomer(id, request);
     }
 
+    [HttpPatch("products/{id}/featured")]
+    public async Task<IActionResult> SetProductFeatured(Guid id, [FromBody] SetProductFeaturedRequest request)
+    {
+        try
+        {
+            var product = await _productService.SetFeaturedAsync(id, request.IsFeatured);
+            return Ok(new { id = product.Id.ToString(), isFeatured = product.IsFeatured, updatedAt = product.UpdatedAt ?? product.CreatedAt });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
+    [HttpGet("users/{id}/viewed-items")]
+    public async Task<IActionResult> GetUserViewedItems(Guid id, [FromQuery] int take = 20)
+    {
+        take = take <= 0 ? 20 : Math.Min(take, 200);
+
+        var events = await _analyticsEvents.GetSinceAsync(DateTime.UtcNow.AddDays(-180));
+        var grouped = events
+            .Where(e => e.UserId == id && e.Type.Equals("ProductView", StringComparison.OrdinalIgnoreCase))
+            .Where(e => Guid.TryParse(e.Label, out _))
+            .GroupBy(e => Guid.Parse(e.Label!))
+            .Select(g => new { ProductId = g.Key, Views = g.Count(), LastSeenAt = g.Max(x => x.CreatedAt) })
+            .OrderByDescending(x => x.LastSeenAt)
+            .Take(take)
+            .ToList();
+
+        var result = new List<object>();
+        foreach (var item in grouped)
+        {
+            try
+            {
+                var product = await _productService.GetProductAsync(item.ProductId);
+                result.Add(new
+                {
+                    productId = product.Id.ToString(),
+                    productName = product.Name,
+                    category = product.Category,
+                    views = item.Views,
+                    lastSeenAt = item.LastSeenAt
+                });
+            }
+            catch
+            {
+                // Ignore deleted products
+            }
+        }
+
+        return Ok(result);
+    }
+
+    [HttpGet("users/{id}/favorited-items")]
+    public async Task<IActionResult> GetUserFavoritedItems(Guid id, [FromQuery] int take = 20)
+    {
+        take = take <= 0 ? 20 : Math.Min(take, 200);
+
+        var wishlist = await _wishlistService.GetOrCreateDefaultAsync(id);
+        var wishlistItems = (await _wishlistService.GetItemsAsync(wishlist.Id))
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(take)
+            .ToList();
+
+        var result = new List<object>();
+        foreach (var item in wishlistItems)
+        {
+            try
+            {
+                var product = await _productService.GetProductAsync(item.ProductId);
+                result.Add(new
+                {
+                    productId = product.Id.ToString(),
+                    productName = product.Name,
+                    category = product.Category,
+                    favoritedAt = item.CreatedAt
+                });
+            }
+            catch
+            {
+                // Ignore deleted products
+            }
+        }
+
+        return Ok(result);
+    }
+
+    [HttpGet("users/{id}/suggested-items")]
+    public async Task<IActionResult> GetSuggestedItemsForUser(Guid id, [FromQuery] int take = 8)
+    {
+        take = take <= 0 ? 8 : Math.Min(take, 50);
+
+        var events = await _analyticsEvents.GetSinceAsync(DateTime.UtcNow.AddDays(-180));
+        var viewedProductIds = events
+            .Where(e => e.UserId == id && e.Type.Equals("ProductView", StringComparison.OrdinalIgnoreCase))
+            .Select(e => e.Label)
+            .Where(l => Guid.TryParse(l, out _))
+            .Select(Guid.Parse)
+            .Distinct()
+            .ToHashSet();
+
+        var allProducts = (await _productService.GetAllProductsAsync()).ToList();
+        var viewedProducts = allProducts.Where(p => viewedProductIds.Contains(p.Id)).ToList();
+        var preferredCategories = viewedProducts
+            .GroupBy(p => p.Category)
+            .OrderByDescending(g => g.Count())
+            .Select(g => g.Key)
+            .ToList();
+
+        var suggestions = allProducts
+            .Where(p => !viewedProductIds.Contains(p.Id))
+            .OrderByDescending(p => preferredCategories.IndexOf(p.Category) >= 0 ? 100 - preferredCategories.IndexOf(p.Category) : 0)
+            .ThenByDescending(p => p.IsFeatured)
+            .ThenByDescending(p => p.ViewCount)
+            .Take(take)
+            .Select(p => new
+            {
+                id = p.Id.ToString(),
+                name = p.Name,
+                category = p.Category,
+                price = p.Price,
+                viewCount = p.ViewCount,
+                isFeatured = p.IsFeatured
+            })
+            .ToList();
+
+        return Ok(suggestions);
+    }
+
+    [HttpGet("reports/overview")]
+    public async Task<IActionResult> GetReportsOverview()
+    {
+        var report = await _adminReportService.BuildOverviewAsync();
+        return Ok(report);
+    }
+
+    [HttpPost("reports/overview/email")]
+    public async Task<IActionResult> SendReportsOverviewEmail([FromBody] SendOverviewReportEmailRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.To))
+        {
+            return BadRequest(new { message = "Destination email is required." });
+        }
+
+        var report = await _adminReportService.BuildOverviewAsync();
+        var subject = string.IsNullOrWhiteSpace(request.Subject)
+            ? $"Relatorio ecommerce - {DateTime.UtcNow:yyyy-MM-dd}"
+            : request.Subject!.Trim();
+
+        var html = _adminReportService.BuildOverviewEmailHtml(report);
+        var text = _adminReportService.BuildOverviewEmailText(report);
+
+        await _emailService.SendCustomEmailAsync(request.To.Trim(), subject, html, text);
+
+        return Ok(new { message = "Overview report email sent", to = request.To.Trim(), subject });
+    }
+
     #endregion
 }
 
 /// <summary>Dados para atualizar estoque</summary>
 public record UpdateStockRequest(int NewStock);
 public record UpdateCustomerRequest(string Name, string Email, bool Blocked);
-public record UpdateProductPatchRequest(string? Name, string? Description, decimal? Price, int? Stock, string? Category);
+public record SetProductFeaturedRequest(bool IsFeatured);
+public record SendOverviewReportEmailRequest(string To, string? Subject);
+public record UpdateProductPatchRequest(string? Name, string? Description, decimal? Price, int? Stock, string? Category, bool? IsFeatured);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

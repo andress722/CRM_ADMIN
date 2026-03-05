@@ -5,6 +5,7 @@ namespace Ecommerce.Application.Repositories;
 public interface ICartRepository
 {
     Task<CartItem?> GetByIdAsync(Guid id);
+    Task<IEnumerable<CartItem>> GetAllAsync();
     Task<IEnumerable<CartItem>> GetByUserIdAsync(Guid userId);
     Task<CartItem?> GetByUserAndProductAsync(Guid userId, Guid productId);
     Task AddAsync(CartItem item);

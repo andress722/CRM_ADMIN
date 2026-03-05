@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using System.IdentityModel.Tokens.Jwt;
 using Ecommerce.Application.Services;
+using Ecommerce.Domain.Entities;
 
 namespace Ecommerce.API.Controllers;
 
@@ -12,9 +14,13 @@ namespace Ecommerce.API.Controllers;
 public class ProductsController : ControllerBase
 {
     private readonly ProductService _service;
+    private readonly AnalyticsService _analyticsService;
 
-    public ProductsController(ProductService service)
-        => _service = service;
+    public ProductsController(ProductService service, AnalyticsService analyticsService)
+    {
+        _service = service;
+        _analyticsService = analyticsService;
+    }
 
     /// <summary>
     /// Lista todos os produtos
@@ -36,7 +42,22 @@ public class ProductsController : ControllerBase
     {
         try
         {
-            var product = await _service.GetProductAsync(id);
+            var product = await _service.IncrementViewCountAsync(id);
+            var currentUserId = GetOptionalCurrentUserId();
+
+            await _analyticsService.TrackAsync(new AnalyticsEvent
+            {
+                Id = Guid.NewGuid(),
+                UserId = currentUserId,
+                Type = "ProductView",
+                Category = "Catalog",
+                Action = "ViewProduct",
+                Label = product.Id.ToString(),
+                Value = 1,
+                Url = $"/product/{product.Id}",
+                CreatedAt = DateTime.UtcNow
+            });
+
             return Ok(product);
         }
         catch (KeyNotFoundException ex)
@@ -91,7 +112,8 @@ public class ProductsController : ControllerBase
                 request.Price,
                 request.Stock,
                 request.Category,
-                request.Sku
+                request.Sku,
+                request.IsFeatured
             );
             return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, product);
         }
@@ -118,7 +140,8 @@ public class ProductsController : ControllerBase
                 request.Description,
                 request.Price,
                 request.Stock,
-                request.Category
+                request.Category,
+                request.IsFeatured
             );
             return Ok(product);
         }
@@ -126,6 +149,17 @@ public class ProductsController : ControllerBase
         {
             return NotFound(new { message = ex.Message });
         }
+    }
+
+    private Guid? GetOptionalCurrentUserId()
+    {
+        var sub = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+        if (Guid.TryParse(sub, out var userId))
+        {
+            return userId;
+        }
+
+        return null;
     }
 }
 
@@ -142,7 +176,9 @@ public record CreateProductRequest(
     /// <summary>Categoria do produto</summary>
     string Category,
     /// <summary>SKU do produto</summary>
-    string Sku
+    string Sku,
+    /// <summary>Produto em destaque</summary>
+    bool IsFeatured = false
 );
 
 /// <summary>Dados para atualizar um produto</summary>
@@ -151,7 +187,8 @@ public record UpdateProductRequest(
     string Description,
     decimal Price,
     int Stock,
-    string Category
+    string Category,
+    bool? IsFeatured
 );
 
 /// <summary>Resposta paginada de busca</summary>

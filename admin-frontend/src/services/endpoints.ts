@@ -6,6 +6,7 @@ const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5071";
 const API_BASE = RAW_API_URL.replace(/\/+$/, "");
 const API_URL = API_BASE.endsWith("/api/v1") ? API_BASE : `${API_BASE}/api/v1`;
 
+export const LEGACY_API_URL = API_URL;
 export { API_BASE, API_URL };
 
 export const endpoints = {
@@ -28,9 +29,13 @@ export const endpoints = {
     products: `${API_URL}/admin/products`,
     productDetail: (id: string) => `${API_URL}/admin/products/${id}`,
     productImages: (id: string) => `${API_URL}/admin/products/${id}/images`,
+    productFeatured: (id: string) => `${API_URL}/admin/products/${id}/featured`,
     // Customers
     customers: `${API_URL}/admin/customers`,
     customerDetail: (id: string) => `${API_URL}/admin/customers/${id}`,
+    customerViewedItems: (id: string) => `${API_URL}/admin/users/${id}/viewed-items`,
+    customerFavoritedItems: (id: string) => `${API_URL}/admin/users/${id}/favorited-items`,
+    customerSuggestedItems: (id: string) => `${API_URL}/admin/users/${id}/suggested-items`,
     // Inventory
     inventory: `${API_URL}/inventory`,
     inventoryAdjust: `${API_URL}/inventory/adjust`,
@@ -46,6 +51,8 @@ export const endpoints = {
     notifications: `${API_URL}/admin/notifications`,
     // Reports
     reports: `${API_URL}/admin/reports`,
+    reportsOverview: `${API_URL}/admin/reports/overview`,
+    reportsOverviewEmail: `${API_URL}/admin/reports/overview/email`,
     // Settings
     settings: `${API_URL}/admin/settings`,
     // Integrations
@@ -63,8 +70,11 @@ export const endpoints = {
     crmDealDetail: (id: string) => `${API_URL}/admin/crm/deals/${id}`,
     crmContacts: `${API_URL}/admin/crm/contacts`,
     crmContactDetail: (id: string) => `${API_URL}/admin/crm/contacts/${id}`,
+    crmContactSendViewedSuggestions: (id: string) => `${API_URL}/admin/crm/contacts/${id}/send-viewed-suggestions`,
     crmActivities: `${API_URL}/admin/crm/activities`,
     crmActivityDetail: (id: string) => `${API_URL}/admin/crm/activities/${id}`,
+    crmReportsOverview: `${API_URL}/admin/crm/reports/overview`,
+    crmReportsOverviewEmail: `${API_URL}/admin/crm/reports/overview/email`,
   },
 } as const;
 

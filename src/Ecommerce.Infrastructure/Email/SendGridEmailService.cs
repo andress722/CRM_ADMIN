@@ -44,6 +44,9 @@ public class SendGridEmailService : IEmailService
         return SendAsync(to, subject, html, text);
     }
 
+    public Task SendCustomEmailAsync(string to, string subject, string htmlBody, string textBody)
+        => SendAsync(to, subject, htmlBody, textBody);
+
     private async Task SendAsync(string to, string subject, string html, string text)
     {
         var fromEmail = _configuration["Email:FromEmail"] ?? "no-reply@ecommerce.local";

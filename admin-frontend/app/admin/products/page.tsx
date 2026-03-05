@@ -5,7 +5,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { endpoints, getApiUrl } from '@/services/endpoints';
 import { Product, PaginatedResponse } from '@/types/api';
 import { ProductModal } from '@/components/ProductModal';
-import { Plus, Edit2, Trash2, Search } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Star } from 'lucide-react';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -113,6 +113,7 @@ export default function ProductsPage() {
   const createProductMutation = useApiMutation('post');
   const updateProductMutation = useApiMutation('put');
   const deleteProductMutation = useApiMutation('delete');
+  const featureProductMutation = useApiMutation('patch');
 
   const handleCreateProduct = async (data: Partial<Product>) => {
     const validation = validateProductInput(data);
@@ -169,6 +170,19 @@ export default function ProductsPage() {
     }
   };
 
+  const handleToggleFeatured = async (product: Product) => {
+    try {
+      await featureProductMutation.mutateAsync({
+        url: endpoints.admin.productFeatured(product.id),
+        data: { isFeatured: !product.isFeatured },
+      });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      addToast('✅ Product highlight updated!', 'success');
+    } catch (err) {
+      addToast(`❌ ${extractErrorMessage(err, 'Failed to update highlight')}`, 'error');
+    }
+  };
+
   const products = productsData?.data || [];
   const totalPages = productsData?.pagination?.totalPages || 1;
 
@@ -211,10 +225,7 @@ export default function ProductsPage() {
       {isLoading && (
         <div className="space-y-2">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div
-              key={i}
-              className="h-16 bg-slate-800 rounded-lg animate-pulse"
-            />
+            <div key={i} className="h-16 bg-slate-800 rounded-lg animate-pulse" />
           ))}
         </div>
       )}
@@ -235,13 +246,15 @@ export default function ProductsPage() {
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-300">Price</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-300">Stock</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-300">Category</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-300">Views</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-300">Featured</th>
                 <th className="px-6 py-3 text-right text-sm font-semibold text-slate-300">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-slate-400">
+                  <td colSpan={8} className="px-6 py-8 text-center text-slate-400">
                     No products found
                   </td>
                 </tr>
@@ -252,17 +265,34 @@ export default function ProductsPage() {
                     <td className="px-6 py-4 text-sm text-slate-400">{product.sku}</td>
                     <td className="px-6 py-4 text-sm text-white">${product.price?.toFixed(2)}</td>
                     <td className="px-6 py-4 text-sm">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        product.stock > 10
-                          ? 'bg-green-900/30 text-green-400'
-                          : product.stock > 0
-                          ? 'bg-yellow-900/30 text-yellow-400'
-                          : 'bg-red-900/30 text-red-400'
-                      }`}>
+                      <span
+                        className={`px-2 py-1 rounded text-xs font-medium ${
+                          product.stock > 10
+                            ? 'bg-green-900/30 text-green-400'
+                            : product.stock > 0
+                            ? 'bg-yellow-900/30 text-yellow-400'
+                            : 'bg-red-900/30 text-red-400'
+                        }`}
+                      >
                         {product.stock} units
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-400">{product.category}</td>
+                    <td className="px-6 py-4 text-sm text-slate-300">{product.viewCount || 0}</td>
+                    <td className="px-6 py-4 text-sm">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleFeatured(product)}
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                          product.isFeatured
+                            ? 'bg-yellow-900/30 text-yellow-300 hover:bg-yellow-900/50'
+                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                        }`}
+                      >
+                        <Star className="w-3 h-3" />
+                        {product.isFeatured ? 'Featured' : 'Set featured'}
+                      </button>
+                    </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
@@ -332,7 +362,8 @@ export default function ProductsPage() {
         onSubmit={editingProduct ? handleUpdateProduct : handleCreateProduct}
         isLoading={
           createProductMutation.isPending ||
-          updateProductMutation.isPending
+          updateProductMutation.isPending ||
+          featureProductMutation.isPending
         }
       />
     </div>

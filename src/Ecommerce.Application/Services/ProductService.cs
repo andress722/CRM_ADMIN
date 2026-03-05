@@ -27,7 +27,7 @@ public class ProductService
     public async Task<(IEnumerable<Product> Items, int Total)> SearchProductsAsync(string? query, string? category, decimal? minPrice, decimal? maxPrice, int page, int pageSize)
         => await _repository.SearchAsync(query, category, minPrice, maxPrice, page, pageSize);
 
-    public async Task<Product> CreateProductAsync(string name, string description, decimal price, int stock, string category, string sku)
+    public async Task<Product> CreateProductAsync(string name, string description, decimal price, int stock, string category, string sku, bool isFeatured = false)
     {
         var existingProduct = await _repository.GetBySkuAsync(sku);
         if (existingProduct != null)
@@ -43,6 +43,8 @@ public class ProductService
             Category = category,
             Sku = sku,
             IsActive = true,
+            IsFeatured = isFeatured,
+            ViewCount = 0,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -50,7 +52,7 @@ public class ProductService
         return product;
     }
 
-    public async Task<Product> UpdateProductAsync(Guid id, string name, string description, decimal price, int stock, string category)
+    public async Task<Product> UpdateProductAsync(Guid id, string name, string description, decimal price, int stock, string category, bool? isFeatured = null)
     {
         var product = await GetProductAsync(id);
         product.Name = name;
@@ -58,6 +60,10 @@ public class ProductService
         product.Price = price;
         product.Stock = stock;
         product.Category = category;
+        if (isFeatured.HasValue)
+        {
+            product.IsFeatured = isFeatured.Value;
+        }
         product.UpdatedAt = DateTime.UtcNow;
 
         await _repository.UpdateAsync(product);
@@ -70,6 +76,24 @@ public class ProductService
         product.Stock = newStock;
         product.UpdatedAt = DateTime.UtcNow;
 
+        await _repository.UpdateAsync(product);
+        return product;
+    }
+
+    public async Task<Product> SetFeaturedAsync(Guid id, bool isFeatured)
+    {
+        var product = await GetProductAsync(id);
+        product.IsFeatured = isFeatured;
+        product.UpdatedAt = DateTime.UtcNow;
+        await _repository.UpdateAsync(product);
+        return product;
+    }
+
+    public async Task<Product> IncrementViewCountAsync(Guid id)
+    {
+        var product = await GetProductAsync(id);
+        product.ViewCount += 1;
+        product.UpdatedAt = DateTime.UtcNow;
         await _repository.UpdateAsync(product);
         return product;
     }

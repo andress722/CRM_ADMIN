@@ -25,6 +25,7 @@ public class AuthController : ControllerBase
     private readonly IEmailService _emailService;
     private readonly IConfiguration _configuration;
     private readonly SocialAuthService _socialAuthService;
+    private readonly AnalyticsService _analyticsService;
 
     public AuthController(
         UserService userService,
@@ -34,7 +35,8 @@ public class AuthController : ControllerBase
         AuthService authService,
         IEmailService emailService,
         IConfiguration configuration,
-        SocialAuthService socialAuthService)
+        SocialAuthService socialAuthService,
+        AnalyticsService analyticsService)
     {
         _userService = userService;
         _refreshTokenRepository = refreshTokenRepository;
@@ -44,6 +46,7 @@ public class AuthController : ControllerBase
         _emailService = emailService;
         _configuration = configuration;
         _socialAuthService = socialAuthService;
+        _analyticsService = analyticsService;
     }
 
     /// <summary>
@@ -287,6 +290,19 @@ public class AuthController : ControllerBase
             var user = await _userService.CreateUserAsync(request.Email, request.Name ?? "User", passwordHash);
             user.Role = "User";
             await _userService.UpdateUserAsync(user);
+
+            await _analyticsService.TrackAsync(new AnalyticsEvent
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                Type = "Signup",
+                Category = "Auth",
+                Action = "Register",
+                Label = user.Email,
+                Value = 1,
+                Url = "/auth/register",
+                CreatedAt = DateTime.UtcNow
+            });
 
             var verificationTtlMinutes = _configuration.GetValue("Auth:EmailVerificationMinutes", 60);
             var verificationToken = await _authService.CreateEmailVerificationTokenAsync(user, TimeSpan.FromMinutes(verificationTtlMinutes));
@@ -608,3 +624,10 @@ public class ResetPasswordRequest
     public string? Token { get; set; }
     public string? NewPassword { get; set; }
 }
+
+
+
+
+
+
+

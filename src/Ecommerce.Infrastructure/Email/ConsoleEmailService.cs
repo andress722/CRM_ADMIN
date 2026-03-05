@@ -43,4 +43,18 @@ public class ConsoleEmailService : IEmailService
             CreatedAt = DateTime.UtcNow
         });
     }
+
+    public Task SendCustomEmailAsync(string to, string subject, string htmlBody, string textBody)
+    {
+        _logger.LogInformation("[Email] Custom email requested for {Email} with subject {Subject}", to, subject);
+        return _logs.AddAsync(new EmailLog
+        {
+            Id = Guid.NewGuid(),
+            To = to,
+            Subject = subject,
+            Body = htmlBody,
+            Status = "Sent",
+            CreatedAt = DateTime.UtcNow
+        });
+    }
 }

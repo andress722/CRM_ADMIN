@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Ecommerce.Application.Services;
+using Ecommerce.Application.Repositories;
+using System.Text;
 using Ecommerce.Domain.Entities;
 
 namespace Ecommerce.API.Controllers;
@@ -12,9 +14,27 @@ namespace Ecommerce.API.Controllers;
 public class CrmController : ControllerBase
 {
     private readonly CrmService _service;
+    private readonly UserService _userService;
+    private readonly ProductService _productService;
+    private readonly IAnalyticsEventRepository _analyticsEvents;
+    private readonly IEmailService _emailService;
+    private readonly AdminReportService _adminReportService;
 
-    public CrmController(CrmService service)
-        => _service = service;
+    public CrmController(
+        CrmService service,
+        UserService userService,
+        ProductService productService,
+        IAnalyticsEventRepository analyticsEvents,
+        IEmailService emailService,
+        AdminReportService adminReportService)
+    {
+        _service = service;
+        _userService = userService;
+        _productService = productService;
+        _analyticsEvents = analyticsEvents;
+        _emailService = emailService;
+        _adminReportService = adminReportService;
+    }
 
     #region Leads
 
@@ -184,6 +204,81 @@ public class CrmController : ControllerBase
     public async Task<IActionResult> GetContact(Guid id)
         => Ok(await _service.GetContactAsync(id));
 
+    [HttpPost("contacts/{id}/send-viewed-suggestions")]
+    public async Task<IActionResult> SendViewedSuggestionsEmail(Guid id, [FromBody] SendViewedSuggestionsRequest? request)
+    {
+        var contact = await _service.GetContactAsync(id);
+        var user = await _userService.GetUserByEmailAsync(contact.Email);
+        if (user == null)
+        {
+            return NotFound(new { message = "No storefront user linked to this contact email." });
+        }
+
+        var limit = request?.Limit is > 0 and <= 20 ? request.Limit.Value : 5;
+        var events = await _analyticsEvents.GetSinceAsync(DateTime.UtcNow.AddDays(-180));
+        var viewed = events
+            .Where(e => e.UserId == user.Id && e.Type.Equals("ProductView", StringComparison.OrdinalIgnoreCase))
+            .Where(e => Guid.TryParse(e.Label, out _))
+            .GroupBy(e => Guid.Parse(e.Label!))
+            .Select(g => new { ProductId = g.Key, Views = g.Count(), LastSeenAt = g.Max(x => x.CreatedAt) })
+            .OrderByDescending(x => x.Views)
+            .ThenByDescending(x => x.LastSeenAt)
+            .Take(limit)
+            .ToList();
+
+        if (viewed.Count == 0)
+        {
+            return BadRequest(new { message = "This user has no viewed products yet." });
+        }
+
+        var products = new List<(string Name, decimal Price, string Category)>();
+        foreach (var item in viewed)
+        {
+            try
+            {
+                var product = await _productService.GetProductAsync(item.ProductId);
+                products.Add((product.Name, product.Price, product.Category));
+            }
+            catch
+            {
+                // Ignore deleted products
+            }
+        }
+
+        if (products.Count == 0)
+        {
+            return BadRequest(new { message = "Viewed products no longer exist in catalog." });
+        }
+
+        var subject = string.IsNullOrWhiteSpace(request?.Subject)
+            ? "Sugestoes baseadas no que voce viu"
+            : request!.Subject!.Trim();
+
+        var intro = string.IsNullOrWhiteSpace(request?.Intro)
+            ? "Selecionamos alguns itens com base nos produtos que voce visualizou recentemente:"
+            : request!.Intro!.Trim();
+
+        var htmlBuilder = new StringBuilder();
+        htmlBuilder.Append("<div style='font-family:Arial,sans-serif'>");
+        htmlBuilder.Append($"<p>{System.Net.WebUtility.HtmlEncode(intro)}</p><ul>");
+        foreach (var product in products)
+        {
+            htmlBuilder.Append($"<li><strong>{System.Net.WebUtility.HtmlEncode(product.Name)}</strong> - {product.Price:C} ({System.Net.WebUtility.HtmlEncode(product.Category)})</li>");
+        }
+        htmlBuilder.Append("</ul><p>Visite nossa loja para conferir.</p></div>");
+
+        var textBuilder = new StringBuilder();
+        textBuilder.AppendLine(intro);
+        foreach (var product in products)
+        {
+            textBuilder.AppendLine($"- {product.Name} | {product.Price:C} | {product.Category}");
+        }
+
+        await _emailService.SendCustomEmailAsync(contact.Email, subject, htmlBuilder.ToString(), textBuilder.ToString());
+
+        return Ok(new { message = "Suggestion email sent", to = contact.Email, suggestedCount = products.Count });
+    }
+
     [HttpPut("contacts/{id}")]
     public async Task<IActionResult> ReplaceContact(Guid id, [FromBody] CrmContactCreateRequest request)
     {
@@ -222,6 +317,34 @@ public class CrmController : ControllerBase
     {
         await _service.DeleteContactAsync(id);
         return NoContent();
+    }
+
+    [HttpGet("reports/overview")]
+    public async Task<IActionResult> GetReportsOverview()
+    {
+        var report = await _adminReportService.BuildOverviewAsync();
+        return Ok(report);
+    }
+
+    [HttpPost("reports/overview/email")]
+    public async Task<IActionResult> SendReportsOverviewEmail([FromBody] CrmSendOverviewReportEmailRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.To))
+        {
+            return BadRequest(new { message = "Destination email is required." });
+        }
+
+        var report = await _adminReportService.BuildOverviewAsync();
+        var subject = string.IsNullOrWhiteSpace(request.Subject)
+            ? $"CRM relatorio ecommerce - {DateTime.UtcNow:yyyy-MM-dd}"
+            : request.Subject!.Trim();
+
+        var html = _adminReportService.BuildOverviewEmailHtml(report);
+        var text = _adminReportService.BuildOverviewEmailText(report);
+
+        await _emailService.SendCustomEmailAsync(request.To.Trim(), subject, html, text);
+
+        return Ok(new { message = "Overview report email sent", to = request.To.Trim(), subject });
     }
 
     #endregion
@@ -384,3 +507,20 @@ public record CrmActivityUpdateRequest(
     string? Status,
     string? DueDate,
     string? Notes);
+
+
+
+
+
+
+
+
+public record SendViewedSuggestionsRequest(int? Limit, string? Subject, string? Intro);
+public record CrmSendOverviewReportEmailRequest(string To, string? Subject);
+
+
+
+
+
+
+

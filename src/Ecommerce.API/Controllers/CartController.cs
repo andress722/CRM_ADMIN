@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Ecommerce.Application.Services;
+using Ecommerce.Domain.Entities;
 
 namespace Ecommerce.API.Controllers;
 
@@ -14,9 +15,13 @@ namespace Ecommerce.API.Controllers;
 public class CartController : ControllerBase
 {
     private readonly CartService _service;
+    private readonly AnalyticsService _analyticsService;
 
-    public CartController(CartService service)
-        => _service = service;
+    public CartController(CartService service, AnalyticsService analyticsService)
+    {
+        _service = service;
+        _analyticsService = analyticsService;
+    }
 
     /// <summary>
     /// Obtém carrinho do usuário
@@ -50,6 +55,20 @@ public class CartController : ControllerBase
             }
 
             var cartItem = await _service.AddToCartAsync(userId, request.ProductId, request.Quantity);
+
+            await _analyticsService.TrackAsync(new AnalyticsEvent
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Type = "AddToCart",
+                Category = "Cart",
+                Action = "AddItem",
+                Label = request.ProductId.ToString(),
+                Value = request.Quantity,
+                Url = "/cart",
+                CreatedAt = DateTime.UtcNow
+            });
+
             return CreatedAtAction(nameof(GetCart), null, cartItem);
         }
         catch (KeyNotFoundException ex)

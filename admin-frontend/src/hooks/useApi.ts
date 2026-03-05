@@ -10,7 +10,7 @@ import { AxiosError, AxiosProgressEvent } from 'axios';
 export function useApiQuery<T>(
   queryKey: (string | number | undefined)[],
   url: string,
-  options?: UseQueryOptions<T, AxiosError>
+  options?: Omit<UseQueryOptions<T, AxiosError>, 'queryKey' | 'queryFn'>
 ) {
   return useQuery({
     queryKey: queryKey.filter(Boolean),
@@ -64,3 +64,4 @@ export function useApiUpload<T = unknown>(
     ...options,
   });
 }
+

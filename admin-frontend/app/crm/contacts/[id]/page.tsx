@@ -67,6 +67,7 @@ export default function ContactDetailPage() {
   const [creatingActivity, setCreatingActivity] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [sendingSuggestions, setSendingSuggestions] = useState(false);
   const [creatingTask, setCreatingTask] = useState(false);
   const [showActivityForm, setShowActivityForm] = useState(false);
   const [activitySubject, setActivitySubject] = useState('');
@@ -264,6 +265,36 @@ export default function ContactDetailPage() {
     }
   };
 
+  const handleSendViewedSuggestions = async () => {
+    if (!id) return;
+    setSendingSuggestions(true);
+    setError(null);
+    const token = AuthService.getToken();
+    if (!token) {
+      setError('Usuário não autenticado.');
+      setSendingSuggestions(false);
+      return;
+    }
+
+    try {
+      const res = await authFetch(endpoints.admin.crmContactSendViewedSuggestions(id), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ limit: 5 }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.message || 'Erro ao enviar sugestões por visualização.');
+      }
+    } catch (err) {
+      setError(getErrorMessage(err, 'Erro ao enviar sugestões por visualização.'));
+    } finally {
+      setSendingSuggestions(false);
+    }
+  };
   const handleCreateTask = async () => {
     if (!form) return;
     setCreatingTask(true);
@@ -453,6 +484,13 @@ export default function ContactDetailPage() {
             className="border px-4 py-2 rounded text-sm font-medium disabled:opacity-60"
           >
             {sendingEmail ? 'Enviando...' : 'Enviar email'}
+          </button>          <button
+            type="button"
+            onClick={handleSendViewedSuggestions}
+            disabled={sendingSuggestions}
+            className="border px-4 py-2 rounded text-sm font-medium disabled:opacity-60"
+          >
+            {sendingSuggestions ? 'Enviando sugestões...' : 'Enviar sugestões por itens vistos'}
           </button>
           <button
             type="button"
@@ -532,6 +570,9 @@ export default function ContactDetailPage() {
     </div>
   );
 }
+
+
+
 
 
 
