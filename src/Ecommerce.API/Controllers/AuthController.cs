@@ -26,6 +26,9 @@ public class AuthController : ControllerBase
     private readonly IConfiguration _configuration;
     private readonly SocialAuthService _socialAuthService;
     private readonly AnalyticsService _analyticsService;
+    private readonly ICaptchaVerifier _captchaVerifier;
+    private readonly IRequestThrottleService _throttle;
+    private readonly TwoFactorService _twoFactorService;
 
     public AuthController(
         UserService userService,
@@ -36,7 +39,10 @@ public class AuthController : ControllerBase
         IEmailService emailService,
         IConfiguration configuration,
         SocialAuthService socialAuthService,
-        AnalyticsService analyticsService)
+        AnalyticsService analyticsService,
+        ICaptchaVerifier captchaVerifier,
+        IRequestThrottleService throttle,
+        TwoFactorService twoFactorService)
     {
         _userService = userService;
         _refreshTokenRepository = refreshTokenRepository;
@@ -47,6 +53,9 @@ public class AuthController : ControllerBase
         _configuration = configuration;
         _socialAuthService = socialAuthService;
         _analyticsService = analyticsService;
+        _captchaVerifier = captchaVerifier;
+        _throttle = throttle;
+        _twoFactorService = twoFactorService;
     }
 
     /// <summary>
@@ -125,6 +134,22 @@ public class AuthController : ControllerBase
         {
             return BadRequest(new { message = "Email and password are required" });
         }
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        if (!_throttle.IsAllowed("auth:login:ip", ip, 20, TimeSpan.FromMinutes(1)))
+        {
+            return StatusCode(429, new { message = "Too many login attempts from this IP" });
+        }
+
+        if (!_throttle.IsAllowed("auth:login:user", request.Email.Trim().ToLowerInvariant(), 10, TimeSpan.FromMinutes(1)))
+        {
+            return StatusCode(429, new { message = "Too many login attempts for this user" });
+        }
+
+        var captchaOk = await _captchaVerifier.VerifyAsync(request.CaptchaToken, ip, HttpContext.RequestAborted);
+        if (!captchaOk)
+        {
+            return BadRequest(new { message = "Captcha verification failed" });
+        }
 
         try
         {
@@ -155,6 +180,32 @@ public class AuthController : ControllerBase
             {
                 return StatusCode(403, new { message = "Email not verified" });
             }
+
+            var adminRequire2Fa = _configuration.GetValue("Security:RequireAdmin2FA", true);
+            if (adminRequire2Fa && user.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+            {
+                if (request.TwoFactorChallengeId == null)
+                {
+                    var challengeId = await _twoFactorService.CreateChallengeAsync(user.Id);
+                    if (challengeId == null)
+                    {
+                        return StatusCode(428, new { message = "Admin must enable 2FA before login.", requiresTwoFactorSetup = true });
+                    }
+                    return StatusCode(428, new { message = "2FA code required", challengeId, requiresTwoFactor = true });
+                }
+                if (string.IsNullOrWhiteSpace(request.TwoFactorCode))
+                {
+                    return StatusCode(428, new { message = "2FA code required", challengeId = request.TwoFactorChallengeId, requiresTwoFactor = true });
+                }
+                var verified = await _twoFactorService.VerifyChallengeAsync(user.Id, request.TwoFactorChallengeId.Value, request.TwoFactorCode.Trim());
+                if (!verified)
+                {
+                    return Unauthorized(new { message = "Invalid 2FA code" });
+                }
+            }
+
+            user.LastLoginAt = DateTime.UtcNow;
+            await _userService.UpdateUserAsync(user);
 
             var token = _tokenService.GenerateAccessToken(user);
             var refreshTokenValue = _tokenService.GenerateRefreshToken();
@@ -276,6 +327,18 @@ public class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
         {
             return BadRequest(new { message = "Email and password are required" });
+        }
+
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        if (!_throttle.IsAllowed("auth:register:ip", ip, 10, TimeSpan.FromMinutes(1)))
+        {
+            return StatusCode(429, new { message = "Too many registration attempts" });
+        }
+
+        var captchaOk = await _captchaVerifier.VerifyAsync(request.CaptchaToken, ip, HttpContext.RequestAborted);
+        if (!captchaOk)
+        {
+            return BadRequest(new { message = "Captcha verification failed" });
         }
 
         try
@@ -409,6 +472,18 @@ public class AuthController : ControllerBase
             return BadRequest(new { message = "Email is required" });
         }
 
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        if (!_throttle.IsAllowed("auth:forgot:ip", ip, 15, TimeSpan.FromMinutes(5)))
+        {
+            return StatusCode(429, new { message = "Too many password reset requests" });
+        }
+
+        var captchaOk = await _captchaVerifier.VerifyAsync(request.CaptchaToken, ip, HttpContext.RequestAborted);
+        if (!captchaOk)
+        {
+            return BadRequest(new { message = "Captcha verification failed" });
+        }
+
         var user = await _userService.GetUserByEmailAsync(request.Email);
         if (user != null)
         {
@@ -430,6 +505,18 @@ public class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Token) || string.IsNullOrWhiteSpace(request.NewPassword))
         {
             return BadRequest(new { message = "Token and new password are required" });
+        }
+
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        if (!_throttle.IsAllowed("auth:reset:ip", ip, 20, TimeSpan.FromMinutes(5)))
+        {
+            return StatusCode(429, new { message = "Too many reset attempts" });
+        }
+
+        var captchaOk = await _captchaVerifier.VerifyAsync(request.CaptchaToken, ip, HttpContext.RequestAborted);
+        if (!captchaOk)
+        {
+            return BadRequest(new { message = "Captcha verification failed" });
         }
 
         var success = await _authService.ResetPasswordAsync(request.Token, request.NewPassword);
@@ -543,47 +630,24 @@ public class AuthController : ControllerBase
 /// </summary>
 public class LoginRequest
 {
-    /// <summary>
-    /// User email
-    /// </summary>
     public string? Email { get; set; }
-
-    /// <summary>
-    /// User password
-    /// </summary>
     public string? Password { get; set; }
+    public string? CaptchaToken { get; set; }
+    public Guid? TwoFactorChallengeId { get; set; }
+    public string? TwoFactorCode { get; set; }
 }
 
-/// <summary>
-/// Refresh token request model
-/// </summary>
 public class RefreshRequest
 {
-    /// <summary>
-    /// Refresh token
-    /// </summary>
     public string? RefreshToken { get; set; }
 }
 
-/// <summary>
-/// Registration request model
-/// </summary>
 public class RegisterRequest
 {
-    /// <summary>
-    /// User email
-    /// </summary>
     public string? Email { get; set; }
-
-    /// <summary>
-    /// User password
-    /// </summary>
     public string? Password { get; set; }
-
-    /// <summary>
-    /// User name
-    /// </summary>
     public string? Name { get; set; }
+    public string? CaptchaToken { get; set; }
 }
 
 public class SocialLoginRequest
@@ -591,16 +655,11 @@ public class SocialLoginRequest
     public string? ProviderUserId { get; set; }
     public string? Email { get; set; }
     public string? Name { get; set; }
+    public string? CaptchaToken { get; set; }
 }
 
-/// <summary>
-/// Refresh token request model
-/// </summary>
 public class RefreshTokenRequest
 {
-    /// <summary>
-    /// Refresh token
-    /// </summary>
     public string? RefreshToken { get; set; }
 }
 
@@ -617,13 +676,18 @@ public class ResendVerificationRequest
 public class ForgotPasswordRequest
 {
     public string? Email { get; set; }
+    public string? CaptchaToken { get; set; }
 }
 
 public class ResetPasswordRequest
 {
     public string? Token { get; set; }
     public string? NewPassword { get; set; }
+    public string? CaptchaToken { get; set; }
 }
+
+
+
 
 
 

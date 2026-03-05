@@ -1,8 +1,8 @@
 'use client';
 
 import { useApiQuery, useApiMutation } from '@/hooks/useApi';
-import { endpoints, getApiUrl } from '@/services/endpoints';
-import { Product, PaginatedResponse } from '@/types/api';
+import { endpoints } from '@/services/endpoints';
+import { Product } from '@/types/api';
 import { useToast } from '@/contexts/ToastContext';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -21,14 +21,10 @@ export default function ProductDetailsPage({ params }: ProductDetailsPageProps) 
   const { addToast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<Partial<Product>>({});
-
-  // Fetch all products (simulating getting one)
-  const { data: productsData } = useApiQuery<PaginatedResponse<Product>>(
-    ['products', 'details'],
-    getApiUrl(endpoints.admin.products, { page: 1, pageSize: 1000 })
+  const { data: product, isLoading } = useApiQuery<Product>(
+    ['products', 'details', params.id],
+    endpoints.admin.productDetail(params.id)
   );
-
-  const product = productsData?.data?.find((p) => p.id === params.id);
 
   const updateMutation = useApiMutation('patch');
   const deleteMutation = useApiMutation('delete');
@@ -71,7 +67,7 @@ export default function ProductDetailsPage({ params }: ProductDetailsPageProps) 
     }
   };
 
-  if (!product) {
+  if (isLoading || !product) {
     return (
       <div className="space-y-6">
         <div className="animate-pulse">
@@ -294,3 +290,5 @@ export default function ProductDetailsPage({ params }: ProductDetailsPageProps) 
     </div>
   );
 }
+
+

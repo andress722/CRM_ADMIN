@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.DependencyInjection;
 using Ecommerce.Application.Services;
 
 namespace Ecommerce.API.Controllers;
@@ -17,13 +18,15 @@ public class UsersController : ControllerBase
     private readonly OrderService _orderService;
     private readonly WishlistService _wishlistService;
     private readonly UserAddressService _addressService;
+    private readonly Ecommerce.API.Services.LoyaltyService _loyaltyService;
 
-    public UsersController(UserService service, OrderService orderService, WishlistService wishlistService, UserAddressService addressService)
+    public UsersController(UserService service, OrderService orderService, WishlistService wishlistService, UserAddressService addressService, Ecommerce.API.Services.LoyaltyService loyaltyService)
     {
         _service = service;
         _orderService = orderService;
         _wishlistService = wishlistService;
         _addressService = addressService;
+        _loyaltyService = loyaltyService;
     }
 
     private Guid GetCurrentUserId()
@@ -236,6 +239,63 @@ public class UsersController : ControllerBase
         return Ok(new { orders = ordersCount, spent = totalSpent, favorites, reviews });
     }
 
+    [HttpPost("me/consent")]
+    [Authorize]
+    public async Task<IActionResult> UpdateConsent([FromBody] UpdateConsentRequest request)
+    {
+        var id = GetCurrentUserId();
+        if (id == Guid.Empty) return Unauthorized();
+
+        var user = await _service.GetUserAsync(id);
+        user.MarketingEmailOptIn = request.MarketingEmailOptIn;
+        user.AnalyticsConsent = request.AnalyticsConsent;
+        user.ConsentUpdatedAt = DateTime.UtcNow;
+        await _service.UpdateUserAsync(user);
+
+        return Ok(new { user.MarketingEmailOptIn, user.AnalyticsConsent, user.ConsentUpdatedAt });
+    }
+
+    [HttpGet("me/loyalty")]
+    [Authorize]
+    public async Task<IActionResult> GetMyLoyalty()
+    {
+        var id = GetCurrentUserId();
+        if (id == Guid.Empty) return Unauthorized();
+
+        var loyalty = await _loyaltyService.GetBalanceAsync(id);
+        return Ok(new { balance = loyalty.balance, earned = loyalty.earned, redeemed = loyalty.redeemed });
+    }
+
+    [HttpPost("me/nps")]
+    [Authorize]
+    public async Task<IActionResult> SubmitNps([FromBody] NpsRequest request)
+    {
+        var id = GetCurrentUserId();
+        if (id == Guid.Empty) return Unauthorized();
+        if (request.Score < 0 || request.Score > 10)
+        {
+            return BadRequest(new { message = "Score must be between 0 and 10" });
+        }
+
+        var user = await _service.GetUserAsync(id);
+        var now = DateTime.UtcNow;
+
+        var analyticsService = HttpContext.RequestServices.GetRequiredService<AnalyticsService>();
+        await analyticsService.TrackAsync(new Ecommerce.Domain.Entities.AnalyticsEvent
+        {
+            Id = Guid.NewGuid(),
+            UserId = id,
+            Type = "NpsResponse",
+            Category = "PostSales",
+            Action = "Submit",
+            Label = string.IsNullOrWhiteSpace(request.Comment) ? user.Email : request.Comment,
+            Value = request.Score,
+            Url = "/nps",
+            CreatedAt = now
+        });
+
+        return Ok(new { message = "NPS recorded" });
+    }
     private static string? ValidateAddressRequest(CreateUserAddressRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Label)) return "Label is required";
@@ -252,6 +312,8 @@ public class UsersController : ControllerBase
 }
 
 public record UpdateProfileRequest(string? Name, string? Email);
+public record UpdateConsentRequest(bool MarketingEmailOptIn, bool AnalyticsConsent);
+public record NpsRequest(int Score, string? Comment);
 
 /// <summary>
 /// Dados para criar um novo usuário
@@ -264,3 +326,7 @@ public record CreateUserRequest(
     /// <summary>Hash da senha</summary>
     string PasswordHash
 );
+
+
+
+

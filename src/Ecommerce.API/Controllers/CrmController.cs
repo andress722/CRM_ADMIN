@@ -4,6 +4,7 @@ using Ecommerce.Application.Services;
 using Ecommerce.Application.Repositories;
 using System.Text;
 using Ecommerce.Domain.Entities;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Ecommerce.API.Controllers;
 
@@ -319,6 +320,45 @@ public class CrmController : ControllerBase
         return NoContent();
     }
 
+    [HttpGet("reports/rfm")]
+    public async Task<IActionResult> GetRfmReport([FromQuery] int top = 200)
+    {
+        top = Math.Clamp(top, 1, 1000);
+
+        var orders = (await _service.GetDealsAsync()).ToList();
+        var users = (await _userService.GetAllUsersAsync()).ToList();
+        var userOrders = (await HttpContext.RequestServices.GetRequiredService<OrderService>().GetAllOrdersAsync()).ToList();
+
+        var now = DateTime.UtcNow;
+        var rows = users.Select(u =>
+        {
+            var uo = userOrders.Where(o => o.UserId == u.Id).ToList();
+            var recencyDays = uo.Count == 0 ? 9999 : (int)(now - uo.Max(x => x.CreatedAt)).TotalDays;
+            var frequency = uo.Count;
+            var monetary = uo.Sum(x => x.TotalAmount);
+
+            var segment = recencyDays <= 30 && frequency >= 3 && monetary >= 500 ? "Champions"
+                : recencyDays <= 60 && frequency >= 2 ? "Loyal"
+                : recencyDays > 120 && frequency <= 1 ? "AtRisk"
+                : "Potential";
+
+            return new
+            {
+                userId = u.Id,
+                email = u.Email,
+                name = u.FullName,
+                recencyDays,
+                frequency,
+                monetary,
+                segment
+            };
+        })
+        .OrderByDescending(x => x.monetary)
+        .Take(top)
+        .ToList();
+
+        return Ok(rows);
+    }
     [HttpGet("reports/overview")]
     public async Task<IActionResult> GetReportsOverview()
     {
@@ -517,6 +557,9 @@ public record CrmActivityUpdateRequest(
 
 public record SendViewedSuggestionsRequest(int? Limit, string? Subject, string? Intro);
 public record CrmSendOverviewReportEmailRequest(string To, string? Subject);
+
+
+
 
 
 

@@ -30,6 +30,38 @@ public class MetricsRegistry
         _latencySums.AddOrUpdate(key, elapsedMs, (_, current) => current + elapsedMs);
     }
 
+    public object Snapshot()
+    {
+        var totalRequests = _requests.Values.Sum();
+        var totalResponses = _responses.Values.Sum();
+        var total5xx = _responses
+            .Where(x =>
+            {
+                var parts = x.Key.Split(':');
+                if (parts.Length < 3)
+                {
+                    return false;
+                }
+
+                return int.TryParse(parts[^1], out var code) && code >= 500 && code < 600;
+            })
+            .Sum(x => x.Value);
+
+        var avgLatency = _latencyCounts.Values.Sum() > 0
+            ? _latencySums.Values.Sum() / _latencyCounts.Values.Sum()
+            : 0;
+
+        var errorRate = totalResponses > 0 ? (double)total5xx / totalResponses : 0;
+
+        return new
+        {
+            totalRequests,
+            totalResponses,
+            total5xx,
+            avgLatencyMs = Math.Round(avgLatency, 2),
+            errorRate
+        };
+    }
     public string ToPrometheus()
     {
         var sb = new StringBuilder();
@@ -143,3 +175,7 @@ public class MetricsRegistry
         return ($"{method}:{path}", bucket);
     }
 }
+
+
+
+

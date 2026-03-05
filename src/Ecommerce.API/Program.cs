@@ -7,6 +7,7 @@ using Ecommerce.Infrastructure.Data;
 using Ecommerce.Application.Repositories;
 using Ecommerce.Application.Services;
 using Ecommerce.API.Services;
+using Ecommerce.API.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
@@ -378,6 +379,12 @@ builder.Services.AddScoped<SocialAuthService>();
 builder.Services.AddScoped<PushDeviceService>();
 builder.Services.AddScoped<CrmService>();
 builder.Services.AddScoped<AdminReportService>();
+builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+builder.Services.AddScoped<IIdempotencyService, IdempotencyService>();
+builder.Services.AddScoped<LoyaltyService>();
+builder.Services.AddScoped<DataGovernanceService>();
+builder.Services.AddSingleton<IRequestThrottleService, InMemoryRequestThrottleService>();
+builder.Services.AddHttpClient<ICaptchaVerifier, CaptchaVerifier>();
 builder.Services.AddScoped<IShippingProvider, Ecommerce.Infrastructure.Shipping.CorreiosShippingProvider>();
 var paymentProvider = builder.Configuration.GetValue<string>("Payments:Provider") ?? "Stub";
 if (paymentProvider.Equals("MercadoPago", StringComparison.OrdinalIgnoreCase))
@@ -415,6 +422,12 @@ builder.Services.AddScoped<IPasswordHasher<Ecommerce.Domain.Entities.User>, Pass
 builder.Services.AddHostedService<WebhookDeliveryWorker>();
 builder.Services.AddHostedService<AnalyticsAggregationWorker>();
 builder.Services.AddHostedService<Ecommerce.Infrastructure.BackgroundServices.EventWorker>();
+builder.Services.AddHostedService<AutomatedReportWorker>();
+builder.Services.AddHostedService<OperationalAlertWorker>();
+builder.Services.AddHostedService<AbandonedCartRecoveryWorker>();
+builder.Services.AddHostedService<LoyaltyCreditWorker>();
+builder.Services.AddHostedService<DataRetentionWorker>();
+builder.Services.AddHostedService<PostSalesEngagementWorker>();
 
 // Auth
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -525,6 +538,7 @@ app.Use(async (context, next) =>
         context.Response.Headers["X-Content-Type-Options"] = "nosniff";
         context.Response.Headers["X-Frame-Options"] = "DENY";
         context.Response.Headers["Referrer-Policy"] = "no-referrer";
+        context.Response.Headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()";
         if (!app.Environment.IsDevelopment() || !context.Request.Path.StartsWithSegments("/swagger"))
         {
             context.Response.Headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'";
@@ -563,6 +577,7 @@ app.UseCors("AllowFrontend");
 app.UseIpRateLimiting();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<AdminAuditMiddleware>();
 app.MapControllers();
 
 app.MapGet("/", () => Results.Ok(new { service = "Ecommerce API", status = "running", timestamp = DateTime.UtcNow }))
@@ -898,6 +913,12 @@ catch (Exception ex)
 app.Run();
 
 public partial class Program { }
+
+
+
+
+
+
 
 
 

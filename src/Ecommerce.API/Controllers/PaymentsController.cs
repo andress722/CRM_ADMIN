@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Ecommerce.Application.Services;
+using Ecommerce.API.Services;
+using System.Text.Json;
 using Ecommerce.Domain.Entities;
 
 namespace Ecommerce.API.Controllers;
@@ -14,11 +16,17 @@ public class PaymentsController : ControllerBase
 {
     private readonly PaymentService _service;
     private readonly IConfiguration _configuration;
+    private readonly IIdempotencyService _idempotencyService;
+    private readonly IRequestThrottleService _throttle;
+    private readonly ICaptchaVerifier _captchaVerifier;
 
-    public PaymentsController(PaymentService service, IConfiguration configuration)
+    public PaymentsController(PaymentService service, IConfiguration configuration, IIdempotencyService idempotencyService, IRequestThrottleService throttle, ICaptchaVerifier captchaVerifier)
     {
         _service = service;
         _configuration = configuration;
+        _idempotencyService = idempotencyService;
+        _throttle = throttle;
+        _captchaVerifier = captchaVerifier;
     }
 
     /// <summary>
@@ -99,17 +107,52 @@ public class PaymentsController : ControllerBase
                 return BadRequest(new { message = "Invalid payer email" });
             }
 
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            if (!_throttle.IsAllowed("payments:checkout:ip", ip, 30, TimeSpan.FromMinutes(1)))
+            {
+                return StatusCode(429, new { message = "Too many checkout requests" });
+            }
+
+            var captchaOk = await _captchaVerifier.VerifyAsync(request.CaptchaToken, ip, HttpContext.RequestAborted);
+            if (!captchaOk)
+            {
+                return BadRequest(new { message = "Captcha verification failed" });
+            }
+
+            var idempotencyKey = Request.Headers["Idempotency-Key"].FirstOrDefault();
+            var requestHash = _idempotencyService.ComputeRequestHash(request);
+            if (!string.IsNullOrWhiteSpace(idempotencyKey))
+            {
+                var existing = await _idempotencyService.GetAsync("payments:checkout", idempotencyKey!, HttpContext.RequestAborted);
+                if (existing != null)
+                {
+                    if (!string.Equals(existing.RequestHash, requestHash, StringComparison.Ordinal))
+                    {
+                        return Conflict(new { message = "Idempotency key reuse with different payload" });
+                    }
+
+                    return StatusCode(existing.ResponseStatusCode, JsonSerializer.Deserialize<object>(existing.ResponseBody));
+                }
+            }
+
             var webhookUrl = _configuration["Payments:MercadoPago:WebhookUrl"];
             var currency = _configuration["Payments:MercadoPago:Currency"] ?? "BRL";
             var result = await _service.CreateCheckoutAsync(request.OrderId, request.PayerEmail, currency, webhookUrl);
 
-            return Ok(new
+            var payload = new
             {
                 paymentId = result.payment.Id,
                 preferenceId = result.preference.PreferenceId,
                 initPoint = result.preference.InitPoint,
                 sandboxInitPoint = result.preference.SandboxInitPoint
-            });
+            };
+
+            if (!string.IsNullOrWhiteSpace(idempotencyKey))
+            {
+                await _idempotencyService.SaveAsync("payments:checkout", idempotencyKey!, requestHash, StatusCodes.Status200OK, payload, TimeSpan.FromHours(12), HttpContext.RequestAborted);
+            }
+
+            return Ok(payload);
         }
         catch (KeyNotFoundException ex)
         {
@@ -325,6 +368,34 @@ public class PaymentsController : ControllerBase
                 }
             }
 
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            if (!_throttle.IsAllowed("payments:transparent:ip", ip, 30, TimeSpan.FromMinutes(1)))
+            {
+                return StatusCode(429, new { message = "Too many transparent checkout requests" });
+            }
+
+            var captchaOk = await _captchaVerifier.VerifyAsync(request.CaptchaToken, ip, HttpContext.RequestAborted);
+            if (!captchaOk)
+            {
+                return BadRequest(new { message = "Captcha verification failed" });
+            }
+
+            var idempotencyKey = Request.Headers["Idempotency-Key"].FirstOrDefault();
+            var requestHash = _idempotencyService.ComputeRequestHash(request);
+            if (!string.IsNullOrWhiteSpace(idempotencyKey))
+            {
+                var existing = await _idempotencyService.GetAsync("payments:transparent", idempotencyKey!, HttpContext.RequestAborted);
+                if (existing != null)
+                {
+                    if (!string.Equals(existing.RequestHash, requestHash, StringComparison.Ordinal))
+                    {
+                        return Conflict(new { message = "Idempotency key reuse with different payload" });
+                    }
+
+                    return StatusCode(existing.ResponseStatusCode, JsonSerializer.Deserialize<object>(existing.ResponseBody));
+                }
+            }
+
             var webhookUrl = _configuration["Payments:MercadoPago:WebhookUrl"];
             var currency = _configuration["Payments:MercadoPago:Currency"] ?? "BRL";
 
@@ -356,7 +427,7 @@ public class PaymentsController : ControllerBase
             );
 
             var result = await _service.CreateTransparentPaymentAsync(request.OrderId, currency, webhookUrl, gatewayRequest);
-            return Ok(new
+            var payload = new
             {
                 paymentId = result.payment.Id,
                 status = result.payment.Status.ToString(),
@@ -367,7 +438,14 @@ public class PaymentsController : ControllerBase
                 pixQrCode = result.result.PixQrCode,
                 pixQrCodeBase64 = result.result.PixQrCodeBase64,
                 boletoUrl = result.result.BoletoUrl
-            });
+            };
+
+            if (!string.IsNullOrWhiteSpace(idempotencyKey))
+            {
+                await _idempotencyService.SaveAsync("payments:transparent", idempotencyKey!, requestHash, StatusCodes.Status200OK, payload, TimeSpan.FromHours(12), HttpContext.RequestAborted);
+            }
+
+            return Ok(payload);
         }
         catch (KeyNotFoundException ex)
         {
@@ -395,7 +473,8 @@ public record AuthorizePaymentRequest(
 /// <summary>Dados para checkout Mercado Pago</summary>
 public record CheckoutRequest(
     Guid OrderId,
-    string? PayerEmail
+    string? PayerEmail,
+    string? CaptchaToken
 );
 
 /// <summary>Checkout transparente</summary>
@@ -406,7 +485,8 @@ public record TransparentCheckoutRequest(
     string? PaymentMethodId,
     string? Description,
     TransparentPayer Payer,
-    TransparentCard? Card
+    TransparentCard? Card,
+    string? CaptchaToken
 );
 
 public record TransparentPayer(
@@ -425,3 +505,21 @@ public record TransparentCard(
     string PaymentMethodId,
     string? IssuerId
 );
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -3,6 +3,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Ecommerce.Application.Services;
+using Ecommerce.API.Services;
 using Ecommerce.Domain.Entities;
 
 namespace Ecommerce.API.Controllers;
@@ -16,9 +17,13 @@ namespace Ecommerce.API.Controllers;
 public class OrdersController : ControllerBase
 {
     private readonly OrderService _service;
+    private readonly IRequestThrottleService _throttle;
 
-    public OrdersController(OrderService service)
-        => _service = service;
+    public OrdersController(OrderService service, IRequestThrottleService throttle)
+    {
+        _service = service;
+        _throttle = throttle;
+    }
 
     /// <summary>
     /// Obtém um pedido por ID
@@ -98,6 +103,11 @@ public class OrdersController : ControllerBase
                 return Unauthorized(new { message = "Invalid user" });
             }
 
+            if (!_throttle.IsAllowed("orders:create:user", currentUserId.ToString(), 8, TimeSpan.FromMinutes(1)))
+            {
+                return StatusCode(429, new { message = "Too many order attempts. Please wait." });
+            }
+
             var order = await _service.CreateOrderAsync(
                 currentUserId,
                 request.Items
@@ -126,6 +136,11 @@ public class OrdersController : ControllerBase
             if (currentUserId == Guid.Empty)
             {
                 return Unauthorized(new { message = "Invalid user" });
+            }
+
+            if (!_throttle.IsAllowed("orders:create-from-cart:user", currentUserId.ToString(), 8, TimeSpan.FromMinutes(1)))
+            {
+                return StatusCode(429, new { message = "Too many checkout attempts. Please wait." });
             }
 
             var order = await _service.CreateOrderFromCartAsync(currentUserId);
@@ -176,3 +191,8 @@ public record CreateOrderRequest(
 public record UpdateOrderStatusRequest(
     OrderStatus Status
 );
+
+
+
+
+

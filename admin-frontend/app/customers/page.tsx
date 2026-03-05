@@ -8,6 +8,7 @@ type CustomerSummary = {
   id: string;
   name: string;
   email: string;
+  blocked?: boolean;
 };
 
 export default function CustomersPage() {
@@ -15,24 +16,65 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<CustomerSummary[]>([]);
   const [loading, setLoading] = useState(() => Boolean(token));
   const [error, setError] = useState<string | null>(() =>
-    token ? null : "Usuário não autenticado.",
+    token ? null : "Usuario nao autenticado.",
   );
 
-  useEffect(() => {
+  const loadCustomers = () => {
     if (!token) return;
+
+    setLoading(true);
     fetch(endpoints.admin.customers, {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then((res) => res.json())
-      .then((data) => {
-        setCustomers(data);
-        setLoading(false);
+      .then(async (res) => {
+        if (!res.ok) {
+          throw new Error("failed");
+        }
+        const data = await res.json();
+        setCustomers(Array.isArray(data) ? data : data?.data ?? []);
+        setError(null);
       })
       .catch(() => {
         setError("Erro ao carregar clientes.");
-        setLoading(false);
-      });
+      })
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadCustomers();
   }, [token]);
+
+  const toggleBlock = async (customer: CustomerSummary) => {
+    if (!token) return;
+
+    try {
+      const nextBlocked = !Boolean(customer.blocked);
+      const res = await fetch(endpoints.admin.customerDetail(customer.id), {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: customer.name,
+          email: customer.email,
+          blocked: nextBlocked,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("failed");
+      }
+
+      setCustomers((prev) =>
+        prev.map((item) =>
+          item.id === customer.id ? { ...item, blocked: nextBlocked } : item,
+        ),
+      );
+    } catch {
+      alert("Falha ao atualizar bloqueio do cliente.");
+    }
+  };
 
   if (loading) return <div>Carregando clientes...</div>;
   if (error) return <div className="text-red-600">{error}</div>;
@@ -47,7 +89,7 @@ export default function CustomersPage() {
             <th className="p-2 border">ID</th>
             <th className="p-2 border">Nome</th>
             <th className="p-2 border">Email</th>
-            <th className="p-2 border">Ações</th>
+            <th className="p-2 border">Acoes</th>
           </tr>
         </thead>
         <tbody>
@@ -65,9 +107,9 @@ export default function CustomersPage() {
                 </Link>
                 <button
                   className="text-red-600 underline"
-                  onClick={() => alert("Bloquear/desbloquear em breve")}
+                  onClick={() => toggleBlock(customer)}
                 >
-                  Bloquear
+                  {customer.blocked ? "Desbloquear" : "Bloquear"}
                 </button>
               </td>
             </tr>

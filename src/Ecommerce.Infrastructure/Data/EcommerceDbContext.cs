@@ -48,6 +48,9 @@ public class EcommerceDbContext : DbContext
     public DbSet<CrmDeal> CrmDeals { get; set; }
     public DbSet<CrmContact> CrmContacts { get; set; }
     public DbSet<CrmActivity> CrmActivities { get; set; }
+    public DbSet<AuditLog> AuditLogs { get; set; }
+    public DbSet<IdempotencyRecord> IdempotencyRecords { get; set; }
+    public DbSet<LoyaltyAccount> LoyaltyAccounts { get; set; }
     public DbSet<Ecommerce.Domain.Entities.EventStoreItem> EventStore { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -63,6 +66,9 @@ public class EcommerceDbContext : DbContext
             entity.Property(e => e.PasswordHash).IsRequired();
             entity.Property(e => e.Role).IsRequired().HasMaxLength(50).HasDefaultValue("User");
             entity.Property(e => e.FailedLoginAttempts).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.MarketingEmailOptIn).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.AnalyticsConsent).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsAnonymized).IsRequired().HasDefaultValue(false);
             entity.HasIndex(e => e.Email).IsUnique();
             entity.HasIndex(e => e.Role);
         });
@@ -214,6 +220,8 @@ public class EcommerceDbContext : DbContext
             entity.Property(e => e.Sku).HasMaxLength(100);
             entity.HasIndex(e => e.Sku).IsUnique();
             entity.HasIndex(e => e.Category);
+            entity.Property(e => e.IsFeatured).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.ViewCount).IsRequired().HasDefaultValue(0);
         });
 
         // Order configuration
@@ -469,6 +477,41 @@ public class EcommerceDbContext : DbContext
             entity.HasIndex(e => e.OccurredAt);
         });
 
+
+        modelBuilder.Entity<AuditLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ActorEmail).HasMaxLength(255);
+            entity.Property(e => e.Action).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.EntityType).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.EntityId).HasMaxLength(120);
+            entity.Property(e => e.MetadataJson).IsRequired();
+            entity.Property(e => e.IpAddress).HasMaxLength(100);
+            entity.Property(e => e.UserAgent).HasMaxLength(512);
+            entity.HasIndex(e => e.CreatedAt);
+            entity.HasIndex(e => e.ActorUserId);
+            entity.HasIndex(e => e.Action);
+        });
+
+        modelBuilder.Entity<IdempotencyRecord>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Key).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Scope).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.RequestHash).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.ResponseBody).IsRequired();
+            entity.HasIndex(e => new { e.Scope, e.Key }).IsUnique();
+            entity.HasIndex(e => e.ExpiresAt);
+        });
+
+        modelBuilder.Entity<LoyaltyAccount>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PointsBalance).HasPrecision(18, 2);
+            entity.Property(e => e.LifetimeEarned).HasPrecision(18, 2);
+            entity.Property(e => e.LifetimeRedeemed).HasPrecision(18, 2);
+            entity.HasIndex(e => e.UserId).IsUnique();
+        });
         // Event store
         modelBuilder.Entity<Ecommerce.Domain.Entities.EventStoreItem>(entity =>
         {
@@ -481,4 +524,9 @@ public class EcommerceDbContext : DbContext
         });
     }
 }
+
+
+
+
+
 

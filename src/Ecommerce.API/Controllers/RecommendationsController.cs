@@ -12,15 +12,18 @@ public class RecommendationsController : ControllerBase
     private readonly OrderService _orderService;
     private readonly ProductService _productService;
     private readonly IAnalyticsEventRepository _analyticsEvents;
+    private readonly WishlistService _wishlistService;
 
     public RecommendationsController(
         OrderService orderService,
         ProductService productService,
-        IAnalyticsEventRepository analyticsEvents)
+        IAnalyticsEventRepository analyticsEvents,
+        WishlistService wishlistService)
     {
         _orderService = orderService;
         _productService = productService;
         _analyticsEvents = analyticsEvents;
+        _wishlistService = wishlistService;
     }
 
     [HttpGet]
@@ -34,37 +37,51 @@ public class RecommendationsController : ControllerBase
 
         if (effectiveUserId.HasValue)
         {
+            var effectiveId = effectiveUserId.Value;
             var userViewed = events
-                .Where(e => e.UserId == effectiveUserId && e.Type.Equals("ProductView", StringComparison.OrdinalIgnoreCase))
+                .Where(e => e.UserId == effectiveId && e.Type.Equals("ProductView", StringComparison.OrdinalIgnoreCase))
                 .Where(e => Guid.TryParse(e.Label, out _))
                 .Select(e => Guid.Parse(e.Label!))
                 .ToList();
 
-            if (userViewed.Count > 0)
+            var userOrders = (await _orderService.GetUserOrdersAsync(effectiveId)).ToList();
+            var purchasedSet = userOrders.SelectMany(x => x.Items).Select(x => x.ProductId).ToHashSet();
+
+            var wishlist = await _wishlistService.GetOrCreateDefaultAsync(effectiveId);
+            var favoriteSet = (await _wishlistService.GetItemsAsync(wishlist.Id)).Select(x => x.ProductId).ToHashSet();
+
+            var viewedSet = userViewed.ToHashSet();
+            var interestSet = viewedSet.Union(favoriteSet).Union(purchasedSet).ToHashSet();
+
+            if (interestSet.Count > 0)
             {
-                var viewedSet = userViewed.ToHashSet();
                 var preferredCategories = allProducts
-                    .Where(p => viewedSet.Contains(p.Id))
+                    .Where(p => interestSet.Contains(p.Id))
                     .GroupBy(p => p.Category)
                     .OrderByDescending(g => g.Count())
                     .Select(g => g.Key)
                     .ToList();
 
                 var personalized = allProducts
-                    .Where(p => !viewedSet.Contains(p.Id))
-                    .OrderByDescending(p => preferredCategories.IndexOf(p.Category) >= 0 ? 100 - preferredCategories.IndexOf(p.Category) : 0)
-                    .ThenByDescending(p => p.IsFeatured)
-                    .ThenByDescending(p => p.ViewCount)
-                    .Take(limit)
-                    .Select(p => new
+                    .Where(p => !purchasedSet.Contains(p.Id))
+                    .Where(p => !viewedSet.Contains(p.Id) || favoriteSet.Contains(p.Id))
+                    .Select(p =>
                     {
-                        id = p.Id.ToString(),
-                        name = p.Name,
-                        price = p.Price,
-                        category = p.Category,
-                        score = p.ViewCount,
-                        reason = "BasedOnViews"
+                        var categoryBoost = preferredCategories.IndexOf(p.Category) >= 0 ? 100 - preferredCategories.IndexOf(p.Category) : 0;
+                        var behaviorBoost = (favoriteSet.Contains(p.Id) ? 30 : 0) + (viewedSet.Contains(p.Id) ? 10 : 0);
+                        var score = categoryBoost + behaviorBoost + (p.IsFeatured ? 20 : 0) + Math.Min(p.ViewCount, 200);
+                        return new
+                        {
+                            id = p.Id.ToString(),
+                            name = p.Name,
+                            price = p.Price,
+                            category = p.Category,
+                            score,
+                            reason = "Hybrid(views+favorites+purchases)"
+                        };
                     })
+                    .OrderByDescending(p => p.score)
+                    .Take(limit)
                     .ToList();
 
                 if (personalized.Count > 0)
@@ -137,3 +154,7 @@ public class RecommendationsController : ControllerBase
         return null;
     }
 }
+
+
+
+

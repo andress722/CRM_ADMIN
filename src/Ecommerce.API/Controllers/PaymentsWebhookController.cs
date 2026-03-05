@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Ecommerce.Application.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Ecommerce.API.Services;
 
 namespace Ecommerce.API.Controllers;
 
@@ -17,15 +18,18 @@ public class PaymentsWebhookController : ControllerBase
     private readonly PaymentService _payments;
     private readonly IConfiguration _configuration;
     private readonly ILogger<PaymentsWebhookController> _logger;
+    private readonly IIdempotencyService _idempotencyService;
 
     public PaymentsWebhookController(
         PaymentService payments,
         IConfiguration configuration,
-        ILogger<PaymentsWebhookController> logger)
+        ILogger<PaymentsWebhookController> logger,
+        IIdempotencyService idempotencyService)
     {
         _payments = payments;
         _configuration = configuration;
         _logger = logger;
+        _idempotencyService = idempotencyService;
     }
 
     [HttpPost]
@@ -72,6 +76,18 @@ public class PaymentsWebhookController : ControllerBase
             return BadRequest(new { message = "Missing transaction id" });
         }
 
+        var webhookKey = Request.Headers["x-request-id"].FirstOrDefault() ?? transactionId;
+        var requestHash = _idempotencyService.ComputeRequestHash(new { id = transactionId, body });
+        var existing = await _idempotencyService.GetAsync("payments:webhook", webhookKey, HttpContext.RequestAborted);
+        if (existing != null)
+        {
+            if (!string.Equals(existing.RequestHash, requestHash, StringComparison.Ordinal))
+            {
+                return Conflict(new { message = "Idempotency key reuse with different payload" });
+            }
+            return StatusCode(existing.ResponseStatusCode, new { message = "Duplicate webhook ignored", type });
+        }
+
         var updated = await _payments.ProcessGatewayNotificationAsync(transactionId);
         if (!updated)
         {
@@ -79,7 +95,9 @@ public class PaymentsWebhookController : ControllerBase
             return NotFound(new { message = "Payment not found" });
         }
 
-        return Ok(new { message = "Payment updated", type });
+        var payload = new { message = "Payment updated", type };
+        await _idempotencyService.SaveAsync("payments:webhook", webhookKey, requestHash, StatusCodes.Status200OK, payload, TimeSpan.FromHours(24), HttpContext.RequestAborted);
+        return Ok(payload);
     }
 
     private static string? TryExtractTransactionId(string payload)
@@ -181,3 +199,9 @@ public class PaymentsWebhookController : ControllerBase
         return body;
     }
 }
+
+
+
+
+
+
