@@ -412,11 +412,18 @@ else
 {
     builder.Services.AddScoped<IPaymentGateway, StubPaymentGateway>();
 }
-var emailProvider = builder.Configuration.GetValue<string>("Email:Provider") ?? "Console";
-if (builder.Environment.IsProduction() && emailProvider.Equals("Console", StringComparison.OrdinalIgnoreCase))
+var emailProvider = builder.Configuration.GetValue<string>("Email:Provider");
+if (string.IsNullOrWhiteSpace(emailProvider))
 {
-    throw new InvalidOperationException("In production, Email:Provider cannot be Console.");
+    emailProvider = builder.Environment.IsProduction() ? "SendGrid" : "Console";
+    Log.Warning("Email:Provider not configured. Defaulting to {Provider} in {Environment}.", emailProvider, builder.Environment.EnvironmentName);
 }
+
+if (emailProvider.Equals("Console", StringComparison.OrdinalIgnoreCase) && builder.Environment.IsProduction())
+{
+    Log.Warning("Email:Provider is Console in production. Outbound emails will not be delivered externally.");
+}
+
 if (emailProvider.Equals("SendGrid", StringComparison.OrdinalIgnoreCase))
 {
     var sendGridKey = builder.Configuration["Email:SendGrid:ApiKey"];
@@ -426,11 +433,7 @@ if (emailProvider.Equals("SendGrid", StringComparison.OrdinalIgnoreCase))
     }
     else
     {
-        if (builder.Environment.IsProduction())
-        {
-            throw new InvalidOperationException("In production, Email:SendGrid:ApiKey is required when Email:Provider is SendGrid.");
-        }
-
+        Log.Warning("Email:Provider is SendGrid but Email:SendGrid:ApiKey is missing. Falling back to ConsoleEmailService.");
         builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
     }
 }
