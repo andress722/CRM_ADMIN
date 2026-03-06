@@ -400,8 +400,8 @@ if (string.IsNullOrWhiteSpace(paymentProvider))
 if (builder.Environment.IsProduction() &&
     !paymentProvider.Equals("MercadoPago", StringComparison.OrdinalIgnoreCase))
 {
-    throw new InvalidOperationException(
-        $"In production, Payments:Provider must be MercadoPago (current: '{paymentProvider}').");
+    Log.Warning("Payments:Provider set to {Provider} in production. Forcing MercadoPago.", paymentProvider);
+    paymentProvider = "MercadoPago";
 }
 
 if (paymentProvider.Equals("MercadoPago", StringComparison.OrdinalIgnoreCase))
@@ -969,6 +969,7 @@ catch (Exception ex)
 app.Run();
 
 public partial class Program { }
+
 
 
 
