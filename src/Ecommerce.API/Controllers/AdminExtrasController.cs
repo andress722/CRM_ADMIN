@@ -3,7 +3,10 @@ using Microsoft.AspNetCore.Authorization;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
-using System.Linq;
+using Microsoft.EntityFrameworkCore;
+using Ecommerce.Application.Repositories;
+using Ecommerce.Domain.Entities;
+using Ecommerce.Infrastructure.Data;
 
 namespace Ecommerce.API.Controllers;
 
@@ -13,42 +16,64 @@ namespace Ecommerce.API.Controllers;
 [Route("admin")]
 public class AdminExtrasController : ControllerBase
 {
-    private static readonly List<WebhookDto> _webhooks = new();
-    private static readonly List<LogDto> _logs = new();
-    private static readonly List<NotificationDto> _notifications = new();
-    private static readonly List<IntegrationDto> _integrations = new();
-    private static readonly List<AdminUserDto> _admins = new();
-    private static readonly List<CouponDto> _coupons = new();
-    private static readonly List<BannerDto> _banners = new();
-    private static readonly List<ReportDto> _reports = new();
+    private readonly IWebhookRepository _webhooks;
+    private readonly IEmailLogRepository _emailLogs;
+    private readonly IUserRepository _users;
+    private readonly ICouponRepository _couponRepository;
+    private readonly IBannerRepository _bannerRepository;
+    private readonly EcommerceDbContext _db;
 
-    private static SettingsDto _settings = new()
-    {
-        StoreName = "Loja Demo",
-        ContactEmail = "contato@ecommerce.com",
-        Maintenance = false,
-        DefaultDarkMode = true
-    };
+    private static readonly HashSet<string> _readNotifications = new(StringComparer.OrdinalIgnoreCase);
 
-    private static ProfileDto _profile = new()
+    public AdminExtrasController(
+        IWebhookRepository webhooks,
+        IEmailLogRepository emailLogs,
+        IUserRepository users,
+        ICouponRepository couponRepository,
+        IBannerRepository bannerRepository,
+        EcommerceDbContext db)
     {
-        Name = "Admin User",
-        Email = "admin@example.com",
-        Avatar = "/default-avatar.png",
-        Preferences = new Dictionary<string, object> { { "darkMode", true }, { "notifications", true } }
-    };
+        _webhooks = webhooks;
+        _emailLogs = emailLogs;
+        _users = users;
+        _couponRepository = couponRepository;
+        _bannerRepository = bannerRepository;
+        _db = db;
+    }
 
     #region Webhooks
 
     [HttpGet("webhooks")]
-    public IActionResult GetWebhooks() => Ok(_webhooks);
+    public async Task<IActionResult> GetWebhooks()
+    {
+        var list = (await _webhooks.GetAllAsync())
+            .OrderByDescending(x => x.CreatedAt)
+            .Select(x => new WebhookDto(
+                x.Id.ToString(),
+                x.EventTypes.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "*",
+                x.Url,
+                x.IsActive))
+            .ToList();
+
+        return Ok(list);
+    }
 
     [HttpPost("webhooks")]
-    public IActionResult CreateWebhook([FromBody] WebhookDto dto)
+    public async Task<IActionResult> CreateWebhook([FromBody] WebhookDto dto)
     {
-        var created = dto with { Id = Guid.NewGuid().ToString() };
-        _webhooks.Add(created);
-        return Ok(created);
+        var entity = new Webhook
+        {
+            Id = Guid.NewGuid(),
+            Url = dto.Url,
+            EventTypes = string.IsNullOrWhiteSpace(dto.Event) ? "*" : dto.Event,
+            Secret = Guid.NewGuid().ToString("N"),
+            IsActive = dto.Enabled,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _webhooks.AddAsync(entity);
+
+        return Ok(new WebhookDto(entity.Id.ToString(), dto.Event, entity.Url, entity.IsActive));
     }
 
     #endregion
@@ -56,24 +81,54 @@ public class AdminExtrasController : ControllerBase
     #region Logs
 
     [HttpGet("logs")]
-    public IActionResult GetLogs() => Ok(_logs);
+    public async Task<IActionResult> GetLogs()
+    {
+        var auditLogs = await _db.AuditLogs
+            .AsNoTracking()
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(200)
+            .Select(x => new LogDto(
+                x.Id.ToString(),
+                x.CreatedAt,
+                x.Action,
+                x.MetadataJson,
+                x.ActorEmail,
+                x.ActorEmail))
+            .ToListAsync();
+
+        var emailLogs = (await _emailLogs.GetRecentAsync(50))
+            .Select(x => new LogDto(
+                x.Id.ToString(),
+                x.CreatedAt,
+                "Email",
+                $"To={x.To}; Subject={x.Subject}; Status={x.Status}{(string.IsNullOrWhiteSpace(x.Error) ? string.Empty : $"; Error={x.Error}")}",
+                null,
+                x.To));
+
+        var merged = auditLogs
+            .Concat(emailLogs)
+            .OrderByDescending(x => x.Date)
+            .Take(250)
+            .ToList();
+
+        return Ok(merged);
+    }
 
     #endregion
 
     #region Notifications
 
     [HttpGet("notifications")]
-    public IActionResult GetNotifications() => Ok(_notifications);
+    public async Task<IActionResult> GetNotifications()
+    {
+        var notifications = await BuildNotificationsAsync();
+        return Ok(notifications);
+    }
 
     [HttpPost("notifications/{id}/read")]
     public IActionResult MarkNotificationRead(string id)
     {
-        var index = _notifications.FindIndex(n => n.Id == id);
-        if (index >= 0)
-        {
-            var updated = _notifications[index] with { Read = true };
-            _notifications[index] = updated;
-        }
+        _readNotifications.Add(id);
         return Ok(new { success = true });
     }
 
@@ -87,10 +142,49 @@ public class AdminExtrasController : ControllerBase
         }
 
         using var socket = await HttpContext.WebSockets.AcceptWebSocketAsync();
-        var payload = JsonSerializer.Serialize(_notifications);
+        var notifications = await BuildNotificationsAsync();
+        var payload = JsonSerializer.Serialize(notifications);
         var buffer = Encoding.UTF8.GetBytes(payload);
         await socket.SendAsync(buffer, WebSocketMessageType.Text, true, HttpContext.RequestAborted);
         await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", HttpContext.RequestAborted);
+    }
+
+    private async Task<List<NotificationDto>> BuildNotificationsAsync()
+    {
+        var failedDeliveries = await _db.WebhookDeliveries
+            .AsNoTracking()
+            .Where(x => x.Status == "Failed")
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(20)
+            .ToListAsync();
+
+        var failedEmails = (await _emailLogs.GetRecentAsync(50))
+            .Where(x => !x.Status.Equals("Sent", StringComparison.OrdinalIgnoreCase))
+            .Take(20)
+            .ToList();
+
+        var notifications = new List<NotificationDto>();
+
+        notifications.AddRange(failedDeliveries.Select(x =>
+            new NotificationDto(
+                $"wh-{x.Id}",
+                "Falha em webhook",
+                $"Evento {x.EventType} falhou na tentativa {x.Attempt}.",
+                x.CreatedAt,
+                _readNotifications.Contains($"wh-{x.Id}"))));
+
+        notifications.AddRange(failedEmails.Select(x =>
+            new NotificationDto(
+                $"email-{x.Id}",
+                "Falha em e-mail",
+                $"Envio para {x.To} com status {x.Status}.",
+                x.CreatedAt,
+                _readNotifications.Contains($"email-{x.Id}"))));
+
+        return notifications
+            .OrderByDescending(x => x.Date)
+            .Take(50)
+            .ToList();
     }
 
     #endregion
@@ -98,20 +192,72 @@ public class AdminExtrasController : ControllerBase
     #region Reports
 
     [HttpGet("reports")]
-    public IActionResult GetReports() => Ok(_reports);
+    public async Task<IActionResult> GetReports()
+    {
+        var reports = await _db.DailyKpis
+            .AsNoTracking()
+            .OrderByDescending(x => x.Date)
+            .Take(30)
+            .Select(x => new ReportDto($"KPIs {x.Date:yyyy-MM-dd}", "daily_kpi", x.Date.ToDateTime(TimeOnly.MinValue), x.Purchases))
+            .ToListAsync();
+
+        return Ok(reports);
+    }
 
     #endregion
 
     #region Settings
 
     [HttpGet("settings")]
-    public IActionResult GetSettings() => Ok(_settings);
+    public async Task<IActionResult> GetSettings()
+    {
+        var settings = await GetOrCreateSettingsAsync();
+        return Ok(new SettingsDto
+        {
+            StoreName = settings.StoreName,
+            ContactEmail = settings.ContactEmail,
+            Maintenance = settings.Maintenance,
+            DefaultDarkMode = settings.DefaultDarkMode
+        });
+    }
 
     [HttpPut("settings")]
-    public IActionResult UpdateSettings([FromBody] SettingsDto dto)
+    public async Task<IActionResult> UpdateSettings([FromBody] SettingsDto dto)
     {
-        _settings = dto;
-        return Ok(_settings);
+        var settings = await GetOrCreateSettingsAsync();
+        settings.StoreName = dto.StoreName;
+        settings.ContactEmail = dto.ContactEmail;
+        settings.Maintenance = dto.Maintenance;
+        settings.DefaultDarkMode = dto.DefaultDarkMode;
+        settings.UpdatedAt = DateTime.UtcNow;
+
+        _db.AdminSettings.Update(settings);
+        await _db.SaveChangesAsync();
+
+        return Ok(dto);
+    }
+
+    private async Task<AdminSetting> GetOrCreateSettingsAsync()
+    {
+        var settings = await _db.AdminSettings.AsNoTracking().OrderByDescending(x => x.UpdatedAt).FirstOrDefaultAsync();
+        if (settings != null)
+        {
+            return settings;
+        }
+
+        var created = new AdminSetting
+        {
+            Id = Guid.NewGuid(),
+            StoreName = "Loja Demo",
+            ContactEmail = "contato@ecommerce.com",
+            Maintenance = false,
+            DefaultDarkMode = true,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        await _db.AdminSettings.AddAsync(created);
+        await _db.SaveChangesAsync();
+        return created;
     }
 
     #endregion
@@ -119,20 +265,118 @@ public class AdminExtrasController : ControllerBase
     #region Profile
 
     [HttpGet("profile")]
-    public IActionResult GetProfile() => Ok(_profile);
+    public async Task<IActionResult> GetProfile()
+    {
+        var profile = await GetOrCreateProfileAsync();
+        var preferences = ParsePreferences(profile.PreferencesJson);
+
+        return Ok(new ProfileDto
+        {
+            Name = profile.Name,
+            Email = profile.Email,
+            Avatar = profile.Avatar,
+            Preferences = preferences
+        });
+    }
 
     [HttpPut("profile")]
-    public IActionResult UpdateProfile([FromBody] ProfileDto dto)
+    public async Task<IActionResult> UpdateProfile([FromBody] ProfileDto dto)
     {
-        _profile = dto;
-        return Ok(_profile);
+        var profile = await GetOrCreateProfileAsync();
+        profile.Name = dto.Name;
+        profile.Email = dto.Email;
+        profile.Avatar = dto.Avatar;
+        profile.PreferencesJson = JsonSerializer.Serialize(dto.Preferences ?? new Dictionary<string, object>());
+        profile.UpdatedAt = DateTime.UtcNow;
+
+        _db.AdminProfiles.Update(profile);
+        await _db.SaveChangesAsync();
+
+        return Ok(dto);
     }
 
     [HttpPost("profile/avatar")]
-    public IActionResult UploadAvatar()
+    public async Task<IActionResult> UploadAvatar()
     {
-        _profile = _profile with { Avatar = "/default-avatar.png" };
-        return Ok(new { url = _profile.Avatar });
+        var profile = await GetOrCreateProfileAsync();
+        profile.Avatar = "/default-avatar.png";
+        profile.UpdatedAt = DateTime.UtcNow;
+        _db.AdminProfiles.Update(profile);
+        await _db.SaveChangesAsync();
+        return Ok(new { url = profile.Avatar });
+    }
+
+    private async Task<AdminProfile> GetOrCreateProfileAsync()
+    {
+        var currentEmail = User?.Identity?.Name ?? User?.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
+        AdminProfile? profile = null;
+
+        if (!string.IsNullOrWhiteSpace(currentEmail))
+        {
+            profile = await _db.AdminProfiles.FirstOrDefaultAsync(x => x.Email == currentEmail);
+        }
+
+        profile ??= await _db.AdminProfiles.OrderByDescending(x => x.UpdatedAt).FirstOrDefaultAsync();
+        if (profile != null)
+        {
+            return profile;
+        }
+
+        var created = new AdminProfile
+        {
+            Id = Guid.NewGuid(),
+            Name = "Admin User",
+            Email = currentEmail ?? "admin@example.com",
+            Avatar = "/default-avatar.png",
+            PreferencesJson = JsonSerializer.Serialize(new Dictionary<string, object>
+            {
+                ["darkMode"] = true,
+                ["notifications"] = true
+            }),
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        await _db.AdminProfiles.AddAsync(created);
+        await _db.SaveChangesAsync();
+        return created;
+    }
+
+    private static Dictionary<string, object> ParsePreferences(string? preferencesJson)
+    {
+        if (string.IsNullOrWhiteSpace(preferencesJson))
+        {
+            return new Dictionary<string, object>();
+        }
+
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(preferencesJson);
+            if (parsed == null)
+            {
+                return new Dictionary<string, object>();
+            }
+
+            return parsed.ToDictionary(k => k.Key, v => ConvertJsonElement(v.Value) ?? string.Empty);
+        }
+        catch
+        {
+            return new Dictionary<string, object>();
+        }
+    }
+
+    private static object? ConvertJsonElement(JsonElement value)
+    {
+        return value.ValueKind switch
+        {
+            JsonValueKind.String => value.GetString(),
+            JsonValueKind.Number when value.TryGetInt64(out var i) => i,
+            JsonValueKind.Number when value.TryGetDecimal(out var d) => d,
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.Array => value.EnumerateArray().Select(ConvertJsonElement).ToList(),
+            JsonValueKind.Object => value.EnumerateObject().ToDictionary(p => p.Name, p => ConvertJsonElement(p.Value)),
+            _ => null
+        };
     }
 
     #endregion
@@ -140,31 +384,100 @@ public class AdminExtrasController : ControllerBase
     #region Integrations
 
     [HttpGet("integrations")]
-    public IActionResult GetIntegrations() => Ok(_integrations);
+    public async Task<IActionResult> GetIntegrations()
+    {
+        var integrations = await _db.AdminIntegrations
+            .AsNoTracking()
+            .OrderByDescending(x => x.CreatedAt)
+            .Select(x => new IntegrationDto(
+                x.Id.ToString(),
+                x.Name,
+                x.Provider,
+                x.Status,
+                x.ApiKey,
+                x.Type))
+            .ToListAsync();
+
+        return Ok(integrations);
+    }
 
     [HttpPost("integrations")]
-    public IActionResult CreateIntegration([FromBody] IntegrationDto dto)
+    public async Task<IActionResult> CreateIntegration([FromBody] IntegrationDto dto)
     {
-        var created = dto with { Id = Guid.NewGuid().ToString() };
-        _integrations.Add(created);
-        return Ok(created);
+        var now = DateTime.UtcNow;
+        var integration = new AdminIntegration
+        {
+            Id = Guid.NewGuid(),
+            Name = dto.Name,
+            Provider = dto.Provider,
+            Status = dto.Status,
+            ApiKey = dto.ApiKey,
+            Type = dto.Type,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        await _db.AdminIntegrations.AddAsync(integration);
+        await _db.SaveChangesAsync();
+
+        return Ok(new IntegrationDto(
+            integration.Id.ToString(),
+            integration.Name,
+            integration.Provider,
+            integration.Status,
+            integration.ApiKey,
+            integration.Type));
     }
 
     [HttpPut("integrations/{id}")]
-    public IActionResult UpdateIntegration(string id, [FromBody] IntegrationDto dto)
+    public async Task<IActionResult> UpdateIntegration(string id, [FromBody] IntegrationDto dto)
     {
-        var index = _integrations.FindIndex(i => i.Id == id);
-        if (index >= 0)
+        if (!Guid.TryParse(id, out var integrationId))
         {
-            _integrations[index] = dto with { Id = id };
+            return NotFound();
         }
-        return Ok(dto with { Id = id });
+
+        var integration = await _db.AdminIntegrations.FirstOrDefaultAsync(x => x.Id == integrationId);
+        if (integration == null)
+        {
+            return NotFound();
+        }
+
+        integration.Name = dto.Name;
+        integration.Provider = dto.Provider;
+        integration.Status = dto.Status;
+        integration.ApiKey = dto.ApiKey;
+        integration.Type = dto.Type;
+        integration.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+
+        return Ok(new IntegrationDto(
+            integration.Id.ToString(),
+            integration.Name,
+            integration.Provider,
+            integration.Status,
+            integration.ApiKey,
+            integration.Type));
     }
 
     [HttpDelete("integrations/{id}")]
-    public IActionResult DeleteIntegration(string id)
+    public async Task<IActionResult> DeleteIntegration(string id)
     {
-        _integrations.RemoveAll(i => i.Id == id);
+        if (!Guid.TryParse(id, out var integrationId))
+        {
+            return NotFound();
+        }
+
+        var integration = await _db.AdminIntegrations.FirstOrDefaultAsync(x => x.Id == integrationId);
+        if (integration == null)
+        {
+            return NotFound();
+        }
+
+        _db.AdminIntegrations.Remove(integration);
+        await _db.SaveChangesAsync();
+
         return Ok(new { success = true });
     }
 
@@ -172,73 +485,285 @@ public class AdminExtrasController : ControllerBase
     public IActionResult TestIntegration(string id) => Ok(new { success = true, id });
 
     [HttpGet("integrations/{id}/logs")]
-    public IActionResult GetIntegrationLogs(string id) => Ok(Array.Empty<object>());
+    public async Task<IActionResult> GetIntegrationLogs(string id)
+    {
+        var logs = await _db.AuditLogs
+            .AsNoTracking()
+            .Where(x => x.EntityType == "Integration" || x.EntityId == id)
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(100)
+            .Select(x => new
+            {
+                id = x.Id.ToString(),
+                action = x.Action,
+                details = x.MetadataJson,
+                actor = x.ActorEmail,
+                createdAt = x.CreatedAt
+            })
+            .ToListAsync();
+
+        return Ok(logs);
+    }
 
     #endregion
 
     #region Admins
 
     [HttpGet("admins")]
-    public IActionResult GetAdmins() => Ok(_admins);
+    public async Task<IActionResult> GetAdmins()
+    {
+        var realAdmins = (await _users.GetAllAsync())
+            .Where(u => u.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+            .Select(u => new AdminUserDto(u.Id.ToString(), u.Email, u.Role, u.IsBlocked));
+
+        var invites = await _db.AdminInvites
+            .AsNoTracking()
+            .OrderByDescending(x => x.CreatedAt)
+            .Select(x => new AdminUserDto(x.Id.ToString(), x.Email, x.Role, x.Blocked))
+            .ToListAsync();
+
+        var merged = realAdmins
+            .Concat(invites)
+            .GroupBy(x => x.Email, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
+
+        return Ok(merged);
+    }
 
     [HttpPost("admins/invite")]
-    public IActionResult InviteAdmin([FromBody] AdminInviteDto dto)
+    public async Task<IActionResult> InviteAdmin([FromBody] AdminInviteDto dto)
     {
-        var created = new AdminUserDto(Guid.NewGuid().ToString(), dto.Email, dto.Role, false);
-        _admins.Add(created);
-        return Ok(created);
+        var existing = await _db.AdminInvites.FirstOrDefaultAsync(x => x.Email == dto.Email);
+        if (existing != null)
+        {
+            existing.Role = dto.Role;
+            existing.UpdatedAt = DateTime.UtcNow;
+        }
+        else
+        {
+            await _db.AdminInvites.AddAsync(new AdminInvite
+            {
+                Id = Guid.NewGuid(),
+                Email = dto.Email,
+                Role = dto.Role,
+                Blocked = false,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
+        }
+
+        await _db.SaveChangesAsync();
+
+        var created = await _db.AdminInvites.AsNoTracking().FirstAsync(x => x.Email == dto.Email);
+        return Ok(new AdminUserDto(created.Id.ToString(), created.Email, created.Role, created.Blocked));
     }
 
     [HttpPost("admins/invite-batch")]
-    public IActionResult InviteAdmins([FromBody] AdminInviteBatchDto dto)
+    public async Task<IActionResult> InviteAdmins([FromBody] AdminInviteBatchDto dto)
     {
         foreach (var email in dto.Emails)
         {
-            _admins.Add(new AdminUserDto(Guid.NewGuid().ToString(), email, dto.Role, false));
+            var existing = await _db.AdminInvites.FirstOrDefaultAsync(x => x.Email == email);
+            if (existing != null)
+            {
+                existing.Role = dto.Role;
+                existing.UpdatedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                await _db.AdminInvites.AddAsync(new AdminInvite
+                {
+                    Id = Guid.NewGuid(),
+                    Email = email,
+                    Role = dto.Role,
+                    Blocked = false,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
         }
+
+        await _db.SaveChangesAsync();
         return Ok(new { success = true });
     }
 
     [HttpGet("admins/{id}/logs")]
-    public IActionResult GetAdminLogs(string id) => Ok(Array.Empty<object>());
+    public async Task<IActionResult> GetAdminLogs(string id)
+    {
+        Guid? actorUserId = Guid.TryParse(id, out var parsed) ? parsed : null;
+
+        var query = _db.AuditLogs.AsNoTracking();
+        if (actorUserId.HasValue)
+        {
+            query = query.Where(x => x.ActorUserId == actorUserId.Value || x.ActorEmail == id);
+        }
+        else
+        {
+            query = query.Where(x => x.ActorEmail == id);
+        }
+
+        var logs = await query
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(100)
+            .Select(x => new
+            {
+                id = x.Id.ToString(),
+                action = x.Action,
+                details = x.MetadataJson,
+                actor = x.ActorEmail,
+                createdAt = x.CreatedAt
+            })
+            .ToListAsync();
+
+        return Ok(logs);
+    }
 
     [HttpPost("admins/{id}/{action}")]
-    public IActionResult ToggleAdmin(string id, string action) => Ok(new { success = true });
+    public async Task<IActionResult> ToggleAdmin(string id, string action)
+    {
+        if (!Guid.TryParse(id, out var adminId))
+        {
+            return NotFound();
+        }
+
+        var user = await _users.GetByIdAsync(adminId);
+        if (user != null)
+        {
+            if (action.Equals("block", StringComparison.OrdinalIgnoreCase))
+            {
+                user.IsBlocked = true;
+            }
+            else if (action.Equals("unblock", StringComparison.OrdinalIgnoreCase))
+            {
+                user.IsBlocked = false;
+            }
+
+            await _users.UpdateAsync(user);
+            return Ok(new { success = true, id = user.Id.ToString(), blocked = user.IsBlocked });
+        }
+
+        var invite = await _db.AdminInvites.FirstOrDefaultAsync(x => x.Id == adminId);
+        if (invite != null)
+        {
+            if (action.Equals("block", StringComparison.OrdinalIgnoreCase))
+            {
+                invite.Blocked = true;
+            }
+            else if (action.Equals("unblock", StringComparison.OrdinalIgnoreCase))
+            {
+                invite.Blocked = false;
+            }
+
+            invite.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            return Ok(new { success = true, id = invite.Id.ToString(), blocked = invite.Blocked });
+        }
+
+        return NotFound();
+    }
 
     [HttpPatch("admins/{id}/role")]
-    public IActionResult UpdateAdminRole(string id, [FromBody] AdminRoleDto dto) => Ok(new { id, role = dto.Role });
+    public async Task<IActionResult> UpdateAdminRole(string id, [FromBody] AdminRoleDto dto)
+    {
+        if (!Guid.TryParse(id, out var adminId))
+        {
+            return NotFound();
+        }
+
+        var user = await _users.GetByIdAsync(adminId);
+        if (user != null)
+        {
+            user.Role = dto.Role;
+            await _users.UpdateAsync(user);
+            return Ok(new { id, role = user.Role });
+        }
+
+        var invite = await _db.AdminInvites.FirstOrDefaultAsync(x => x.Id == adminId);
+        if (invite != null)
+        {
+            invite.Role = dto.Role;
+            invite.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+            return Ok(new { id, role = invite.Role });
+        }
+
+        return NotFound();
+    }
 
     #endregion
 
     #region Coupons
 
     [HttpGet("promotions/coupons")]
-    public IActionResult GetCoupons() => Ok(_coupons);
+    public async Task<IActionResult> GetCoupons()
+    {
+        var coupons = (await _couponRepository.GetAllAsync())
+            .Select(x => new CouponDto(x.Id.ToString(), x.Code, x.Discount, x.Active))
+            .ToList();
+
+        return Ok(coupons);
+    }
 
     [HttpPost("promotions/coupons")]
-    public IActionResult CreateCoupon([FromBody] CouponDto dto)
+    public async Task<IActionResult> CreateCoupon([FromBody] CouponDto dto)
     {
-        var created = dto with { Id = Guid.NewGuid().ToString() };
-        _coupons.Add(created);
-        return Ok(created);
+        var now = DateTime.UtcNow;
+        var entity = new Coupon
+        {
+            Id = Guid.NewGuid(),
+            Code = (dto.Code ?? string.Empty).Trim(),
+            Discount = dto.Discount,
+            Active = dto.Active,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        await _couponRepository.AddAsync(entity);
+
+        return Ok(new CouponDto(entity.Id.ToString(), entity.Code, entity.Discount, entity.Active));
     }
 
     [HttpGet("promotions/coupons/{id}")]
-    public IActionResult GetCoupon(string id)
+    public async Task<IActionResult> GetCoupon(string id)
     {
-        var coupon = _coupons.FirstOrDefault(c => c.Id == id);
-        return coupon == null ? NotFound() : Ok(coupon);
+        if (!Guid.TryParse(id, out var couponId))
+        {
+            return NotFound();
+        }
+
+        var coupon = await _couponRepository.GetByIdAsync(couponId);
+        if (coupon == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(new CouponDto(coupon.Id.ToString(), coupon.Code, coupon.Discount, coupon.Active));
     }
 
     [HttpPut("promotions/coupons/{id}")]
-    public IActionResult UpdateCoupon(string id, [FromBody] CouponDto dto)
+    public async Task<IActionResult> UpdateCoupon(string id, [FromBody] CouponDto dto)
     {
-        var index = _coupons.FindIndex(c => c.Id == id);
-        if (index >= 0)
+        if (!Guid.TryParse(id, out var couponId))
         {
-            _coupons[index] = dto with { Id = id };
+            return NotFound();
         }
-        return Ok(dto with { Id = id });
+
+        var coupon = await _couponRepository.GetByIdAsync(couponId);
+        if (coupon == null)
+        {
+            return NotFound();
+        }
+
+        coupon.Code = (dto.Code ?? string.Empty).Trim();
+        coupon.Discount = dto.Discount;
+        coupon.Active = dto.Active;
+        coupon.UpdatedAt = DateTime.UtcNow;
+
+        await _couponRepository.UpdateAsync(coupon);
+
+        return Ok(new CouponDto(coupon.Id.ToString(), coupon.Code, coupon.Discount, coupon.Active));
     }
 
     #endregion
@@ -246,39 +771,132 @@ public class AdminExtrasController : ControllerBase
     #region Banners
 
     [HttpGet("banners")]
-    public IActionResult GetBanners() => Ok(_banners);
+    public async Task<IActionResult> GetBanners()
+    {
+        var banners = (await _bannerRepository.GetAllAsync())
+            .Select(x => new BannerDto(x.Id.ToString(), x.Title, x.Image, x.Link, x.Active, x.StartDate, x.EndDate))
+            .ToList();
+
+        return Ok(banners);
+    }
 
     [HttpPost("banners")]
-    public IActionResult CreateBanner([FromBody] BannerDto dto)
+    public async Task<IActionResult> CreateBanner([FromBody] BannerDto dto)
     {
-        var created = dto with { Id = Guid.NewGuid().ToString() };
-        _banners.Add(created);
-        return Ok(created);
+        var existing = (await _bannerRepository.GetAllAsync()).ToList();
+        var now = DateTime.UtcNow;
+
+        var entity = new Banner
+        {
+            Id = Guid.NewGuid(),
+            Title = dto.Title ?? string.Empty,
+            Image = dto.Image ?? string.Empty,
+            Link = dto.Link ?? string.Empty,
+            Active = dto.Active,
+            StartDate = dto.StartDate ?? string.Empty,
+            EndDate = dto.EndDate ?? string.Empty,
+            DisplayOrder = existing.Count,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        await _bannerRepository.AddAsync(entity);
+
+        return Ok(new BannerDto(entity.Id.ToString(), entity.Title, entity.Image, entity.Link, entity.Active, entity.StartDate, entity.EndDate));
     }
 
     [HttpPut("banners/{id}")]
-    public IActionResult UpdateBanner(string id, [FromBody] BannerDto dto)
+    public async Task<IActionResult> UpdateBanner(string id, [FromBody] BannerDto dto)
     {
-        var index = _banners.FindIndex(b => b.Id == id);
-        if (index >= 0)
+        if (!Guid.TryParse(id, out var bannerId))
         {
-            _banners[index] = dto with { Id = id };
+            return NotFound();
         }
-        return Ok(dto with { Id = id });
+
+        var banner = await _bannerRepository.GetByIdAsync(bannerId);
+        if (banner == null)
+        {
+            return NotFound();
+        }
+
+        banner.Title = dto.Title ?? string.Empty;
+        banner.Image = dto.Image ?? string.Empty;
+        banner.Link = dto.Link ?? string.Empty;
+        banner.Active = dto.Active;
+        banner.StartDate = dto.StartDate ?? string.Empty;
+        banner.EndDate = dto.EndDate ?? string.Empty;
+        banner.UpdatedAt = DateTime.UtcNow;
+
+        await _bannerRepository.UpdateAsync(banner);
+
+        return Ok(new BannerDto(banner.Id.ToString(), banner.Title, banner.Image, banner.Link, banner.Active, banner.StartDate, banner.EndDate));
     }
 
     [HttpDelete("banners/{id}")]
-    public IActionResult DeleteBanner(string id)
+    public async Task<IActionResult> DeleteBanner(string id)
     {
-        _banners.RemoveAll(b => b.Id == id);
+        if (!Guid.TryParse(id, out var bannerId))
+        {
+            return NotFound();
+        }
+
+        await _bannerRepository.DeleteAsync(bannerId);
+
+        var all = (await _bannerRepository.GetAllAsync()).ToList();
+        for (var i = 0; i < all.Count; i++)
+        {
+            if (all[i].DisplayOrder != i)
+            {
+                all[i].DisplayOrder = i;
+                all[i].UpdatedAt = DateTime.UtcNow;
+                await _bannerRepository.UpdateAsync(all[i]);
+            }
+        }
+
         return Ok(new { success = true });
     }
 
     [HttpPost("banners/{id}/move")]
-    public IActionResult MoveBanner(string id, [FromBody] BannerMoveDto dto) => Ok(new { id, dto.Direction });
+    public async Task<IActionResult> MoveBanner(string id, [FromBody] BannerMoveDto dto)
+    {
+        if (!Guid.TryParse(id, out var bannerId))
+        {
+            return NotFound();
+        }
+
+        var all = (await _bannerRepository.GetAllAsync()).ToList();
+        var index = all.FindIndex(x => x.Id == bannerId);
+        if (index < 0)
+        {
+            return NotFound();
+        }
+
+        var targetIndex = dto.Direction.Equals("up", StringComparison.OrdinalIgnoreCase)
+            ? Math.Max(0, index - 1)
+            : Math.Min(all.Count - 1, index + 1);
+
+        if (targetIndex == index)
+        {
+            return Ok(new { id, dto.Direction });
+        }
+
+        (all[index], all[targetIndex]) = (all[targetIndex], all[index]);
+
+        for (var i = 0; i < all.Count; i++)
+        {
+            if (all[i].DisplayOrder != i)
+            {
+                all[i].DisplayOrder = i;
+                all[i].UpdatedAt = DateTime.UtcNow;
+                await _bannerRepository.UpdateAsync(all[i]);
+            }
+        }
+
+        return Ok(new { id, dto.Direction });
+    }
 
     [HttpPatch("banners/{id}/move")]
-    public IActionResult MoveBannerPatch(string id, [FromBody] BannerMoveDto dto) => Ok(new { id, dto.Direction });
+    public Task<IActionResult> MoveBannerPatch(string id, [FromBody] BannerMoveDto dto) => MoveBanner(id, dto);
 
     #endregion
 }
@@ -302,6 +920,7 @@ public record SettingsDto
     public bool Maintenance { get; init; }
     public bool DefaultDarkMode { get; init; }
 }
+
 public record ProfileDto
 {
     public string Name { get; init; } = string.Empty;
@@ -309,3 +928,4 @@ public record ProfileDto
     public string Avatar { get; init; } = string.Empty;
     public Dictionary<string, object> Preferences { get; init; } = new();
 }
+

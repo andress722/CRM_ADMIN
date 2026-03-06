@@ -9,10 +9,12 @@ using Ecommerce.Application.Services;
 using Ecommerce.API.Services;
 using Ecommerce.API.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using System.IdentityModel.Tokens.Jwt;
 using System.Diagnostics;
 using AspNetCoreRateLimit;
 using Ecommerce.Infrastructure.Email;
@@ -346,6 +348,8 @@ builder.Services.AddScoped<IWishlistItemRepository, WishlistItemRepository>();
 builder.Services.AddScoped<IShipmentRepository, ShipmentRepository>();
 builder.Services.AddScoped<IShipmentTrackingEventRepository, ShipmentTrackingEventRepository>();
 builder.Services.AddScoped<ISupportTicketRepository, SupportTicketRepository>();
+builder.Services.AddScoped<ICouponRepository, CouponRepository>();
+builder.Services.AddScoped<IBannerRepository, BannerRepository>();
 builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
 builder.Services.AddScoped<IAffiliateRepository, AffiliateRepository>();
 builder.Services.AddScoped<IExternalIdentityRepository, ExternalIdentityRepository>();
@@ -387,6 +391,10 @@ builder.Services.AddSingleton<IRequestThrottleService, InMemoryRequestThrottleSe
 builder.Services.AddHttpClient<ICaptchaVerifier, CaptchaVerifier>();
 builder.Services.AddScoped<IShippingProvider, Ecommerce.Infrastructure.Shipping.CorreiosShippingProvider>();
 var paymentProvider = builder.Configuration.GetValue<string>("Payments:Provider") ?? "Stub";
+if (builder.Environment.IsProduction() && !paymentProvider.Equals("MercadoPago", StringComparison.OrdinalIgnoreCase))
+{
+    throw new InvalidOperationException("In production, Payments:Provider must be MercadoPago.");
+}
 if (paymentProvider.Equals("MercadoPago", StringComparison.OrdinalIgnoreCase))
 {
     builder.Services.AddScoped<IPaymentGateway, MercadoPagoPaymentGateway>();
@@ -396,6 +404,10 @@ else
     builder.Services.AddScoped<IPaymentGateway, StubPaymentGateway>();
 }
 var emailProvider = builder.Configuration.GetValue<string>("Email:Provider") ?? "Console";
+if (builder.Environment.IsProduction() && emailProvider.Equals("Console", StringComparison.OrdinalIgnoreCase))
+{
+    throw new InvalidOperationException("In production, Email:Provider cannot be Console.");
+}
 if (emailProvider.Equals("SendGrid", StringComparison.OrdinalIgnoreCase))
 {
     var sendGridKey = builder.Configuration["Email:SendGrid:ApiKey"];
@@ -405,6 +417,11 @@ if (emailProvider.Equals("SendGrid", StringComparison.OrdinalIgnoreCase))
     }
     else
     {
+        if (builder.Environment.IsProduction())
+        {
+            throw new InvalidOperationException("In production, Email:SendGrid:ApiKey is required when Email:Provider is SendGrid.");
+        }
+
         builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
     }
 }
@@ -576,6 +593,35 @@ app.UseWebSockets();
 app.UseCors("AllowFrontend");
 app.UseIpRateLimiting();
 app.UseAuthentication();
+app.Use(async (context, next) =>
+{
+    if (context.User?.Identity?.IsAuthenticated == true)
+    {
+        var sub = context.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+        if (Guid.TryParse(sub, out var userId))
+        {
+            var userService = context.RequestServices.GetRequiredService<UserService>();
+            try
+            {
+                var currentUser = await userService.GetUserAsync(userId);
+                if (currentUser.IsBlocked)
+                {
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    await context.Response.WriteAsJsonAsync(new { message = "Account blocked" });
+                    return;
+                }
+            }
+            catch (KeyNotFoundException)
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                await context.Response.WriteAsJsonAsync(new { message = "User not found" });
+                return;
+            }
+        }
+    }
+
+    await next();
+});
 app.UseAuthorization();
 app.UseMiddleware<AdminAuditMiddleware>();
 app.MapControllers();
@@ -589,6 +635,7 @@ app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = Dat
 
 app.MapGet("/metrics", (MetricsRegistry registry) =>
         Results.Text(registry.ToPrometheus(), "text/plain"))
+    .RequireAuthorization(new AuthorizeAttribute { Roles = "Admin" })
     .WithName("Metrics");
 
 static IAsyncPolicy<HttpResponseMessage> GetMercadoPagoRetryPolicy()
@@ -913,6 +960,11 @@ catch (Exception ex)
 app.Run();
 
 public partial class Program { }
+
+
+
+
+
 
 
 

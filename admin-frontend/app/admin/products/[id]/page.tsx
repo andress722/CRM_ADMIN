@@ -25,9 +25,15 @@ export default function ProductDetailsPage({ params }: ProductDetailsPageProps) 
     ['products', 'details', params.id],
     endpoints.admin.productDetail(params.id)
   );
+  const { data: productImages } = useApiQuery<string[]>(
+    ['products', 'images', params.id],
+    endpoints.admin.productImages(params.id),
+    { enabled: !!params.id }
+  );
 
   const updateMutation = useApiMutation('patch');
   const deleteMutation = useApiMutation('delete');
+  const addImageMutation = useApiMutation<{ success: boolean }>('post');
 
   const handleEdit = () => {
     if (product) {
@@ -67,6 +73,22 @@ export default function ProductDetailsPage({ params }: ProductDetailsPageProps) 
     }
   };
 
+  const handleAddImage = async () => {
+    if (!product?.id) {
+      return;
+    }
+
+    try {
+      await addImageMutation.mutateAsync({
+        url: endpoints.admin.productImages(product.id),
+      });
+      queryClient.invalidateQueries({ queryKey: ['products', 'images', params.id] });
+      addToast('✅ Product image added', 'success');
+    } catch {
+      addToast('❌ Failed to add product image', 'error');
+    }
+  };
+
   if (isLoading || !product) {
     return (
       <div className="space-y-6">
@@ -82,7 +104,6 @@ export default function ProductDetailsPage({ params }: ProductDetailsPageProps) 
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button
@@ -137,22 +158,55 @@ export default function ProductDetailsPage({ params }: ProductDetailsPageProps) 
         </div>
       </div>
 
-      {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Product Image */}
-        <div className="lg:col-span-1">
-          <div className="bg-slate-800/50 rounded-lg border border-slate-700 p-6 h-96 flex items-center justify-center">
-            <div className="text-center">
-              <div className="text-6xl mb-4">📦</div>
-              <p className="text-slate-400">Product image</p>
-              <p className="text-xs text-slate-500 mt-2">Image management coming soon</p>
+        <div className="lg:col-span-1 space-y-4">
+          <div className="bg-slate-800/50 rounded-lg border border-slate-700 p-4">
+            <div className="aspect-square rounded-lg bg-slate-900 border border-slate-700 overflow-hidden flex items-center justify-center">
+              {(productImages ?? [])[0] ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={(productImages ?? [])[0]}
+                  alt={displayData.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="text-center">
+                  <div className="text-5xl mb-2">📦</div>
+                  <p className="text-slate-500 text-sm">No image yet</p>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={handleAddImage}
+              disabled={addImageMutation.isPending}
+              className="w-full mt-3 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm"
+            >
+              {addImageMutation.isPending ? 'Adding...' : 'Add Image'}
+            </button>
+          </div>
+
+          <div className="bg-slate-800/50 rounded-lg border border-slate-700 p-4">
+            <p className="text-sm font-semibold text-white mb-3">Image URLs</p>
+            <div className="space-y-2 max-h-56 overflow-auto pr-1">
+              {(productImages ?? []).length === 0 && (
+                <p className="text-xs text-slate-500">No uploaded images.</p>
+              )}
+              {(productImages ?? []).map((image, index) => (
+                <div key={image} className="text-xs rounded bg-slate-900 border border-slate-700 p-2 space-y-2">
+                  <p className="text-slate-300 break-all">{image}</p>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(image)}
+                    className="px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-100"
+                  >
+                    Copy URL #{index + 1}
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* Right: Product Details */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Basic Information */}
           <div className="bg-slate-800/50 rounded-lg border border-slate-700 p-6 space-y-4">
             <h2 className="text-lg font-semibold text-white mb-4">Basic Information</h2>
 
@@ -213,7 +267,6 @@ export default function ProductDetailsPage({ params }: ProductDetailsPageProps) 
             </div>
           </div>
 
-          {/* Pricing & Inventory */}
           <div className="bg-slate-800/50 rounded-lg border border-slate-700 p-6 space-y-4">
             <h2 className="text-lg font-semibold text-white mb-4">Pricing & Inventory</h2>
 
@@ -257,7 +310,6 @@ export default function ProductDetailsPage({ params }: ProductDetailsPageProps) 
             )}
           </div>
 
-          {/* Metadata */}
           <div className="bg-slate-800/50 rounded-lg border border-slate-700 p-6 space-y-3">
             <h2 className="text-lg font-semibold text-white mb-4">Metadata</h2>
             <div className="grid grid-cols-2 gap-4 text-sm">
@@ -290,5 +342,3 @@ export default function ProductDetailsPage({ params }: ProductDetailsPageProps) 
     </div>
   );
 }
-
-

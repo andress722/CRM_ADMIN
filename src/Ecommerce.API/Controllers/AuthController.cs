@@ -74,6 +74,10 @@ public class AuthController : ControllerBase
         try
         {
             var user = await _userService.GetUserAsync(userId);
+            if (user.IsBlocked)
+            {
+                return StatusCode(403, new { message = "Account blocked" });
+            }
             return Ok(new
             {
                 id = user.Id,
@@ -158,6 +162,11 @@ public class AuthController : ControllerBase
             if (user == null)
             {
                 return Unauthorized(new { message = "Invalid email or password" });
+            }
+
+            if (user.IsBlocked)
+            {
+                return StatusCode(403, new { message = "Account blocked" });
             }
 
             if (_authService.IsLockedOut(user))
@@ -265,6 +274,11 @@ public class AuthController : ControllerBase
         try
         {
             var user = await _socialAuthService.AuthenticateAsync(provider, request.ProviderUserId, request.Email, request.Name);
+
+            if (user.IsBlocked)
+            {
+                return StatusCode(403, new { message = "Account blocked" });
+            }
 
             var token = _tokenService.GenerateAccessToken(user);
             var refreshTokenValue = _tokenService.GenerateRefreshToken();
@@ -575,6 +589,13 @@ public class AuthController : ControllerBase
             }
 
             var user = await _userService.GetUserAsync(storedToken.UserId);
+            if (user.IsBlocked)
+            {
+                storedToken.RevokedAt = DateTime.UtcNow;
+                await _refreshTokenRepository.UpdateAsync(storedToken);
+                Response.Cookies.Delete("refresh_token", new CookieOptions { Path = "/" });
+                return StatusCode(403, new { message = "Account blocked" });
+            }
 
             // Revoke old token
             storedToken.RevokedAt = DateTime.UtcNow;
@@ -685,6 +706,9 @@ public class ResetPasswordRequest
     public string? NewPassword { get; set; }
     public string? CaptchaToken { get; set; }
 }
+
+
+
 
 
 

@@ -39,6 +39,8 @@ public class EcommerceDbContext : DbContext
     public DbSet<Shipment> Shipments { get; set; }
     public DbSet<ShipmentTrackingEvent> ShipmentTrackingEvents { get; set; }
     public DbSet<SupportTicket> SupportTickets { get; set; }
+    public DbSet<Coupon> Coupons { get; set; }
+    public DbSet<Banner> Banners { get; set; }
     public DbSet<Subscription> Subscriptions { get; set; }
     public DbSet<AffiliatePartner> AffiliatePartners { get; set; }
     public DbSet<AffiliateConversion> AffiliateConversions { get; set; }
@@ -49,6 +51,10 @@ public class EcommerceDbContext : DbContext
     public DbSet<CrmContact> CrmContacts { get; set; }
     public DbSet<CrmActivity> CrmActivities { get; set; }
     public DbSet<AuditLog> AuditLogs { get; set; }
+    public DbSet<AdminIntegration> AdminIntegrations { get; set; }
+    public DbSet<AdminSetting> AdminSettings { get; set; }
+    public DbSet<AdminProfile> AdminProfiles { get; set; }
+    public DbSet<AdminInvite> AdminInvites { get; set; }
     public DbSet<IdempotencyRecord> IdempotencyRecords { get; set; }
     public DbSet<LoyaltyAccount> LoyaltyAccounts { get; set; }
     public DbSet<Ecommerce.Domain.Entities.EventStoreItem> EventStore { get; set; }
@@ -66,6 +72,7 @@ public class EcommerceDbContext : DbContext
             entity.Property(e => e.PasswordHash).IsRequired();
             entity.Property(e => e.Role).IsRequired().HasMaxLength(50).HasDefaultValue("User");
             entity.Property(e => e.FailedLoginAttempts).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.IsBlocked).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarketingEmailOptIn).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.AnalyticsConsent).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.IsAnonymized).IsRequired().HasDefaultValue(false);
@@ -104,7 +111,30 @@ public class EcommerceDbContext : DbContext
             entity.HasIndex(e => e.Status);
         });
 
-        modelBuilder.Entity<Subscription>(entity =>
+
+        modelBuilder.Entity<Coupon>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Code).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Discount).HasPrecision(18, 2);
+            entity.HasIndex(e => e.Code).IsUnique();
+            entity.HasIndex(e => e.Active);
+            entity.HasIndex(e => e.CreatedAt);
+        });
+
+        modelBuilder.Entity<Banner>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.Image).IsRequired().HasMaxLength(2000);
+            entity.Property(e => e.Link).HasMaxLength(2000);
+            entity.Property(e => e.StartDate).HasMaxLength(50);
+            entity.Property(e => e.EndDate).HasMaxLength(50);
+            entity.Property(e => e.DisplayOrder).IsRequired().HasDefaultValue(0);
+            entity.HasIndex(e => e.DisplayOrder);
+            entity.HasIndex(e => e.Active);
+            entity.HasIndex(e => e.CreatedAt);
+        });        modelBuilder.Entity<Subscription>(entity =>
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Plan).IsRequired().HasMaxLength(100);
@@ -493,7 +523,46 @@ public class EcommerceDbContext : DbContext
             entity.HasIndex(e => e.Action);
         });
 
-        modelBuilder.Entity<IdempotencyRecord>(entity =>
+
+        modelBuilder.Entity<AdminIntegration>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Provider).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ApiKey).HasMaxLength(500);
+            entity.Property(e => e.Type).IsRequired().HasMaxLength(100);
+            entity.HasIndex(e => e.Name);
+            entity.HasIndex(e => e.Provider);
+            entity.HasIndex(e => e.CreatedAt);
+        });
+
+        modelBuilder.Entity<AdminSetting>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.StoreName).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.ContactEmail).IsRequired().HasMaxLength(255);
+            entity.HasIndex(e => e.UpdatedAt);
+        });
+
+        modelBuilder.Entity<AdminProfile>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.Email).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.Avatar).HasMaxLength(2000);
+            entity.Property(e => e.PreferencesJson).IsRequired();
+            entity.HasIndex(e => e.Email).IsUnique();
+        });
+
+        modelBuilder.Entity<AdminInvite>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Email).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.Role).IsRequired().HasMaxLength(100);
+            entity.HasIndex(e => e.Email).IsUnique();
+            entity.HasIndex(e => e.CreatedAt);
+        });        modelBuilder.Entity<IdempotencyRecord>(entity =>
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Key).IsRequired().HasMaxLength(200);
@@ -524,6 +593,9 @@ public class EcommerceDbContext : DbContext
         });
     }
 }
+
+
+
 
 
 

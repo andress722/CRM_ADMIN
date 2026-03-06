@@ -1,4 +1,7 @@
 using System.Text.Json;
+using Ecommerce.Application.Repositories;
+using Ecommerce.Application.Services;
+using Ecommerce.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -60,19 +63,78 @@ public class EventWorker : BackgroundService
                 {
                     try
                     {
-                        using var doc = JsonDocument.Parse(ev.Payload);
-                        _logger.LogInformation("PurchaseCompleted payload: {Payload}", ev.Payload);
+                        await using var tx = await db.Database.BeginTransactionAsync(stoppingToken);
 
-                        var webhookService = scope.ServiceProvider.GetService<Ecommerce.Application.Services.WebhookService>();
+                        var payload = JsonSerializer.Deserialize<PurchaseCompletedPayload>(ev.Payload);
+                        if (payload == null)
+                        {
+                            throw new JsonException("PurchaseCompleted payload is empty or invalid.");
+                        }
+
+                        var webhookService = scope.ServiceProvider.GetService<WebhookService>();
                         if (webhookService != null)
                         {
                             await webhookService.PublishAsync(ev.EventType, ev.Payload);
                         }
 
-                        // TODO: extend: update inventory, send emails/SignalR notifications
+                        var inventoryService = scope.ServiceProvider.GetService<InventoryService>();
+                        if (inventoryService != null)
+                        {
+                            foreach (var item in payload.Items ?? Enumerable.Empty<PurchaseCompletedItem>())
+                            {
+                                if (item.ProductId == Guid.Empty || item.Quantity <= 0)
+                                {
+                                    continue;
+                                }
+
+                                await inventoryService.AdjustAsync(
+                                    item.ProductId,
+                                    -item.Quantity,
+                                    $"PurchaseCompleted:{payload.PurchaseId}");
+                            }
+                        }
+
+                        var userRepository = scope.ServiceProvider.GetService<IUserRepository>();
+                        var emailService = scope.ServiceProvider.GetService<IEmailService>();
+                        if (emailService != null && userRepository != null && payload.UserId != Guid.Empty)
+                        {
+                            var user = await userRepository.GetByIdAsync(payload.UserId);
+                            if (user != null)
+                            {
+                                var itemSummary = string.Join(", ", (payload.Items ?? new List<PurchaseCompletedItem>())
+                                    .Where(i => i.Quantity > 0)
+                                    .Select(i => $"{i.Quantity}x {i.ProductId}"));
+
+                                await emailService.SendCustomEmailAsync(
+                                    user.Email,
+                                    "Pedido confirmado",
+                                    $"<p>Seu pedido <strong>{payload.PurchaseId}</strong> foi processado com sucesso.</p><p>Itens: {itemSummary}</p>",
+                                    $"Seu pedido {payload.PurchaseId} foi processado com sucesso. Itens: {itemSummary}");
+                            }
+                        }
+
+                        db.AuditLogs.Add(new AuditLog
+                        {
+                            Id = Guid.NewGuid(),
+                            ActorUserId = null,
+                            ActorEmail = "event-worker@system",
+                            Action = "PurchaseCompletedHandled",
+                            EntityType = "EventStore",
+                            EntityId = ev.Id.ToString(),
+                            MetadataJson = JsonSerializer.Serialize(new
+                            {
+                                payload.PurchaseId,
+                                payload.UserId,
+                                ItemCount = payload.Items?.Count ?? 0
+                            }),
+                            CreatedAt = DateTime.UtcNow
+                        });
 
                         ev.Status = "processed";
                         ev.ProcessedAt = DateTime.UtcNow;
+
+                        await db.SaveChangesAsync(stoppingToken);
+                        await tx.CommitAsync(stoppingToken);
                     }
                     catch (JsonException ex)
                     {
@@ -115,5 +177,21 @@ public class EventWorker : BackgroundService
         var exponent = Math.Min(emptyPollStreak - 1, 5);
         var delayMs = IdlePollMinDelay.TotalMilliseconds * Math.Pow(2, exponent);
         return TimeSpan.FromMilliseconds(Math.Min(delayMs, IdlePollMaxDelay.TotalMilliseconds));
+    }
+
+    private sealed class PurchaseCompletedPayload
+    {
+        public Guid PurchaseId { get; set; }
+        public Guid UserId { get; set; }
+        public decimal Amount { get; set; }
+        public List<PurchaseCompletedItem>? Items { get; set; }
+    }
+
+    private sealed class PurchaseCompletedItem
+    {
+        public Guid ProductId { get; set; }
+        public int Quantity { get; set; }
+        public decimal UnitPrice { get; set; }
+        public decimal Subtotal { get; set; }
     }
 }

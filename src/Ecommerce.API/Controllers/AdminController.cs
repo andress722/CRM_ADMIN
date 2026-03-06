@@ -667,7 +667,7 @@ public class AdminController : ControllerBase
                     totalOrders = 0,
                     totalSpent = 0m,
                     createdAt = u.CreatedAt,
-                    blocked = false
+                    blocked = u.IsBlocked
                 })
                 .ToList();
 
@@ -714,7 +714,7 @@ public class AdminController : ControllerBase
                 id = user.Id.ToString(),
                 name = user.FullName,
                 email = user.Email,
-                blocked = false
+                blocked = user.IsBlocked
             });
         }
         catch (KeyNotFoundException ex)
@@ -731,8 +731,9 @@ public class AdminController : ControllerBase
             var user = await _userService.GetUserAsync(id);
             user.FullName = request.Name;
             user.Email = request.Email;
+            user.IsBlocked = request.Blocked;
             await _userService.UpdateUserAsync(user);
-            return Ok(new { id = user.Id.ToString(), name = user.FullName, email = user.Email, blocked = request.Blocked });
+            return Ok(new { id = user.Id.ToString(), name = user.FullName, email = user.Email, blocked = user.IsBlocked });
         }
         catch (KeyNotFoundException ex)
         {
@@ -841,9 +842,9 @@ public class AdminController : ControllerBase
         var events = await _analyticsEvents.GetSinceAsync(DateTime.UtcNow.AddDays(-180));
         var viewedProductIds = events
             .Where(e => e.UserId == id && e.Type.Equals("ProductView", StringComparison.OrdinalIgnoreCase))
-            .Select(e => e.Label)
-            .Where(l => Guid.TryParse(l, out _))
-            .Select(Guid.Parse)
+            .Select(e => Guid.TryParse(e.Label, out var parsed) ? parsed : (Guid?)null)
+            .Where(g => g.HasValue)
+            .Select(g => g!.Value)
             .Distinct()
             .ToHashSet();
 
@@ -912,6 +913,9 @@ public record UpdateCustomerRequest(string Name, string Email, bool Blocked);
 public record SetProductFeaturedRequest(bool IsFeatured);
 public record SendOverviewReportEmailRequest(string To, string? Subject);
 public record UpdateProductPatchRequest(string? Name, string? Description, decimal? Price, int? Stock, string? Category, bool? IsFeatured);
+
+
+
 
 
 

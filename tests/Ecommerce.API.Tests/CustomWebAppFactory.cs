@@ -29,7 +29,8 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
                 ["Payments:Provider"] = "Stub",
                 ["Payments:MercadoPago:WebhookSecret"] = "test_webhook_secret",
                 ["Payments:MercadoPago:WebhookSignatureFormat"] = "ts_requestid_body",
-                ["Email:Provider"] = "Console"
+                ["Email:Provider"] = "Console",
+                ["Security:RequireAdmin2FA"] = "false"
             });
         });
 
@@ -46,3 +47,4 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
         });
     }
 }
+

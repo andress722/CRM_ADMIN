@@ -1,6 +1,5 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using Ecommerce.Domain.Entities;
 using Ecommerce.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,17 +8,23 @@ namespace Ecommerce.API.Tests;
 
 public static class TestAuthHelper
 {
-    public static async Task<HttpClient> CreateAdminClientAsync(CustomWebAppFactory factory)
+    public static Task<HttpClient> CreateAdminClientAsync(CustomWebAppFactory factory)
+        => CreateClientWithRoleAsync(factory, "Admin");
+
+    public static Task<HttpClient> CreateUserClientAsync(CustomWebAppFactory factory)
+        => CreateClientWithRoleAsync(factory, "User");
+
+    private static async Task<HttpClient> CreateClientWithRoleAsync(CustomWebAppFactory factory, string role)
     {
         var client = factory.CreateClient();
-        var email = $"admin{Guid.NewGuid():N}@example.com";
+        var email = $"{role.ToLowerInvariant()}{Guid.NewGuid():N}@example.com";
         var password = "P@ssw0rd123";
 
         var registerResponse = await client.PostAsJsonAsync("/api/v1/auth/register", new
         {
             email,
             password,
-            name = "Admin User"
+            name = $"{role} User"
         });
 
         registerResponse.EnsureSuccessStatusCode();
@@ -35,7 +40,7 @@ public static class TestAuthHelper
             }
 
             user.IsEmailVerified = true;
-            user.Role = "Admin";
+            user.Role = role;
             await db.SaveChangesAsync();
 
             token = await db.EmailVerificationTokens

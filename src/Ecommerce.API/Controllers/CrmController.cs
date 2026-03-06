@@ -43,9 +43,34 @@ public class CrmController : ControllerBase
     public async Task<IActionResult> GetLeads()
         => Ok(await _service.GetLeadsAsync());
 
-    [HttpPost("leads")]
+        [HttpPost("leads")]
     public async Task<IActionResult> CreateLead([FromBody] CrmLeadCreateRequest request)
     {
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length < 2)
+        {
+            return BadRequest(new { message = "Lead name must have at least 2 characters." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Email) || !request.Email.Contains('@'))
+        {
+            return BadRequest(new { message = "Lead email is invalid." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Company))
+        {
+            return BadRequest(new { message = "Lead company is required." });
+        }
+
+        if (request.Value < 0)
+        {
+            return BadRequest(new { message = "Lead value cannot be negative." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Owner) || string.IsNullOrWhiteSpace(request.Source))
+        {
+            return BadRequest(new { message = "Lead owner and source are required." });
+        }
+
         var lead = new CrmLead
         {
             Name = request.Name,
@@ -114,9 +139,24 @@ public class CrmController : ControllerBase
     public async Task<IActionResult> GetDeals()
         => Ok(await _service.GetDealsAsync());
 
-    [HttpPost("deals")]
+        [HttpPost("deals")]
     public async Task<IActionResult> CreateDeal([FromBody] CrmDealCreateRequest request)
     {
+        if (string.IsNullOrWhiteSpace(request.Title))
+        {
+            return BadRequest(new { message = "Deal title is required." });
+        }
+
+        if (request.Value < 0)
+        {
+            return BadRequest(new { message = "Deal value cannot be negative." });
+        }
+
+        if (request.Probability is < 0 or > 100)
+        {
+            return BadRequest(new { message = "Deal probability must be between 0 and 100." });
+        }
+
         var deal = new CrmDeal
         {
             Title = request.Title,
@@ -557,6 +597,7 @@ public record CrmActivityUpdateRequest(
 
 public record SendViewedSuggestionsRequest(int? Limit, string? Subject, string? Intro);
 public record CrmSendOverviewReportEmailRequest(string To, string? Subject);
+
 
 
 
