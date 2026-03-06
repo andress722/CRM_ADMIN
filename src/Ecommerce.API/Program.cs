@@ -390,11 +390,20 @@ builder.Services.AddScoped<DataGovernanceService>();
 builder.Services.AddSingleton<IRequestThrottleService, InMemoryRequestThrottleService>();
 builder.Services.AddHttpClient<ICaptchaVerifier, CaptchaVerifier>();
 builder.Services.AddScoped<IShippingProvider, Ecommerce.Infrastructure.Shipping.CorreiosShippingProvider>();
-var paymentProvider = builder.Configuration.GetValue<string>("Payments:Provider") ?? "Stub";
-if (builder.Environment.IsProduction() && !paymentProvider.Equals("MercadoPago", StringComparison.OrdinalIgnoreCase))
+var paymentProvider = builder.Configuration.GetValue<string>("Payments:Provider");
+if (string.IsNullOrWhiteSpace(paymentProvider))
 {
-    throw new InvalidOperationException("In production, Payments:Provider must be MercadoPago.");
+    paymentProvider = builder.Environment.IsProduction() ? "MercadoPago" : "Stub";
+    Log.Warning("Payments:Provider not configured. Defaulting to {Provider} in {Environment}.", paymentProvider, builder.Environment.EnvironmentName);
 }
+
+if (builder.Environment.IsProduction() &&
+    !paymentProvider.Equals("MercadoPago", StringComparison.OrdinalIgnoreCase))
+{
+    throw new InvalidOperationException(
+        $"In production, Payments:Provider must be MercadoPago (current: '{paymentProvider}').");
+}
+
 if (paymentProvider.Equals("MercadoPago", StringComparison.OrdinalIgnoreCase))
 {
     builder.Services.AddScoped<IPaymentGateway, MercadoPagoPaymentGateway>();
