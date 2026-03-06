@@ -437,6 +437,22 @@ if (emailProvider.Equals("SendGrid", StringComparison.OrdinalIgnoreCase))
         builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
     }
 }
+else if (emailProvider.Equals("Gmail", StringComparison.OrdinalIgnoreCase)
+         || emailProvider.Equals("SMTP", StringComparison.OrdinalIgnoreCase))
+{
+    var smtpUser = builder.Configuration["Email:Gmail:User"];
+    var smtpPass = builder.Configuration["Email:Gmail:Pass"];
+
+    if (!string.IsNullOrWhiteSpace(smtpUser) && !string.IsNullOrWhiteSpace(smtpPass))
+    {
+        builder.Services.AddScoped<IEmailService, GmailSmtpEmailService>();
+    }
+    else
+    {
+        Log.Warning("Email:Provider is {Provider} but SMTP credentials are missing (Email:Gmail:User/Pass). Falling back to ConsoleEmailService.", emailProvider);
+        builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
+    }
+}
 else if (emailProvider.Equals("SES", StringComparison.OrdinalIgnoreCase))
 {
     builder.Services.AddScoped<IEmailService, SesEmailService>();
