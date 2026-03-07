@@ -140,8 +140,12 @@ public class EcommerceDbContext : DbContext
             entity.Property(e => e.Plan).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Email).IsRequired().HasMaxLength(255);
             entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.BillingRetryCount).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.LastBillingError).HasMaxLength(1000);
+            entity.Property(e => e.LastTransactionId).HasMaxLength(120);
             entity.HasIndex(e => e.Email);
             entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.NextBillingAt);
         });
 
         modelBuilder.Entity<AffiliatePartner>(entity =>

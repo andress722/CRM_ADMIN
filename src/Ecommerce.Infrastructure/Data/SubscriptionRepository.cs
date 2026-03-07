@@ -25,4 +25,16 @@ public class SubscriptionRepository : ISubscriptionRepository
         _context.Subscriptions.Update(subscription);
         await _context.SaveChangesAsync();
     }
+
+    public async Task<List<Subscription>> GetDueForBillingAsync(DateTime asOfUtc, int take)
+    {
+        var eligibleStatuses = new[] { "Active", "PastDue" };
+        return await _context.Subscriptions
+            .Where(s => s.CancelledAt == null)
+            .Where(s => s.NextBillingAt != null && s.NextBillingAt <= asOfUtc)
+            .Where(s => eligibleStatuses.Contains(s.Status))
+            .OrderBy(s => s.NextBillingAt)
+            .Take(take)
+            .ToListAsync();
+    }
 }

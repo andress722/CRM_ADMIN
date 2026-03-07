@@ -73,9 +73,17 @@ function ProductContent() {
       <div className="grid gap-8 lg:grid-cols-2">
         {/* Image Area */}
         <div className="aspect-square overflow-hidden border border-border bg-secondary">
-          <div className="flex h-full w-full items-center justify-center text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            {product.category}
-          </div>
+          {product.imageUrl ? (
+            <img
+              src={product.imageUrl}
+              alt={product.name}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              {product.category}
+            </div>
+          )}
         </div>
 
         {/* Product Info */}
@@ -193,3 +201,4 @@ export default function ProductPage() {
     </Suspense>
   )
 }
+

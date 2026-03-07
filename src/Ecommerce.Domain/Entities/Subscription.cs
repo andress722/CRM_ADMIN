@@ -10,4 +10,10 @@ public class Subscription
     public DateTime? CancelledAt { get; set; }
     public DateTime? LastBilledAt { get; set; }
     public DateTime? NextBillingAt { get; set; }
+
+    public int BillingRetryCount { get; set; }
+    public string? LastBillingError { get; set; }
+    public string? LastTransactionId { get; set; }
+    public DateTime? CurrentPeriodStartAt { get; set; }
+    public DateTime? CurrentPeriodEndAt { get; set; }
 }

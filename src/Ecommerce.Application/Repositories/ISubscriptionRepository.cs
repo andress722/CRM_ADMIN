@@ -7,4 +7,5 @@ public interface ISubscriptionRepository
     Task AddAsync(Subscription subscription);
     Task<Subscription?> GetByIdAsync(Guid id);
     Task UpdateAsync(Subscription subscription);
+    Task<List<Subscription>> GetDueForBillingAsync(DateTime asOfUtc, int take);
 }

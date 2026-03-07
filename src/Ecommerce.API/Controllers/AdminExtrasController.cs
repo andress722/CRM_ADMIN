@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Ecommerce.Application.Repositories;
 using Ecommerce.Domain.Entities;
 using Ecommerce.Infrastructure.Data;
+using Microsoft.Extensions.Logging;
 
 namespace Ecommerce.API.Controllers;
 
@@ -22,8 +23,8 @@ public class AdminExtrasController : ControllerBase
     private readonly ICouponRepository _couponRepository;
     private readonly IBannerRepository _bannerRepository;
     private readonly EcommerceDbContext _db;
-
-    private static readonly HashSet<string> _readNotifications = new(StringComparer.OrdinalIgnoreCase);
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ILogger<AdminExtrasController> _logger;
 
     public AdminExtrasController(
         IWebhookRepository webhooks,
@@ -31,7 +32,9 @@ public class AdminExtrasController : ControllerBase
         IUserRepository users,
         ICouponRepository couponRepository,
         IBannerRepository bannerRepository,
-        EcommerceDbContext db)
+        EcommerceDbContext db,
+        IHttpClientFactory httpClientFactory,
+        ILogger<AdminExtrasController> logger)
     {
         _webhooks = webhooks;
         _emailLogs = emailLogs;
@@ -39,6 +42,8 @@ public class AdminExtrasController : ControllerBase
         _couponRepository = couponRepository;
         _bannerRepository = bannerRepository;
         _db = db;
+        _httpClientFactory = httpClientFactory;
+        _logger = logger;
     }
 
     #region Webhooks
@@ -126,9 +131,39 @@ public class AdminExtrasController : ControllerBase
     }
 
     [HttpPost("notifications/{id}/read")]
-    public IActionResult MarkNotificationRead(string id)
+    public async Task<IActionResult> MarkNotificationRead(string id)
     {
-        _readNotifications.Add(id);
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            return BadRequest(new { message = "notification id is required" });
+        }
+
+        var actorEmail = User?.Identity?.Name ?? User?.Claims.FirstOrDefault(c => c.Type == "email")?.Value ?? "admin@system.local";
+        var actorUserId = Guid.TryParse(User?.Claims.FirstOrDefault(c => c.Type == System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value, out var parsedUserId)
+            ? parsedUserId
+            : (Guid?)null;
+
+        var alreadyRead = await _db.AuditLogs
+            .AsNoTracking()
+            .AnyAsync(x => x.EntityType == "Notification" && x.EntityId == id && x.Action == "Read");
+
+        if (!alreadyRead)
+        {
+            await _db.AuditLogs.AddAsync(new AuditLog
+            {
+                Id = Guid.NewGuid(),
+                ActorUserId = actorUserId,
+                ActorEmail = actorEmail,
+                Action = "Read",
+                EntityType = "Notification",
+                EntityId = id,
+                MetadataJson = "{}",
+                CreatedAt = DateTime.UtcNow
+            });
+
+            await _db.SaveChangesAsync();
+        }
+
         return Ok(new { success = true });
     }
 
@@ -151,6 +186,8 @@ public class AdminExtrasController : ControllerBase
 
     private async Task<List<NotificationDto>> BuildNotificationsAsync()
     {
+        var readIds = await GetReadNotificationIdsAsync();
+
         var failedDeliveries = await _db.WebhookDeliveries
             .AsNoTracking()
             .Where(x => x.Status == "Failed")
@@ -171,7 +208,7 @@ public class AdminExtrasController : ControllerBase
                 "Falha em webhook",
                 $"Evento {x.EventType} falhou na tentativa {x.Attempt}.",
                 x.CreatedAt,
-                _readNotifications.Contains($"wh-{x.Id}"))));
+                readIds.Contains($"wh-{x.Id}"))));
 
         notifications.AddRange(failedEmails.Select(x =>
             new NotificationDto(
@@ -179,7 +216,7 @@ public class AdminExtrasController : ControllerBase
                 "Falha em e-mail",
                 $"Envio para {x.To} com status {x.Status}.",
                 x.CreatedAt,
-                _readNotifications.Contains($"email-{x.Id}"))));
+                readIds.Contains($"email-{x.Id}"))));
 
         return notifications
             .OrderByDescending(x => x.Date)
@@ -187,6 +224,19 @@ public class AdminExtrasController : ControllerBase
             .ToList();
     }
 
+    private async Task<HashSet<string>> GetReadNotificationIdsAsync()
+    {
+        var ids = await _db.AuditLogs
+            .AsNoTracking()
+            .Where(x => x.EntityType == "Notification" && x.Action == "Read")
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(2000)
+            .Select(x => x.EntityId!)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .ToListAsync();
+
+        return ids.ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
     #endregion
 
     #region Reports
@@ -482,7 +532,76 @@ public class AdminExtrasController : ControllerBase
     }
 
     [HttpPost("integrations/{id}/test")]
-    public IActionResult TestIntegration(string id) => Ok(new { success = true, id });
+    public async Task<IActionResult> TestIntegration(string id)
+    {
+        if (!Guid.TryParse(id, out var integrationId))
+        {
+            return NotFound();
+        }
+
+        var integration = await _db.AdminIntegrations.AsNoTracking().FirstOrDefaultAsync(x => x.Id == integrationId);
+        if (integration == null)
+        {
+            return NotFound();
+        }
+
+        var provider = integration.Provider?.Trim().ToLowerInvariant() ?? string.Empty;
+        var apiKey = integration.ApiKey?.Trim() ?? string.Empty;
+
+        var (targetUrl, authToken) = ResolveIntegrationProbe(provider, apiKey);
+        if (string.IsNullOrWhiteSpace(targetUrl))
+        {
+            return BadRequest(new
+            {
+                success = false,
+                id,
+                message = "Integration test requires a known provider or a valid URL in apiKey."
+            });
+        }
+
+        try
+        {
+            var client = _httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(8);
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, targetUrl);
+            if (!string.IsNullOrWhiteSpace(authToken))
+            {
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authToken);
+            }
+
+            var response = await client.SendAsync(request, HttpContext.RequestAborted);
+            var body = await response.Content.ReadAsStringAsync(HttpContext.RequestAborted);
+            var isSuccess = response.IsSuccessStatusCode;
+
+            if (!isSuccess)
+            {
+                _logger.LogWarning("Integration test failed for {Provider} ({Id}) with status {StatusCode}", integration.Provider, integration.Id, (int)response.StatusCode);
+            }
+
+            return Ok(new
+            {
+                success = isSuccess,
+                id,
+                provider = integration.Provider,
+                target = targetUrl,
+                statusCode = (int)response.StatusCode,
+                message = isSuccess ? "Connectivity test passed." : "Connectivity test failed.",
+                response = string.IsNullOrWhiteSpace(body) ? null : body[..Math.Min(body.Length, 500)]
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Integration test exception for {Provider} ({Id})", integration.Provider, integration.Id);
+            return Ok(new
+            {
+                success = false,
+                id,
+                provider = integration.Provider,
+                message = ex.Message
+            });
+        }
+    }
 
     [HttpGet("integrations/{id}/logs")]
     public async Task<IActionResult> GetIntegrationLogs(string id)
@@ -503,6 +622,26 @@ public class AdminExtrasController : ControllerBase
             .ToListAsync();
 
         return Ok(logs);
+    }
+
+
+    private static (string? targetUrl, string? authToken) ResolveIntegrationProbe(string provider, string apiKey)
+    {
+        if (Uri.TryCreate(apiKey, UriKind.Absolute, out var explicitUri)
+            && (explicitUri.Scheme.Equals("http", StringComparison.OrdinalIgnoreCase)
+                || explicitUri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase)))
+        {
+            return (explicitUri.ToString(), null);
+        }
+
+        return provider switch
+        {
+            "sendgrid" => ("https://api.sendgrid.com/v3/user/account", string.IsNullOrWhiteSpace(apiKey) ? null : apiKey),
+            "mercadopago" => ("https://api.mercadopago.com/users/me", string.IsNullOrWhiteSpace(apiKey) ? null : apiKey),
+            "vercel" => ("https://api.vercel.com/v2/user", string.IsNullOrWhiteSpace(apiKey) ? null : apiKey),
+            "slack" => ("https://slack.com/api/auth.test", string.IsNullOrWhiteSpace(apiKey) ? null : apiKey),
+            _ => (null, null)
+        };
     }
 
     #endregion
@@ -928,4 +1067,9 @@ public record ProfileDto
     public string Avatar { get; init; } = string.Empty;
     public Dictionary<string, object> Preferences { get; init; } = new();
 }
+
+
+
+
+
 

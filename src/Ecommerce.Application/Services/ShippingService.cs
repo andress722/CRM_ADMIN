@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Ecommerce.Application.Repositories;
 using Ecommerce.Domain.Entities;
+using Microsoft.Extensions.Logging;
 
 namespace Ecommerce.Application.Services;
 
@@ -9,12 +10,18 @@ public class ShippingService
     private readonly IShipmentRepository _shipments;
     private readonly IShipmentTrackingEventRepository _events;
     private readonly IShippingProvider _provider;
+    private readonly ILogger<ShippingService> _logger;
 
-    public ShippingService(IShipmentRepository shipments, IShipmentTrackingEventRepository events, IShippingProvider provider)
+    public ShippingService(
+        IShipmentRepository shipments,
+        IShipmentTrackingEventRepository events,
+        IShippingProvider provider,
+        ILogger<ShippingService> logger)
     {
         _shipments = shipments;
         _events = events;
         _provider = provider;
+        _logger = logger;
     }
 
     public Task<IReadOnlyList<ShippingQuote>> GetQuotesAsync(string zipCode)
@@ -24,9 +31,21 @@ public class ShippingService
     {
         var now = DateTime.UtcNow;
         var external = await _provider.CreateShipmentAsync(orderId, service, address);
-        var trackingNumber = external?.trackingNumber
-            ?? $"TRK-{Guid.NewGuid().ToString("N")[..10].ToUpperInvariant()}";
+        var usedSyntheticTracking = string.IsNullOrWhiteSpace(external?.trackingNumber);
+        var trackingNumber = usedSyntheticTracking
+            ? $"TRK-{Guid.NewGuid().ToString("N")[..10].ToUpperInvariant()}"
+            : external!.Value.trackingNumber;
         var status = external?.status ?? "Created";
+
+        if (usedSyntheticTracking)
+        {
+            _logger.LogWarning(
+                "Shipping fallback tracking activated. orderId={OrderId} provider={Provider} service={Service} trackingNumber={TrackingNumber}",
+                orderId,
+                provider,
+                service,
+                trackingNumber);
+        }
 
         var shipment = new Shipment
         {

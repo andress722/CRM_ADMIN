@@ -10,18 +10,24 @@ namespace Ecommerce.Infrastructure.Shipping;
 
 public class CorreiosShippingProvider : IShippingProvider
 {
+    private static readonly object AlertSync = new();
+    private static DateTime _lastFallbackAlertAtUtc = DateTime.MinValue;
+
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _configuration;
     private readonly ILogger<CorreiosShippingProvider> _logger;
+    private readonly IEmailService _emailService;
 
     public CorreiosShippingProvider(
         IHttpClientFactory httpClientFactory,
         IConfiguration configuration,
-        ILogger<CorreiosShippingProvider> logger)
+        ILogger<CorreiosShippingProvider> logger,
+        IEmailService emailService)
     {
         _httpClientFactory = httpClientFactory;
         _configuration = configuration;
         _logger = logger;
+        _emailService = emailService;
     }
 
     public async Task<IReadOnlyList<ShippingQuote>> GetQuotesAsync(string zipCode)
@@ -29,7 +35,7 @@ public class CorreiosShippingProvider : IShippingProvider
         var baseUrl = GetBaseUrl();
         if (string.IsNullOrWhiteSpace(baseUrl))
         {
-            return DefaultQuotes();
+            return await GetFallbackQuotesAsync("missing_base_url", zipCode);
         }
 
         try
@@ -39,7 +45,7 @@ public class CorreiosShippingProvider : IShippingProvider
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("Correios quotes failed: {Status}", response.StatusCode);
-                return DefaultQuotes();
+                return await GetFallbackQuotesAsync($"http_status_{(int)response.StatusCode}", zipCode);
             }
 
             var body = await response.Content.ReadAsStringAsync();
@@ -47,7 +53,7 @@ public class CorreiosShippingProvider : IShippingProvider
             var root = doc.RootElement;
             if (!root.TryGetProperty("quotes", out var quotesElement) || quotesElement.ValueKind != JsonValueKind.Array)
             {
-                return DefaultQuotes();
+                return await GetFallbackQuotesAsync("invalid_payload_quotes_missing", zipCode);
             }
 
             var quotes = new List<ShippingQuote>();
@@ -72,12 +78,12 @@ public class CorreiosShippingProvider : IShippingProvider
                 }
             }
 
-            return quotes.Count > 0 ? quotes : DefaultQuotes();
+            return quotes.Count > 0 ? quotes : await GetFallbackQuotesAsync("empty_quote_list", zipCode);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Correios quotes error");
-            return DefaultQuotes();
+            return await GetFallbackQuotesAsync("exception", zipCode);
         }
     }
 
@@ -192,10 +198,70 @@ public class CorreiosShippingProvider : IShippingProvider
         return client;
     }
 
-    private static IReadOnlyList<ShippingQuote> DefaultQuotes()
-        => new List<ShippingQuote>
+    private async Task<IReadOnlyList<ShippingQuote>> GetFallbackQuotesAsync(string reason, string? zipCode)
+    {
+        _logger.LogWarning(
+            "Shipping fallback quotes activated. reason={Reason} zipCode={ZipCode}",
+            reason,
+            zipCode ?? "n/a");
+
+        await TrySendFallbackAlertAsync(reason, zipCode);
+
+        return new List<ShippingQuote>
         {
             new("Correios", "PAC", 25.9m, 5),
             new("Correios", "SEDEX", 45.0m, 2)
         };
+    }
+
+    private async Task TrySendFallbackAlertAsync(string reason, string? zipCode)
+    {
+        var recipientsRaw = _configuration["Alerts:EmailRecipients"];
+        if (string.IsNullOrWhiteSpace(recipientsRaw))
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var shouldSend = false;
+        lock (AlertSync)
+        {
+            if ((now - _lastFallbackAlertAtUtc) >= TimeSpan.FromMinutes(15))
+            {
+                _lastFallbackAlertAtUtc = now;
+                shouldSend = true;
+            }
+        }
+
+        if (!shouldSend)
+        {
+            return;
+        }
+
+        var recipients = recipientsRaw
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (recipients.Count == 0)
+        {
+            return;
+        }
+
+        var subject = "[ALERTA] Fallback de cotacao de frete ativado";
+        var html = $"<h3>Fallback de frete ativado</h3><p><strong>Motivo:</strong> {reason}</p><p><strong>CEP:</strong> {zipCode ?? "n/a"}</p><p><strong>UTC:</strong> {now:O}</p>";
+        var text = $"Fallback de frete ativado\nMotivo: {reason}\nCEP: {zipCode ?? "n/a"}\nUTC: {now:O}";
+
+        foreach (var recipient in recipients)
+        {
+            try
+            {
+                await _emailService.SendCustomEmailAsync(recipient, subject, html, text);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send shipping fallback alert email to {Recipient}", recipient);
+            }
+        }
+    }
 }

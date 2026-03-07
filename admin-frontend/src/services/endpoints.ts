@@ -28,7 +28,7 @@ export const endpoints = {
     // Products
     products: `${API_URL}/admin/products`,
     productDetail: (id: string) => `${API_URL}/admin/products/${id}`,
-    productImages: (id: string) => `${API_URL}/admin/products/${id}/images`,
+    productImages: (id: string) => `${API_URL}/admin/product-images/${id}`,
     productFeatured: (id: string) => `${API_URL}/admin/products/${id}/featured`,
     // Customers
     customers: `${API_URL}/admin/customers`,

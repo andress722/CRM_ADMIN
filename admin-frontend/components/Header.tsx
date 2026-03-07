@@ -34,7 +34,7 @@ export default function Header() {
     typeof value === 'string' && value.trim().length > 0 ? value : fallback;
 
   const userName = getUserString(user?.name, getUserString(user?.email, 'Admin'));
-  const userEmail = getUserString(user?.email, 'admin@example.com');
+  const userEmail = getUserString(user?.email, 'No email');
 
   return (
     <header className="border-b border-white/10 bg-slate-800/50 backdrop-blur-sm sticky top-0 z-40">
@@ -126,3 +126,4 @@ export default function Header() {
     </header>
   );
 }
+

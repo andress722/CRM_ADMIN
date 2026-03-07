@@ -89,10 +89,19 @@ function WishlistContent() {
         {displayItems.map((item) => (
           <Card key={item.id} className="group overflow-hidden border-border bg-card transition-colors hover:border-primary/30">
             <Link href={`/product?id=${item.id}`}>
-              <div className="aspect-[4/3] bg-secondary">
-                <div className="flex h-full w-full items-center justify-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Product
-                </div>
+              <div className="aspect-[4/3] overflow-hidden bg-secondary">
+                {item.imageUrl ? (
+                  <img
+                    src={item.imageUrl}
+                    alt={item.name}
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    Product
+                  </div>
+                )}
               </div>
             </Link>
             <CardContent className="p-4">
@@ -135,3 +144,4 @@ export default function WishlistPage() {
     </Suspense>
   )
 }
+

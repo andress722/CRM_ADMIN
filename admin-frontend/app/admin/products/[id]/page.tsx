@@ -1,10 +1,10 @@
 'use client';
 
-import { useApiQuery, useApiMutation } from '@/hooks/useApi';
+import { useApiQuery, useApiMutation, useApiUpload } from '@/hooks/useApi';
 import { endpoints } from '@/services/endpoints';
 import { Product } from '@/types/api';
 import { useToast } from '@/contexts/ToastContext';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Edit2, Trash2, Save } from 'lucide-react';
@@ -33,7 +33,8 @@ export default function ProductDetailsPage({ params }: ProductDetailsPageProps) 
 
   const updateMutation = useApiMutation('patch');
   const deleteMutation = useApiMutation('delete');
-  const addImageMutation = useApiMutation<{ success: boolean }>('post');
+  const addImageMutation = useApiUpload<{ success: boolean; imageUrl?: string }>();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleEdit = () => {
     if (product) {
@@ -73,19 +74,23 @@ export default function ProductDetailsPage({ params }: ProductDetailsPageProps) 
     }
   };
 
-  const handleAddImage = async () => {
+  const handleAddImage = async (file: File) => {
     if (!product?.id) {
       return;
     }
 
+    const formData = new FormData();
+    formData.append('file', file);
+
     try {
       await addImageMutation.mutateAsync({
         url: endpoints.admin.productImages(product.id),
+        formData,
       });
       queryClient.invalidateQueries({ queryKey: ['products', 'images', params.id] });
-      addToast('✅ Product image added', 'success');
+      addToast('✅ Product image uploaded', 'success');
     } catch {
-      addToast('❌ Failed to add product image', 'error');
+      addToast('❌ Failed to upload product image', 'error');
     }
   };
 
@@ -176,12 +181,25 @@ export default function ProductDetailsPage({ params }: ProductDetailsPageProps) 
                 </div>
               )}
             </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  void handleAddImage(file);
+                  e.currentTarget.value = '';
+                }
+              }}
+            />
             <button
-              onClick={handleAddImage}
+              onClick={() => fileInputRef.current?.click()}
               disabled={addImageMutation.isPending}
               className="w-full mt-3 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm"
             >
-              {addImageMutation.isPending ? 'Adding...' : 'Add Image'}
+              {addImageMutation.isPending ? 'Uploading...' : 'Upload Image'}
             </button>
           </div>
 
@@ -342,3 +360,4 @@ export default function ProductDetailsPage({ params }: ProductDetailsPageProps) 
     </div>
   );
 }
+

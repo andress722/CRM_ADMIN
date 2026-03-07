@@ -39,9 +39,18 @@ export default function CartPage() {
             <Card key={item.product.id} className="overflow-hidden border-border bg-card">
               <CardContent className="flex gap-4 p-4">
                 <div className="h-20 w-20 shrink-0 overflow-hidden border border-border bg-secondary">
-                  <div className="flex h-full w-full items-center justify-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    {item.product.category}
-                  </div>
+                  {item.product.imageUrl ? (
+                    <img
+                      src={item.product.imageUrl}
+                      alt={item.product.name}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      {item.product.category}
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-1 flex-col justify-between">
                   <div>
@@ -129,3 +138,4 @@ export default function CartPage() {
     </div>
   )
 }
+

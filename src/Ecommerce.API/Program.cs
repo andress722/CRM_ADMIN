@@ -390,7 +390,9 @@ builder.Services.AddScoped<DataGovernanceService>();
 builder.Services.AddSingleton<IRequestThrottleService, InMemoryRequestThrottleService>();
 builder.Services.AddHttpClient<ICaptchaVerifier, CaptchaVerifier>();
 builder.Services.AddScoped<IShippingProvider, Ecommerce.Infrastructure.Shipping.CorreiosShippingProvider>();
+var failFastMissingProviders = builder.Configuration.GetValue("Integrations:FailFastOnMissingProviders", false);
 var paymentProvider = builder.Configuration.GetValue<string>("Payments:Provider");
+var allowStubOutsideDevelopment = builder.Configuration.GetValue("Payments:AllowStubOutsideDevelopment", false);
 if (string.IsNullOrWhiteSpace(paymentProvider))
 {
     paymentProvider = builder.Environment.IsProduction() ? "MercadoPago" : "Stub";
@@ -404,8 +406,27 @@ if (builder.Environment.IsProduction() &&
     paymentProvider = "MercadoPago";
 }
 
+if (!builder.Environment.IsDevelopment() &&
+    paymentProvider.Equals("Stub", StringComparison.OrdinalIgnoreCase) &&
+    !allowStubOutsideDevelopment)
+{
+    throw new InvalidOperationException("Payments:Provider=Stub is blocked outside Development. Set Payments:AllowStubOutsideDevelopment=true to override.");
+}
+
 if (paymentProvider.Equals("MercadoPago", StringComparison.OrdinalIgnoreCase))
 {
+    var mercadoPagoAccessToken = builder.Configuration["Payments:MercadoPago:AccessToken"];
+    if (string.IsNullOrWhiteSpace(mercadoPagoAccessToken))
+    {
+        var message = "Payments:MercadoPago:AccessToken is missing. Real payments cannot be processed.";
+        if (builder.Environment.IsProduction() || failFastMissingProviders)
+        {
+            throw new InvalidOperationException(message);
+        }
+
+        Log.Warning(message);
+    }
+
     builder.Services.AddScoped<IPaymentGateway, MercadoPagoPaymentGateway>();
 }
 else
@@ -461,6 +482,29 @@ else
 {
     builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
 }
+if (builder.Environment.IsProduction() && emailProvider.Equals("Console", StringComparison.OrdinalIgnoreCase))
+{
+    var message = "Email provider resolved to Console in production. Configure SendGrid/SES/SMTP credentials.";
+    if (failFastMissingProviders)
+    {
+        throw new InvalidOperationException(message);
+    }
+
+    Log.Warning(message);
+}
+
+var shippingBaseUrl = builder.Configuration["Shipping:Correios:BaseUrl"];
+if (builder.Environment.IsProduction() && string.IsNullOrWhiteSpace(shippingBaseUrl))
+{
+    var message = "Shipping:Correios:BaseUrl is not configured in production. Shipping quotes will fall back to defaults.";
+    if (failFastMissingProviders)
+    {
+        throw new InvalidOperationException(message);
+    }
+
+    Log.Warning(message);
+}
+
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IPasswordHasher<Ecommerce.Domain.Entities.User>, PasswordHasher<Ecommerce.Domain.Entities.User>>();
 
@@ -473,6 +517,7 @@ builder.Services.AddHostedService<AbandonedCartRecoveryWorker>();
 builder.Services.AddHostedService<LoyaltyCreditWorker>();
 builder.Services.AddHostedService<DataRetentionWorker>();
 builder.Services.AddHostedService<PostSalesEngagementWorker>();
+builder.Services.AddHostedService<SubscriptionRecurringBillingWorker>();
 
 // Auth
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -617,6 +662,7 @@ app.Use(async (context, next) =>
 });
 
 app.UseHttpsRedirection();
+app.UseStaticFiles();
 app.UseWebSockets();
 app.UseCors("AllowFrontend");
 app.UseIpRateLimiting();
@@ -988,16 +1034,6 @@ catch (Exception ex)
 app.Run();
 
 public partial class Program { }
-
-
-
-
-
-
-
-
-
-
 
 
 
