@@ -1,6 +1,6 @@
 // Painel de notificacoes internas (alertas)
 import { useEffect, useState } from "react";
-import { LEGACY_API_URL } from "../lib/legacy-api";
+import { ADMIN_API_URL } from "../lib/legacy-api";
 
 interface Notification {
   id: string;
@@ -16,7 +16,7 @@ export default function InternalNotificationsPanel() {
   const [typeFilter, setTypeFilter] = useState("");
 
   useEffect(() => {
-    fetch(`${LEGACY_API_URL}/admin/notifications`)
+    fetch(`${ADMIN_API_URL}/admin/notifications`)
       .then((res) => res.json())
       .then((data) => {
         const mapped = Array.isArray(data)
@@ -36,7 +36,7 @@ export default function InternalNotificationsPanel() {
 
   async function markAsRead(id: string) {
     try {
-      await fetch(`${LEGACY_API_URL}/admin/notifications/${id}/read`, {
+      await fetch(`${ADMIN_API_URL}/admin/notifications/${id}/read`, {
         method: "POST",
       });
     } catch {
@@ -109,3 +109,4 @@ export default function InternalNotificationsPanel() {
     </div>
   );
 }
+

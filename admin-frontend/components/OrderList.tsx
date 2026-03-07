@@ -1,6 +1,6 @@
 // Listagem de pedidos com filtros avançados
 import { useEffect, useState } from "react";
-import { LEGACY_API_URL } from "../lib/legacy-api";
+import { ADMIN_API_URL } from "../lib/legacy-api";
 import OrderDetailsModal from "./OrderDetailsModal";
 import OrderExport from "./OrderExport";
 
@@ -20,7 +20,7 @@ export default function OrderList() {
   const [dateFilter, setDateFilter] = useState("");
 
   useEffect(() => {
-    fetch(`${LEGACY_API_URL}/admin/orders`)
+    fetch(`${ADMIN_API_URL}/admin/orders`)
       .then((res) => res.json())
       .then((data) => {
         setOrders(data);
@@ -121,5 +121,6 @@ export default function OrderList() {
     </div>
   );
 }
+
 
 

@@ -1,6 +1,6 @@
 // Painel de configuracoes avancadas
 import { useEffect, useState } from "react";
-import { LEGACY_API_URL } from "../lib/legacy-api";
+import { ADMIN_API_URL } from "../lib/legacy-api";
 
 interface BusinessParams {
   minOrderValue: number;
@@ -15,6 +15,7 @@ interface Integration {
   status: string;
 }
 
+const TEMPLATE_STORAGE_KEY = "admin_email_template_v1";
 const DEFAULT_TEMPLATE = "Assunto: Resumo da sua compra\n\nOla, {{nome}}!\nSeu pedido {{pedido}} foi atualizado.";
 
 export default function AdvancedSettingsPanel() {
@@ -22,13 +23,25 @@ export default function AdvancedSettingsPanel() {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [loading, setLoading] = useState(true);
   const [emailTemplate, setEmailTemplate] = useState(DEFAULT_TEMPLATE);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    try {
+      if (typeof window !== "undefined") {
+        const saved = window.localStorage.getItem(TEMPLATE_STORAGE_KEY);
+        if (saved) {
+          setEmailTemplate(saved);
+        }
+      }
+    } catch {
+      // noop
+    }
+
     Promise.all([
-      fetch(`${LEGACY_API_URL}/admin/settings`).then((res) =>
+      fetch(`${ADMIN_API_URL}/admin/settings`).then((res) =>
         res.ok ? res.json() : Promise.resolve(null),
       ),
-      fetch(`${LEGACY_API_URL}/admin/integrations`).then((res) =>
+      fetch(`${ADMIN_API_URL}/admin/integrations`).then((res) =>
         res.ok ? res.json() : Promise.resolve([]),
       ),
     ])
@@ -45,7 +58,14 @@ export default function AdvancedSettingsPanel() {
   }, []);
 
   function saveEmailTemplate() {
-    alert("Template de e-mail salvo localmente.");
+    try {
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(TEMPLATE_STORAGE_KEY, emailTemplate);
+      }
+      setSaveMessage("Template salvo no navegador.");
+    } catch {
+      setSaveMessage("Nao foi possivel salvar o template.");
+    }
   }
 
   return (
@@ -98,6 +118,7 @@ export default function AdvancedSettingsPanel() {
             >
               Salvar Template
             </button>
+            {saveMessage && <div className="mt-2 text-sm text-gray-700">{saveMessage}</div>}
           </div>
         </>
       )}

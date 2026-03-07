@@ -1,6 +1,6 @@
 // Painel de SEO e busca
 import { useEffect, useState } from "react";
-import { LEGACY_API_URL } from "../lib/legacy-api";
+import { ADMIN_API_URL } from "../lib/legacy-api";
 
 interface SearchReport {
   term: string;
@@ -14,7 +14,7 @@ export default function SeoSearchPanel() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${LEGACY_API_URL}/admin/seo-search`)
+    fetch(`${ADMIN_API_URL}/admin/seo-search`)
       .then((res) => res.json())
       .then((data) => {
         setSearchReports(Array.isArray(data) ? data : []);
@@ -56,3 +56,4 @@ export default function SeoSearchPanel() {
     </div>
   );
 }
+

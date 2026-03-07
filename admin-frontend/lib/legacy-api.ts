@@ -1,3 +1,3 @@
-import { LEGACY_API_URL } from '@/services/endpoints';
+import { ADMIN_API_URL } from '@/services/endpoints';
 
-export { LEGACY_API_URL };
+export { ADMIN_API_URL };

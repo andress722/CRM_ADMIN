@@ -1,6 +1,6 @@
 // Painel de RMA/trocas/devolucoes
 import { useEffect, useState } from "react";
-import { LEGACY_API_URL } from "../lib/legacy-api";
+import { ADMIN_API_URL } from "../lib/legacy-api";
 
 interface RmaRequest {
   id: string;
@@ -16,7 +16,7 @@ export default function RmaPanel() {
   const [statusFilter, setStatusFilter] = useState("");
 
   useEffect(() => {
-    fetch(`${LEGACY_API_URL}/admin/rma`)
+    fetch(`${ADMIN_API_URL}/admin/rma`)
       .then((res) => res.json())
       .then((data) => {
         setRequests(Array.isArray(data) ? data : []);
@@ -74,3 +74,4 @@ export default function RmaPanel() {
     </div>
   );
 }
+

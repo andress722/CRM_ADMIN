@@ -1,6 +1,6 @@
 // Painel de carrinho abandonado
 import { useEffect, useState } from "react";
-import { LEGACY_API_URL } from "../lib/legacy-api";
+import { ADMIN_API_URL } from "../lib/legacy-api";
 
 interface AbandonedCart {
   id: string;
@@ -18,7 +18,7 @@ export default function AbandonedCartPanel() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`${LEGACY_API_URL}/admin/abandoned-carts`)
+    fetch(`${ADMIN_API_URL}/admin/abandoned-carts`)
       .then(async (res) => {
         if (!res.ok) {
           throw new Error(`http_${res.status}`);
@@ -42,7 +42,7 @@ export default function AbandonedCartPanel() {
   async function sendRecoveryEmail(cart: AbandonedCart) {
     try {
       const res = await fetch(
-        `${LEGACY_API_URL}/admin/abandoned-carts/${cart.id}/recover`,
+        `${ADMIN_API_URL}/admin/abandoned-carts/${cart.id}/recover`,
         { method: "POST" },
       );
 
@@ -116,3 +116,4 @@ export default function AbandonedCartPanel() {
     </div>
   );
 }
+

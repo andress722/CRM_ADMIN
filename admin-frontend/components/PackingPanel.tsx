@@ -1,6 +1,6 @@
 // Painel de etiquetas, packing list e picking list
 import { useEffect, useState } from "react";
-import { LEGACY_API_URL } from "../lib/legacy-api";
+import { ADMIN_API_URL } from "../lib/legacy-api";
 
 interface Packing {
   id: string;
@@ -16,7 +16,7 @@ export default function PackingPanel() {
   const [statusFilter, setStatusFilter] = useState("");
 
   useEffect(() => {
-    fetch(`${LEGACY_API_URL}/admin/packing`)
+    fetch(`${ADMIN_API_URL}/admin/packing`)
       .then((res) => res.json())
       .then((data) => {
         setPackings(data);
@@ -91,5 +91,6 @@ export default function PackingPanel() {
     </div>
   );
 }
+
 
 

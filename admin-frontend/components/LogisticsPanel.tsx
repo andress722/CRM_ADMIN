@@ -1,6 +1,6 @@
 // Painel de logistica: entregas, cotacao de frete, status
 import { useEffect, useState } from "react";
-import { LEGACY_API_URL } from "../lib/legacy-api";
+import { ADMIN_API_URL } from "../lib/legacy-api";
 
 interface Delivery {
   id: string;
@@ -18,7 +18,7 @@ export default function LogisticsPanel() {
   const [statusFilter, setStatusFilter] = useState("");
 
   useEffect(() => {
-    fetch(`${LEGACY_API_URL}/admin/logistics`)
+    fetch(`${ADMIN_API_URL}/admin/logistics`)
       .then((res) => res.json())
       .then((data) => {
         const mapped = Array.isArray(data)
@@ -90,3 +90,4 @@ export default function LogisticsPanel() {
     </div>
   );
 }
+

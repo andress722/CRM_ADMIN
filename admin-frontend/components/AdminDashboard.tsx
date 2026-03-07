@@ -1,6 +1,6 @@
 // Dashboard geral do admin: KPIs, graficos, atalhos
 import { useEffect, useState } from "react";
-import { LEGACY_API_URL } from "../lib/legacy-api";
+import { ADMIN_API_URL } from "../lib/legacy-api";
 
 interface Kpi {
   label: string;
@@ -21,7 +21,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${LEGACY_API_URL}/admin/overview`)
+    fetch(`${ADMIN_API_URL}/admin/overview`)
       .then(async (res) => {
         if (!res.ok) throw new Error(`http_${res.status}`);
         return res.json();
@@ -95,3 +95,4 @@ export default function AdminDashboard() {
     </div>
   );
 }
+

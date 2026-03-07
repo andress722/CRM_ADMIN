@@ -1,6 +1,7 @@
 // Painel de reviews e recomendacoes
 import { useEffect, useState } from "react";
-import { LEGACY_API_URL } from "../lib/legacy-api";
+import ApiClient from "../src/services/api-client";
+import { endpoints } from "../src/services/endpoints";
 
 interface Review {
   id: string;
@@ -20,15 +21,9 @@ export default function ReviewsPanel() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`${LEGACY_API_URL}/admin/reviews`)
-      .then(async (res) => {
-        if (!res.ok) {
-          throw new Error(`http_${res.status}`);
-        }
-        return res.json();
-      })
+    ApiClient.get<Review[]>(endpoints.admin.reviews)
       .then((data) => {
-        setReviews(data);
+        setReviews(Array.isArray(data) ? data : []);
         setLoading(false);
       })
       .catch(() => {
@@ -43,16 +38,7 @@ export default function ReviewsPanel() {
 
   async function moderateReview(id: string, status: "Approved" | "Rejected") {
     try {
-      const res = await fetch(`${LEGACY_API_URL}/reviews/${id}/moderate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-
-      if (!res.ok) {
-        throw new Error(`http_${res.status}`);
-      }
-
+      await ApiClient.post(endpoints.admin.reviewModerate(id), { status });
       setReviews((current) =>
         current.map((r) => (r.id === id ? { ...r, status } : r)),
       );

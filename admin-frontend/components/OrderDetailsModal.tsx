@@ -1,6 +1,6 @@
 // Modal de detalhes do pedido com historico de status
 import { useEffect, useState } from "react";
-import { LEGACY_API_URL } from "../lib/legacy-api";
+import { ADMIN_API_URL } from "../lib/legacy-api";
 
 interface StatusHistory {
   status: string;
@@ -27,7 +27,7 @@ export default function OrderDetailsModal({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${LEGACY_API_URL}/admin/orders/${orderId}`)
+    fetch(`${ADMIN_API_URL}/admin/orders/${orderId}`)
       .then((res) => res.json())
       .then((data) => {
         const mapped: Order = {
@@ -76,3 +76,4 @@ export default function OrderDetailsModal({
     </div>
   );
 }
+

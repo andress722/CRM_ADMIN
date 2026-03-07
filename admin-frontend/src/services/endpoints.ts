@@ -6,7 +6,9 @@ const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5071";
 const API_BASE = RAW_API_URL.replace(/\/+$/, "");
 const API_URL = API_BASE.endsWith("/api/v1") ? API_BASE : `${API_BASE}/api/v1`;
 
-export const LEGACY_API_URL = API_URL;
+export const ADMIN_API_URL = API_URL;
+// Backward-compat only. Prefer ADMIN_API_URL.
+export const LEGACY_API_URL = ADMIN_API_URL;
 export { API_BASE, API_URL };
 
 export const endpoints = {
@@ -49,6 +51,9 @@ export const endpoints = {
     logs: `${API_URL}/admin/logs`,
     // Notifications
     notifications: `${API_URL}/admin/notifications`,
+    // Reviews
+    reviews: `${API_URL}/admin/reviews`,
+    reviewModerate: (id: string) => `${API_URL}/reviews/${id}/moderate`,
     // Reports
     reports: `${API_URL}/admin/reports`,
     reportsOverview: `${API_URL}/admin/reports/overview`,
@@ -99,4 +104,3 @@ export const getApiUrl = (
   }
   return url;
 };
-
