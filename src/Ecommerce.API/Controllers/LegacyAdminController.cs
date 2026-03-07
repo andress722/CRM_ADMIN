@@ -12,16 +12,18 @@ public class LegacyAdminController : ControllerBase
 {
     private readonly IPaymentRepository _payments;
 
-    private static readonly List<LegacyAbandonedCartDto> _abandonedCarts = new();
-    private static readonly List<LegacyReviewDto> _reviews = new();
-
     public LegacyAdminController(IPaymentRepository payments)
     {
         _payments = payments;
     }
 
     [HttpGet("abandoned-carts")]
-    public IActionResult GetAbandonedCarts() => Ok(_abandonedCarts);
+    public IActionResult GetAbandonedCarts()
+        => StatusCode(StatusCodes.Status410Gone, new
+        {
+            message = "Legacy endpoint disabled.",
+            replacement = "/api/v1/admin/reports"
+        });
 
     [HttpGet("payments")]
     public async Task<IActionResult> GetPayments()
@@ -43,29 +45,10 @@ public class LegacyAdminController : ControllerBase
     }
 
     [HttpGet("reviews")]
-    public IActionResult GetReviews() => Ok(_reviews);
-
-    public record LegacyAbandonedCartDto(
-        string Id,
-        string CustomerName,
-        string Email,
-        List<LegacyAbandonedCartItemDto> Items,
-        string LastUpdated,
-        string RecoveryStatus
-    );
-
-    public record LegacyAbandonedCartItemDto(string ProductId, string Name, int Quantity);
-
-    public record LegacyReviewDto(
-        string Id,
-        string ProductId,
-        string ProductName,
-        string CustomerName,
-        int Rating,
-        string Comment,
-        string Status,
-        string CreatedAt
-    );
+    public IActionResult GetReviews()
+        => StatusCode(StatusCodes.Status410Gone, new
+        {
+            message = "Legacy endpoint disabled.",
+            replacement = "/api/v1/reviews"
+        });
 }
-
-
