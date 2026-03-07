@@ -4,7 +4,7 @@ import { LEGACY_API_URL } from "../lib/legacy-api";
 
 interface Log {
   id: string;
-  type: string; // erro, acesso, evento
+  type: string;
   message: string;
   user?: string;
   timestamp: string;
@@ -16,10 +16,20 @@ export default function LogsPanel() {
   const [typeFilter, setTypeFilter] = useState("");
 
   useEffect(() => {
-    fetch(`${LEGACY_API_URL}/logs`)
+    fetch(`${LEGACY_API_URL}/admin/logs`)
       .then((res) => res.json())
       .then((data) => {
-        setLogs(data);
+        const mapped = Array.isArray(data)
+          ? data.map((l: { id: string; action: string; details: string; userEmail?: string; date: string }) => ({
+              id: l.id,
+              type: l.action,
+              message: l.details,
+              user: l.userEmail,
+              timestamp: l.date,
+            }))
+          : [];
+
+        setLogs(mapped);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -37,9 +47,8 @@ export default function LogsPanel() {
           className="border rounded px-2 py-1"
         >
           <option value="">Todos</option>
-          <option value="erro">Erro</option>
-          <option value="acesso">Acesso</option>
-          <option value="evento">Evento</option>
+          <option value="Read">Read</option>
+          <option value="Email">Email</option>
         </select>
       </div>
       {loading ? (
@@ -50,7 +59,7 @@ export default function LogsPanel() {
             <tr className="bg-gray-100">
               <th className="p-2">Tipo</th>
               <th className="p-2">Mensagem</th>
-              <th className="p-2">Usuário</th>
+              <th className="p-2">Usuario</th>
               <th className="p-2">Data</th>
             </tr>
           </thead>

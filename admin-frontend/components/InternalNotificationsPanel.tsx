@@ -1,12 +1,12 @@
-// Painel de notificações internas (alertas)
+// Painel de notificacoes internas (alertas)
 import { useEffect, useState } from "react";
 import { LEGACY_API_URL } from "../lib/legacy-api";
 
 interface Notification {
   id: string;
-  type: string; // pagamento, estoque, rma
+  type: string;
   message: string;
-  status: string; // novo, lido
+  status: string;
   createdAt: string;
 }
 
@@ -16,28 +16,45 @@ export default function InternalNotificationsPanel() {
   const [typeFilter, setTypeFilter] = useState("");
 
   useEffect(() => {
-    fetch(`${LEGACY_API_URL}/notifications`)
+    fetch(`${LEGACY_API_URL}/admin/notifications`)
       .then((res) => res.json())
       .then((data) => {
-        setNotifications(data);
+        const mapped = Array.isArray(data)
+          ? data.map((n: { id: string; title: string; message: string; date: string; read: boolean }) => ({
+              id: n.id,
+              type: n.title,
+              message: n.message,
+              status: n.read ? "lido" : "novo",
+              createdAt: n.date,
+            }))
+          : [];
+        setNotifications(mapped);
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, []);
 
-  function markAsRead(id: string) {
-    setNotifications((notifications) =>
-      notifications.map((n) => (n.id === id ? { ...n, status: "lido" } : n)),
+  async function markAsRead(id: string) {
+    try {
+      await fetch(`${LEGACY_API_URL}/admin/notifications/${id}/read`, {
+        method: "POST",
+      });
+    } catch {
+      // noop
+    }
+
+    setNotifications((current) =>
+      current.map((n) => (n.id === id ? { ...n, status: "lido" } : n)),
     );
   }
 
   const filtered = notifications.filter(
-    (n) => !typeFilter || n.type === typeFilter,
+    (n) => !typeFilter || n.type.toLowerCase().includes(typeFilter.toLowerCase()),
   );
 
   return (
     <div className="p-4">
-      <h2 className="text-xl font-bold mb-4">Notificações Internas</h2>
+      <h2 className="text-xl font-bold mb-4">Notificacoes Internas</h2>
       <div className="mb-4">
         <select
           value={typeFilter}
@@ -48,10 +65,11 @@ export default function InternalNotificationsPanel() {
           <option value="pagamento">Pagamento</option>
           <option value="estoque">Estoque</option>
           <option value="rma">RMA</option>
+          <option value="falha">Falha</option>
         </select>
       </div>
       {loading ? (
-        <div>Carregando notificações...</div>
+        <div>Carregando notificacoes...</div>
       ) : (
         <table className="min-w-full border text-xs sm:text-sm">
           <thead>
@@ -60,7 +78,7 @@ export default function InternalNotificationsPanel() {
               <th className="p-2">Mensagem</th>
               <th className="p-2">Status</th>
               <th className="p-2">Data</th>
-              <th className="p-2">Ações</th>
+              <th className="p-2">Acoes</th>
             </tr>
           </thead>
           <tbody>

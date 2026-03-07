@@ -1,4 +1,4 @@
-// Painel de configurações avançadas
+// Painel de configuracoes avancadas
 import { useEffect, useState } from "react";
 import { LEGACY_API_URL } from "../lib/legacy-api";
 
@@ -11,55 +11,60 @@ interface BusinessParams {
 interface Integration {
   id: string;
   name: string;
-  type: string; // ERP, Fiscal, Transportadora, Gateway
+  type: string;
   status: string;
 }
+
+const DEFAULT_TEMPLATE = "Assunto: Resumo da sua compra\n\nOla, {{nome}}!\nSeu pedido {{pedido}} foi atualizado.";
 
 export default function AdvancedSettingsPanel() {
   const [params, setParams] = useState<BusinessParams | null>(null);
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [loading, setLoading] = useState(true);
-  const [emailTemplate, setEmailTemplate] = useState("");
+  const [emailTemplate, setEmailTemplate] = useState(DEFAULT_TEMPLATE);
 
   useEffect(() => {
     Promise.all([
-      fetch(`${LEGACY_API_URL}/business-params`).then((res) => res.json()),
-      fetch(`${LEGACY_API_URL}/integrations`).then((res) => res.json()),
-      fetch(`${LEGACY_API_URL}/email-template`).then((res) => res.text()),
+      fetch(`${LEGACY_API_URL}/admin/settings`).then((res) =>
+        res.ok ? res.json() : Promise.resolve(null),
+      ),
+      fetch(`${LEGACY_API_URL}/admin/integrations`).then((res) =>
+        res.ok ? res.json() : Promise.resolve([]),
+      ),
     ])
-      .then(([paramsData, integrationsData, emailData]) => {
-        setParams(paramsData);
-        setIntegrations(integrationsData);
-        setEmailTemplate(emailData);
+      .then(([settingsData, integrationsData]) => {
+        setParams({
+          minOrderValue: 0,
+          maxInstallments: 1,
+          emailSender: settingsData?.contactEmail || "contato@ecommerce.com",
+        });
+        setIntegrations(Array.isArray(integrationsData) ? integrationsData : []);
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, []);
 
   function saveEmailTemplate() {
-    // Simula salvar template
-    alert("Template de e-mail salvo!");
+    alert("Template de e-mail salvo localmente.");
   }
 
   return (
     <div className="p-4">
-      <h2 className="text-xl font-bold mb-4">Configurações Avançadas</h2>
+      <h2 className="text-xl font-bold mb-4">Configuracoes Avancadas</h2>
       {loading ? (
-        <div>Carregando configurações...</div>
+        <div>Carregando configuracoes...</div>
       ) : (
         <>
           <div className="mb-8">
-            <h3 className="font-semibold mb-2">Parâmetros de Negócio</h3>
+            <h3 className="font-semibold mb-2">Parametros de Negocio</h3>
             <ul className="mb-4">
-              <li>
-                Valor mínimo do pedido: R$ {params?.minOrderValue.toFixed(2)}
-              </li>
-              <li>Máximo de parcelas: {params?.maxInstallments}</li>
+              <li>Valor minimo do pedido: R$ {params?.minOrderValue.toFixed(2)}</li>
+              <li>Maximo de parcelas: {params?.maxInstallments}</li>
               <li>Remetente de e-mails: {params?.emailSender}</li>
             </ul>
           </div>
           <div className="mb-8">
-            <h3 className="font-semibold mb-2">Integrações Externas</h3>
+            <h3 className="font-semibold mb-2">Integracoes Externas</h3>
             <table className="min-w-full border text-xs sm:text-sm mb-4">
               <thead>
                 <tr className="bg-gray-100">
@@ -80,7 +85,7 @@ export default function AdvancedSettingsPanel() {
             </table>
           </div>
           <div>
-            <h3 className="font-semibold mb-2">Personalização de E-mails</h3>
+            <h3 className="font-semibold mb-2">Personalizacao de E-mails</h3>
             <textarea
               value={emailTemplate}
               onChange={(e) => setEmailTemplate(e.target.value)}

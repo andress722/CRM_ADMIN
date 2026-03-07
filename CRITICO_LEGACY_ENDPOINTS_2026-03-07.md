@@ -1,4 +1,4 @@
-# Critico: Endpoints Legados Mockados
+# Critico: Endpoints Legados
 
 Data: 2026-03-07
 Status: Resolvido
@@ -6,22 +6,23 @@ Status: Resolvido
 ## Escopo
 
 - Endpoint legado `/api/abandoned-carts`
+- Endpoint legado `/api/payments`
 - Endpoint legado `/api/reviews`
 - Arquivo: `src/Ecommerce.API/Controllers/LegacyAdminController.cs`
 
 ## Risco identificado
 
-Esses endpoints retornavam dados mockados/listas estaticas e podiam ser consumidos por engano em producao, gerando comportamento inconsistente e risco operacional.
+Esses endpoints legados podiam ser consumidos por engano em producao, gerando comportamento inconsistente e risco operacional.
 
 ## Acao executada
 
-- Ambos endpoints foram desativados com `410 Gone`.
+- Endpoints desativados com `410 Gone`.
 - Resposta agora orienta endpoint substituto:
   - `/api/abandoned-carts` -> `/api/v1/admin/reports`
+  - `/api/payments` -> `/api/v1/admin/payments`
   - `/api/reviews` -> `/api/v1/admin/reviews`
 
 ## Resultado esperado
 
-- Nenhum dado mock legado exposto nesses dois endpoints.
+- Nenhum endpoint legado acima expoe dados em producao.
 - Consumidores antigos recebem sinal semantico claro de descomissionamento.
-

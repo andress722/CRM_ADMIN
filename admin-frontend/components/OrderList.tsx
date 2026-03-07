@@ -20,7 +20,7 @@ export default function OrderList() {
   const [dateFilter, setDateFilter] = useState("");
 
   useEffect(() => {
-    fetch(`${LEGACY_API_URL}/orders`)
+    fetch(`${LEGACY_API_URL}/admin/orders`)
       .then((res) => res.json())
       .then((data) => {
         setOrders(data);
@@ -121,3 +121,5 @@ export default function OrderList() {
     </div>
   );
 }
+
+

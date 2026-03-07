@@ -1,4 +1,4 @@
-// Painel de logística: entregas, cotação de frete, status
+// Painel de logistica: entregas, cotacao de frete, status
 import { useEffect, useState } from "react";
 import { LEGACY_API_URL } from "../lib/legacy-api";
 
@@ -18,10 +18,21 @@ export default function LogisticsPanel() {
   const [statusFilter, setStatusFilter] = useState("");
 
   useEffect(() => {
-    fetch(`${LEGACY_API_URL}/deliveries`)
+    fetch(`${LEGACY_API_URL}/admin/logistics`)
       .then((res) => res.json())
       .then((data) => {
-        setDeliveries(data);
+        const mapped = Array.isArray(data)
+          ? data.map((d: { id: string; orderId: string; service: string; status: string; updatedAt?: string; createdAt: string; trackingNumber?: string }) => ({
+              id: d.id,
+              orderId: d.orderId,
+              type: d.service || "Padrao",
+              status: d.status,
+              estimatedDate: d.updatedAt || d.createdAt,
+              trackingCode: d.trackingNumber,
+              freightCost: 0,
+            }))
+          : [];
+        setDeliveries(mapped);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -33,7 +44,7 @@ export default function LogisticsPanel() {
 
   return (
     <div className="p-4">
-      <h2 className="text-xl font-bold mb-4">Logística</h2>
+      <h2 className="text-xl font-bold mb-4">Logistica</h2>
       <div className="mb-4">
         <select
           value={statusFilter}
@@ -41,9 +52,9 @@ export default function LogisticsPanel() {
           className="border rounded px-2 py-1"
         >
           <option value="">Status</option>
-          <option value="Separando">Separando</option>
-          <option value="Enviado">Enviado</option>
-          <option value="Entregue">Entregue</option>
+          <option value="Created">Created</option>
+          <option value="Shipped">Shipped</option>
+          <option value="Delivered">Delivered</option>
         </select>
       </div>
       {loading ? (
@@ -56,7 +67,7 @@ export default function LogisticsPanel() {
               <th className="p-2">Pedido</th>
               <th className="p-2">Tipo</th>
               <th className="p-2">Status</th>
-              <th className="p-2">Previsão</th>
+              <th className="p-2">Atualizado</th>
               <th className="p-2">Frete</th>
               <th className="p-2">Rastreamento</th>
             </tr>

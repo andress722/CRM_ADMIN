@@ -18,7 +18,7 @@ export default function PaymentDashboard() {
   const [statusFilter, setStatusFilter] = useState("");
 
   useEffect(() => {
-    fetch(`${LEGACY_API_URL}/payments`)
+    fetch(`${LEGACY_API_URL}/admin/payments`)
       .then((res) => res.json())
       .then((data) => {
         setPayments(data);
@@ -80,3 +80,5 @@ export default function PaymentDashboard() {
     </div>
   );
 }
+
+

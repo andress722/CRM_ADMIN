@@ -18,7 +18,7 @@ export default function ReconciliationPanel() {
   const [statusFilter, setStatusFilter] = useState("");
 
   useEffect(() => {
-    fetch(`${LEGACY_API_URL}/reconciliation`)
+    fetch(`${LEGACY_API_URL}/admin/reconciliation`)
       .then((res) => res.json())
       .then((data) => {
         setItems(data);
@@ -81,3 +81,5 @@ export default function ReconciliationPanel() {
     </div>
   );
 }
+
+

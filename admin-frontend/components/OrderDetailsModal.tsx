@@ -1,4 +1,4 @@
-// Modal de detalhes do pedido com histórico de status
+// Modal de detalhes do pedido com historico de status
 import { useEffect, useState } from "react";
 import { LEGACY_API_URL } from "../lib/legacy-api";
 
@@ -27,17 +27,25 @@ export default function OrderDetailsModal({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${LEGACY_API_URL}/orders/${orderId}`)
+    fetch(`${LEGACY_API_URL}/admin/orders/${orderId}`)
       .then((res) => res.json())
       .then((data) => {
-        setOrder(data);
+        const mapped: Order = {
+          id: data?.id,
+          customerName: data?.customerName || "",
+          status: data?.status || "",
+          createdAt: data?.createdAt || "",
+          totalAmount: Number(data?.totalAmount || data?.total || 0),
+          history: Array.isArray(data?.history) ? data.history : [],
+        };
+        setOrder(mapped);
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, [orderId]);
 
   if (loading) return <div>Carregando...</div>;
-  if (!order) return <div>Pedido não encontrado.</div>;
+  if (!order) return <div>Pedido nao encontrado.</div>;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
@@ -53,15 +61,17 @@ export default function OrderDetailsModal({
         <p className="mb-1">Status atual: {order.status}</p>
         <p className="mb-1">Data: {order.createdAt}</p>
         <p className="mb-4">Total: R$ {order.totalAmount.toFixed(2)}</p>
-        <h3 className="font-semibold mb-2">Histórico de Status</h3>
+        <h3 className="font-semibold mb-2">Historico de Status</h3>
         <ul className="mb-4">
+          {order.history.length === 0 && (
+            <li className="text-sm text-gray-700">Sem historico detalhado.</li>
+          )}
           {order.history.map((h, idx) => (
             <li key={idx} className="text-sm text-gray-700">
               {h.status} - {h.date}
             </li>
           ))}
         </ul>
-        {/* ...outros detalhes e ações... */}
       </div>
     </div>
   );
