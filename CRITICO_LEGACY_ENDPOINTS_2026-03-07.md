@@ -18,9 +18,10 @@ Esses endpoints retornavam dados mockados/listas estaticas e podiam ser consumid
 - Ambos endpoints foram desativados com `410 Gone`.
 - Resposta agora orienta endpoint substituto:
   - `/api/abandoned-carts` -> `/api/v1/admin/reports`
-  - `/api/reviews` -> `/api/v1/reviews`
+  - `/api/reviews` -> `/api/v1/admin/reviews`
 
 ## Resultado esperado
 
 - Nenhum dado mock legado exposto nesses dois endpoints.
 - Consumidores antigos recebem sinal semantico claro de descomissionamento.
+

@@ -49,6 +49,7 @@ public class LegacyAdminController : ControllerBase
         => StatusCode(StatusCodes.Status410Gone, new
         {
             message = "Legacy endpoint disabled.",
-            replacement = "/api/v1/reviews"
+            replacement = "/api/v1/admin/reviews"
         });
 }
+
