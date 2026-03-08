@@ -31,7 +31,10 @@ public class UsersController : ControllerBase
 
     private Guid GetCurrentUserId()
     {
-        var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub)
+            ?? User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
+
         return Guid.TryParse(sub, out var userId) ? userId : Guid.Empty;
     }
 

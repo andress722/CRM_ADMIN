@@ -523,6 +523,7 @@ builder.Services.AddHostedService<SubscriptionRecurringBillingWorker>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        options.MapInboundClaims = false;
         var issuer = builder.Configuration["Jwt:Issuer"] ?? "ecommerce-api";
         var audience = builder.Configuration["Jwt:Audience"] ?? "ecommerce-admin";
         var secret = builder.Configuration["Jwt:SecretKey"] ?? "";
