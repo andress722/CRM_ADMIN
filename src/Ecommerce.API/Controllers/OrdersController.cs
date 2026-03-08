@@ -18,11 +18,13 @@ public class OrdersController : ControllerBase
 {
     private readonly OrderService _service;
     private readonly IRequestThrottleService _throttle;
+    private readonly ILogger<OrdersController> _logger;
 
-    public OrdersController(OrderService service, IRequestThrottleService throttle)
+    public OrdersController(OrderService service, IRequestThrottleService throttle, ILogger<OrdersController> logger)
     {
         _service = service;
         _throttle = throttle;
+        _logger = logger;
     }
 
     /// <summary>
@@ -36,7 +38,9 @@ public class OrdersController : ControllerBase
         {
             var order = await _service.GetOrderAsync(id);
             // Allow owner or admin to view order
-            var sub = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
+            var sub = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)
+                ?? User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? User.FindFirstValue("sub");
             var currentUserId = Guid.TryParse(sub, out var uid) ? uid : Guid.Empty;
             if (!User.IsInRole("Admin") && order.UserId != currentUserId)
             {
@@ -154,6 +158,11 @@ public class OrdersController : ControllerBase
         {
             return NotFound(new { message = ex.Message });
         }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error creating order from cart for user {UserId}", GetCurrentUserId());
+            return StatusCode(500, new { message = "Failed to create order from cart" });
+        }
     }
 
     /// <summary>
@@ -177,7 +186,9 @@ public class OrdersController : ControllerBase
 
     private Guid GetCurrentUserId()
     {
-        var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub)
+            ?? User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue("sub");
         return Guid.TryParse(sub, out var userId) ? userId : Guid.Empty;
     }
 }
@@ -191,8 +202,3 @@ public record CreateOrderRequest(
 public record UpdateOrderStatusRequest(
     OrderStatus Status
 );
-
-
-
-
-

@@ -117,3 +117,14 @@
     background: hsl(175 100% 42% / 0.5);
   }
 }
+
+@keyframes cart-bump {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+
+.cart-bump {
+  animation: cart-bump 420ms ease;
+}
+
