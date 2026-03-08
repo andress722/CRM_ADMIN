@@ -36,8 +36,14 @@ function getCsrfToken(): string | null {
   return match ? decodeURIComponent(match[1]) : null
 }
 
-function setTokens(access: string) {
+function getRefreshToken(): string | null {
+  if (typeof window === "undefined") return null
+  return localStorage.getItem("refreshToken")
+}
+
+function setTokens(access: string, refresh?: string) {
   localStorage.setItem("accessToken", access)
+  if (refresh) localStorage.setItem("refreshToken", refresh)
 }
 
 function setUserId(userId: string) {
@@ -52,6 +58,7 @@ function getUserId(): string | null {
 export function clearTokens() {
   localStorage.removeItem("accessToken")
   localStorage.removeItem("userId")
+  localStorage.removeItem("refreshToken")
 }
 
 function normalizeStatus(value: unknown): string {
@@ -109,15 +116,18 @@ async function refreshAccessToken(): Promise<boolean> {
       headers["X-CSRF-Token"] = csrfToken
     }
 
+    const refreshToken = getRefreshToken()
+
     const res = await fetch(`${API}/auth/refresh`, {
       method: "POST",
       headers,
+      body: refreshToken ? JSON.stringify({ refreshToken }) : undefined,
       credentials: "include",
     })
     if (!res.ok) return false
-    const data = (await res.json()) as { accessToken?: string; user?: any }
+    const data = (await res.json()) as { accessToken?: string; refreshToken?: string; user?: any }
     if (!data.accessToken) return false
-    setTokens(data.accessToken)
+    setTokens(data.accessToken, data.refreshToken)
     if (data.user?.id) setUserId(String(data.user.id))
     return true
   } catch {
@@ -171,20 +181,20 @@ async function apiFetch<T>(
 // --- Auth ---
 
 export async function login(email: string, password: string) {
-  const data = await apiFetch<{ accessToken: string; user?: any }>(
+  const data = await apiFetch<{ accessToken: string; refreshToken?: string; user?: any }>(
     "/auth/login",
     {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }
   )
-  setTokens(data.accessToken)
+  setTokens(data.accessToken, data.refreshToken)
   if (data.user?.id) setUserId(String(data.user.id))
   return data
 }
 
 export async function register(name: string, email: string, password: string) {
-  const data = await apiFetch<{ accessToken?: string; user?: any; message?: string }>(
+  const data = await apiFetch<{ accessToken?: string; refreshToken?: string; user?: any; message?: string }>(
     "/auth/register",
     {
       method: "POST",
@@ -192,7 +202,7 @@ export async function register(name: string, email: string, password: string) {
     }
   )
   if (data.accessToken) {
-    setTokens(data.accessToken)
+    setTokens(data.accessToken, data.refreshToken)
   }
   if (data.user?.id) setUserId(String(data.user.id))
   return data
@@ -586,5 +596,4 @@ export async function trackEvent(data: {
     // Analytics failures are silent
   }
 }
-
 
