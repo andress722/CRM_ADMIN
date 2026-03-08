@@ -29,6 +29,7 @@ public class AuthController : ControllerBase
     private readonly ICaptchaVerifier _captchaVerifier;
     private readonly IRequestThrottleService _throttle;
     private readonly TwoFactorService _twoFactorService;
+    private readonly ILogger<AuthController> _logger;
 
     public AuthController(
         UserService userService,
@@ -42,7 +43,8 @@ public class AuthController : ControllerBase
         AnalyticsService analyticsService,
         ICaptchaVerifier captchaVerifier,
         IRequestThrottleService throttle,
-        TwoFactorService twoFactorService)
+        TwoFactorService twoFactorService,
+        ILogger<AuthController> logger)
     {
         _userService = userService;
         _refreshTokenRepository = refreshTokenRepository;
@@ -56,6 +58,7 @@ public class AuthController : ControllerBase
         _captchaVerifier = captchaVerifier;
         _throttle = throttle;
         _twoFactorService = twoFactorService;
+        _logger = logger;
     }
 
     /// <summary>
@@ -383,7 +386,7 @@ public class AuthController : ControllerBase
 
             var verificationTtlMinutes = _configuration.GetValue("Auth:EmailVerificationMinutes", 60);
             var verificationToken = await _authService.CreateEmailVerificationTokenAsync(user, TimeSpan.FromMinutes(verificationTtlMinutes));
-            await _emailService.SendEmailVerificationAsync(user.Email, verificationToken.Token);
+            await TrySendEmailAsync(() => _emailService.SendEmailVerificationAsync(user.Email, verificationToken.Token), "register verification");
 
             var token = _tokenService.GenerateAccessToken(user);
             var refreshTokenValue = _tokenService.GenerateRefreshToken();
@@ -469,7 +472,7 @@ public class AuthController : ControllerBase
 
         var verificationTtlMinutes = _configuration.GetValue("Auth:EmailVerificationMinutes", 60);
         var verificationToken = await _authService.CreateEmailVerificationTokenAsync(user, TimeSpan.FromMinutes(verificationTtlMinutes));
-        await _emailService.SendEmailVerificationAsync(user.Email, verificationToken.Token);
+        await TrySendEmailAsync(() => _emailService.SendEmailVerificationAsync(user.Email, verificationToken.Token), "resend verification");
 
         return Ok(new { message = "Verification email sent" });
     }
@@ -503,7 +506,7 @@ public class AuthController : ControllerBase
         {
             var resetTtlMinutes = _configuration.GetValue("Auth:PasswordResetMinutes", 30);
             var resetToken = await _authService.CreatePasswordResetTokenAsync(user, TimeSpan.FromMinutes(resetTtlMinutes));
-            await _emailService.SendPasswordResetAsync(user.Email, resetToken.Token);
+            await TrySendEmailAsync(() => _emailService.SendPasswordResetAsync(user.Email, resetToken.Token), "forgot password");
         }
 
         return Ok(new { message = "If the email exists, a reset link was sent" });
@@ -644,6 +647,23 @@ public class AuthController : ControllerBase
             return Unauthorized(new { message = "Invalid or expired refresh token" });
         }
     }
+
+    private async Task TrySendEmailAsync(Func<Task> sendAction, string operation)
+    {
+        var timeoutSeconds = _configuration.GetValue("Email:SendTimeoutSeconds", 12);
+        try
+        {
+            await sendAction().WaitAsync(TimeSpan.FromSeconds(timeoutSeconds));
+        }
+        catch (TimeoutException ex)
+        {
+            _logger.LogWarning(ex, "Email send timed out during {Operation} after {TimeoutSeconds}s.", operation, timeoutSeconds);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Email send failed during {Operation}.", operation);
+        }
+    }
 }
 
 /// <summary>
@@ -706,16 +726,4 @@ public class ResetPasswordRequest
     public string? NewPassword { get; set; }
     public string? CaptchaToken { get; set; }
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
