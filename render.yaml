@@ -21,9 +21,9 @@ services:
       - key: Jwt__Audience
         value: ecommerce-admin
       - key: Cors__AllowedOrigins__0
-        value: https://copilot-sdk-admin-staging.vercel.app
+        value: https://app.infotechgamer.site
       - key: Cors__AllowedOrigins__1
-        value: https://copilot-sdk-storefront-staging.vercel.app
+        value: https://www.infotechgamer.site
       - key: Networking__EnableForwardedHeaders
         value: "true"
       - key: Networking__TrustAllForwardedHeaders
@@ -52,3 +52,4 @@ databases:
   - name: copilot-sdk-db-staging
     plan: free
     region: oregon
+
