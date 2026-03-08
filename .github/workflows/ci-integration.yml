@@ -116,10 +116,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-artifacts
+          if-no-files-found: warn
           path: |
             admin-frontend/test-results
             admin-frontend/playwright-report
-            /tmp
+            /tmp/api.log
+            /tmp/frontend.log
+
 
 
 
