@@ -1,6 +1,6 @@
 // Painel de conciliação de pagamentos vs pedidos
 import { useEffect, useState } from "react";
-import { ADMIN_API_URL } from "../lib/legacy-api";
+import { ADMIN_API_URL } from "../src/services/endpoints";
 
 interface Reconciliation {
   id: string;
@@ -81,6 +81,4 @@ export default function ReconciliationPanel() {
     </div>
   );
 }
-
-
 

@@ -287,11 +287,38 @@ public class AdminExtrasController : ControllerBase
         return Ok(dto);
     }
 
+    [HttpGet("email-template")]
+    public async Task<IActionResult> GetEmailTemplate()
+    {
+        var settings = await GetOrCreateSettingsAsync();
+        return Ok(new EmailTemplateDto
+        {
+            Template = settings.EmailTemplate
+        });
+    }
+
+    [HttpPut("email-template")]
+    public async Task<IActionResult> UpdateEmailTemplate([FromBody] EmailTemplateDto dto)
+    {
+        var settings = await GetOrCreateSettingsAsync();
+        settings.EmailTemplate = dto.Template ?? string.Empty;
+        settings.UpdatedAt = DateTime.UtcNow;
+
+        _db.AdminSettings.Update(settings);
+        await _db.SaveChangesAsync();
+
+        return Ok(new EmailTemplateDto
+        {
+            Template = settings.EmailTemplate
+        });
+    }
+
     private async Task<AdminSetting> GetOrCreateSettingsAsync()
     {
         var settings = await _db.AdminSettings.AsNoTracking().OrderByDescending(x => x.UpdatedAt).FirstOrDefaultAsync();
         if (settings != null)
         {
+            settings.EmailTemplate ??= GetDefaultEmailTemplate();
             return settings;
         }
 
@@ -300,6 +327,7 @@ public class AdminExtrasController : ControllerBase
             Id = Guid.NewGuid(),
             StoreName = "Loja Demo",
             ContactEmail = "contato@ecommerce.com",
+            EmailTemplate = GetDefaultEmailTemplate(),
             Maintenance = false,
             DefaultDarkMode = true,
             UpdatedAt = DateTime.UtcNow
@@ -309,6 +337,9 @@ public class AdminExtrasController : ControllerBase
         await _db.SaveChangesAsync();
         return created;
     }
+
+    private static string GetDefaultEmailTemplate()
+        => "Assunto: Resumo da sua compra\n\nOla, {{nome}}!\nSeu pedido {{pedido}} foi atualizado.";
 
     #endregion
 
@@ -1060,6 +1091,11 @@ public record SettingsDto
     public bool DefaultDarkMode { get; init; }
 }
 
+public record EmailTemplateDto
+{
+    public string Template { get; init; } = string.Empty;
+}
+
 public record ProfileDto
 {
     public string Name { get; init; } = string.Empty;
@@ -1067,9 +1103,4 @@ public record ProfileDto
     public string Avatar { get; init; } = string.Empty;
     public Dictionary<string, object> Preferences { get; init; } = new();
 }
-
-
-
-
-
 

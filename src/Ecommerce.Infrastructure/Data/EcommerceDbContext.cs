@@ -546,6 +546,7 @@ public class EcommerceDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.StoreName).IsRequired().HasMaxLength(255);
             entity.Property(e => e.ContactEmail).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.EmailTemplate).IsRequired();
             entity.HasIndex(e => e.UpdatedAt);
         });
 
@@ -597,12 +598,4 @@ public class EcommerceDbContext : DbContext
         });
     }
 }
-
-
-
-
-
-
-
-
 

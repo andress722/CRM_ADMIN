@@ -1,6 +1,6 @@
 // Painel de notificacoes internas (alertas)
 import { useEffect, useState } from "react";
-import { ADMIN_API_URL } from "../lib/legacy-api";
+import { ADMIN_API_URL } from "../src/services/endpoints";
 
 interface Notification {
   id: string;

@@ -1,6 +1,6 @@
 // Painel de configuracoes avancadas
 import { useEffect, useState } from "react";
-import { ADMIN_API_URL } from "../lib/legacy-api";
+import { ADMIN_API_URL } from "../src/services/endpoints";
 
 interface BusinessParams {
   minOrderValue: number;
@@ -15,7 +15,6 @@ interface Integration {
   status: string;
 }
 
-const TEMPLATE_STORAGE_KEY = "admin_email_template_v1";
 const DEFAULT_TEMPLATE = "Assunto: Resumo da sua compra\n\nOla, {{nome}}!\nSeu pedido {{pedido}} foi atualizado.";
 
 export default function AdvancedSettingsPanel() {
@@ -26,17 +25,6 @@ export default function AdvancedSettingsPanel() {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    try {
-      if (typeof window !== "undefined") {
-        const saved = window.localStorage.getItem(TEMPLATE_STORAGE_KEY);
-        if (saved) {
-          setEmailTemplate(saved);
-        }
-      }
-    } catch {
-      // noop
-    }
-
     Promise.all([
       fetch(`${ADMIN_API_URL}/admin/settings`).then((res) =>
         res.ok ? res.json() : Promise.resolve(null),
@@ -44,25 +32,49 @@ export default function AdvancedSettingsPanel() {
       fetch(`${ADMIN_API_URL}/admin/integrations`).then((res) =>
         res.ok ? res.json() : Promise.resolve([]),
       ),
+      fetch(`${ADMIN_API_URL}/admin/email-template`).then((res) =>
+        res.ok ? res.json() : Promise.resolve({ template: DEFAULT_TEMPLATE }),
+      ),
     ])
-      .then(([settingsData, integrationsData]) => {
+      .then(([settingsData, integrationsData, templateData]) => {
         setParams({
           minOrderValue: 0,
           maxInstallments: 1,
           emailSender: settingsData?.contactEmail || "contato@ecommerce.com",
         });
         setIntegrations(Array.isArray(integrationsData) ? integrationsData : []);
+        setEmailTemplate(
+          typeof templateData?.template === "string" && templateData.template.length > 0
+            ? templateData.template
+            : DEFAULT_TEMPLATE,
+        );
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, []);
 
-  function saveEmailTemplate() {
+  async function saveEmailTemplate() {
+    setSaveMessage(null);
+
     try {
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(TEMPLATE_STORAGE_KEY, emailTemplate);
+      const response = await fetch(`${ADMIN_API_URL}/admin/email-template`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ template: emailTemplate }),
+      });
+
+      if (!response.ok) {
+        throw new Error("save_failed");
       }
-      setSaveMessage("Template salvo no navegador.");
+
+      const saved = await response.json();
+      if (typeof saved?.template === "string") {
+        setEmailTemplate(saved.template);
+      }
+
+      setSaveMessage("Template salvo no servidor.");
     } catch {
       setSaveMessage("Nao foi possivel salvar o template.");
     }
@@ -114,7 +126,7 @@ export default function AdvancedSettingsPanel() {
             />
             <button
               className="bg-blue-600 text-white px-4 py-2 rounded font-bold"
-              onClick={saveEmailTemplate}
+              onClick={() => void saveEmailTemplate()}
             >
               Salvar Template
             </button>

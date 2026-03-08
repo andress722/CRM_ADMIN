@@ -1,6 +1,6 @@
 // Modal de detalhes do pedido com historico de status
 import { useEffect, useState } from "react";
-import { ADMIN_API_URL } from "../lib/legacy-api";
+import { ADMIN_API_URL } from "../src/services/endpoints";
 
 interface StatusHistory {
   status: string;

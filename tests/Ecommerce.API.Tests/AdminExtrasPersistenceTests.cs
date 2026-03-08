@@ -31,6 +31,15 @@ public class AdminExtrasPersistenceTests : IClassFixture<CustomWebAppFactory>
         Assert.Equal("ops@minhaloja.com", settings.GetProperty("contactEmail").GetString());
         Assert.True(settings.GetProperty("maintenance").GetBoolean());
 
+        var templateUpdate = await client.PutAsJsonAsync("/api/v1/admin/email-template", new
+        {
+            template = "Assunto: Atualizacao\n\nOla, {{nome}}!"
+        });
+        Assert.Equal(HttpStatusCode.OK, templateUpdate.StatusCode);
+
+        var template = await client.GetFromJsonAsync<JsonElement>("/api/v1/admin/email-template");
+        Assert.Equal("Assunto: Atualizacao\n\nOla, {{nome}}!", template.GetProperty("template").GetString());
+
         var profileUpdate = await client.PutAsJsonAsync("/api/v1/admin/profile", new
         {
             name = "Admin QA",

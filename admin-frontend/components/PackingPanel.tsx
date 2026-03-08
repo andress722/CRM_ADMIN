@@ -1,6 +1,6 @@
 // Painel de etiquetas, packing list e picking list
 import { useEffect, useState } from "react";
-import { ADMIN_API_URL } from "../lib/legacy-api";
+import { ADMIN_API_URL } from "../src/services/endpoints";
 
 interface Packing {
   id: string;
@@ -91,6 +91,4 @@ export default function PackingPanel() {
     </div>
   );
 }
-
-
 

@@ -7,8 +7,6 @@ const API_BASE = RAW_API_URL.replace(/\/+$/, "");
 const API_URL = API_BASE.endsWith("/api/v1") ? API_BASE : `${API_BASE}/api/v1`;
 
 export const ADMIN_API_URL = API_URL;
-// Backward-compat only. Prefer ADMIN_API_URL.
-export const LEGACY_API_URL = ADMIN_API_URL;
 export { API_BASE, API_URL };
 
 export const endpoints = {

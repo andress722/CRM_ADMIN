@@ -1,6 +1,6 @@
 // Dashboard geral do admin: KPIs, graficos, atalhos
 import { useEffect, useState } from "react";
-import { ADMIN_API_URL } from "../lib/legacy-api";
+import { ADMIN_API_URL } from "../src/services/endpoints";
 
 interface Kpi {
   label: string;

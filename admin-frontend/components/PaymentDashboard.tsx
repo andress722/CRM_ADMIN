@@ -1,6 +1,6 @@
 // Dashboard de pagamentos e conciliação
 import { useEffect, useState } from "react";
-import { ADMIN_API_URL } from "../lib/legacy-api";
+import { ADMIN_API_URL } from "../src/services/endpoints";
 
 interface Payment {
   id: string;
@@ -80,6 +80,4 @@ export default function PaymentDashboard() {
     </div>
   );
 }
-
-
 
