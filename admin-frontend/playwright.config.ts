@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 const PORT = Number.parseInt(process.env.FRONTEND_PORT || '3003', 10);
 const BASE_URL = `http://localhost:${PORT}`;
+const USE_EXISTING_SERVER_IN_CI = process.env.CI === 'true';
 
 export default defineConfig({
   testDir: './tests',
@@ -23,10 +24,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
-    command: `npm run dev -- -p ${PORT}`,
-    url: BASE_URL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: USE_EXISTING_SERVER_IN_CI
+    ? undefined
+    : {
+        command: `npm run dev -- -p ${PORT}`,
+        url: BASE_URL,
+        reuseExistingServer: true,
+        timeout: 120_000,
+      },
 });
