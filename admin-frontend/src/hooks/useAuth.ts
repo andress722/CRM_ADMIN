@@ -2,18 +2,25 @@
 
 "use client";
 
-import { AuthService } from "@/services/auth";
+import { AuthService, LoginResult } from "@/services/auth";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 type JwtPayload = Record<string, unknown>;
 
+type LoginOptions = {
+  captchaToken?: string;
+  twoFactorChallengeId?: string;
+  twoFactorCode?: string;
+};
+
 interface UseAuthReturn {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, options?: LoginOptions) => Promise<LoginResult>;
   logout: () => void;
+  clearError: () => void;
   user: JwtPayload | null;
 }
 
@@ -24,14 +31,12 @@ export function useAuth(): UseAuthReturn {
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<JwtPayload | null>(null);
 
-  // Check authentication status on mount
   useEffect(() => {
     const checkAuth = () => {
       try {
         const authenticated = AuthService.isAuthenticated();
         setIsAuthenticated(authenticated);
 
-        // Decode token to get user info
         if (authenticated) {
           const decoded = AuthService.decodeToken();
           setUser(decoded);
@@ -50,25 +55,37 @@ export function useAuth(): UseAuthReturn {
   }, []);
 
   const login = useCallback(
-    async (email: string, password: string) => {
+    async (email: string, password: string, options?: LoginOptions): Promise<LoginResult> => {
       setIsLoading(true);
       setError(null);
 
       try {
-        await AuthService.login(email, password);
+        const result = await AuthService.login({
+          email,
+          password,
+          captchaToken: options?.captchaToken,
+          twoFactorChallengeId: options?.twoFactorChallengeId,
+          twoFactorCode: options?.twoFactorCode,
+        });
 
-        setIsAuthenticated(true);
-        const decoded = AuthService.decodeToken();
-        setUser(decoded);
+        if (result.status === "authenticated") {
+          setIsAuthenticated(true);
+          const decoded = AuthService.decodeToken();
+          setUser(decoded);
+          router.push("/admin");
+          return result;
+        }
 
-        // Redirect to admin dashboard
-        router.push("/admin");
+        setIsAuthenticated(false);
+        setUser(null);
+        setError(result.message);
+        return result;
       } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Login failed";
+        const errorMessage = err instanceof Error ? err.message : "Login failed";
         setError(errorMessage);
         setIsAuthenticated(false);
         setUser(null);
+        throw err;
       } finally {
         setIsLoading(false);
       }
@@ -88,12 +105,17 @@ export function useAuth(): UseAuthReturn {
     })();
   }, [router]);
 
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
   return {
     isAuthenticated,
     isLoading,
     error,
     login,
     logout,
+    clearError,
     user,
   };
 }

@@ -3,6 +3,9 @@
 export interface LoginRequest {
   email: string;
   password: string;
+  captchaToken?: string;
+  twoFactorChallengeId?: string;
+  twoFactorCode?: string;
 }
 
 export interface LoginResponse {

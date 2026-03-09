@@ -1,5 +1,6 @@
 // src/services/auth.ts
 
+import { AxiosError } from "axios";
 import { LoginResponse } from "@/types/api";
 import ApiClient from "./api-client";
 import { endpoints } from "./endpoints";
@@ -12,6 +13,26 @@ type JwtPayload = {
   exp?: number;
   [key: string]: unknown;
 };
+
+type LoginPayload = {
+  email: string;
+  password: string;
+  captchaToken?: string;
+  twoFactorChallengeId?: string;
+  twoFactorCode?: string;
+};
+
+type TwoFactorChallengeResponse = {
+  message?: string;
+  requiresTwoFactor?: boolean;
+  requiresTwoFactorSetup?: boolean;
+  challengeId?: string;
+};
+
+export type LoginResult =
+  | { status: "authenticated"; data: LoginResponse }
+  | { status: "requires_two_factor"; challengeId: string; message: string }
+  | { status: "requires_two_factor_setup"; message: string };
 
 const decodeBase64 = (value: string): string | null => {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
@@ -52,36 +73,79 @@ const decodeBase64 = (value: string): string | null => {
   return null;
 };
 
+const persistUserInfo = (response: LoginResponse) => {
+  try {
+    if (typeof window !== "undefined" && response.user) {
+      if (response.user.role) {
+        window.localStorage.setItem(USER_ROLE_KEY, response.user.role);
+      }
+      if (response.user.email) {
+        window.localStorage.setItem(USER_EMAIL_KEY, response.user.email);
+      }
+    }
+  } catch {}
+};
+
+const mapAuthError = (error: unknown): string => {
+  if (error instanceof AxiosError) {
+    const message =
+      (error.response?.data as { message?: string } | undefined)?.message ||
+      error.message;
+    return message || "Failed to login. Please check your credentials.";
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return "Failed to login. Please check your credentials.";
+};
+
 export const AuthService = {
   /**
    * Login user with email and password
    */
-  async login(email: string, password: string): Promise<LoginResponse> {
+  async login(payload: LoginPayload): Promise<LoginResult> {
     try {
       const response = await ApiClient.post<LoginResponse>(
         endpoints.auth.login,
-        { email, password },
+        payload,
         { withCredentials: true },
       );
 
-      if (response.accessToken) {
-        AuthService.setToken(response.accessToken);
+      if (!response.accessToken) {
+        throw new Error("Invalid login response.");
       }
-      // server sets refresh token as HttpOnly cookie; do NOT persist refresh token in localStorage
 
-      // persist user role/email for quick UI checks
-      try {
-        if (typeof window !== "undefined" && response.user) {
-          if (response.user.role)
-            window.localStorage.setItem(USER_ROLE_KEY, response.user.role);
-          if (response.user.email)
-            window.localStorage.setItem(USER_EMAIL_KEY, response.user.email);
+      AuthService.setToken(response.accessToken);
+      persistUserInfo(response);
+
+      return {
+        status: "authenticated",
+        data: response,
+      };
+    } catch (error) {
+      if (error instanceof AxiosError && error.response?.status === 428) {
+        const challenge = error.response.data as TwoFactorChallengeResponse;
+        const message = challenge?.message || "2FA required";
+
+        if (challenge?.requiresTwoFactorSetup) {
+          return {
+            status: "requires_two_factor_setup",
+            message,
+          };
         }
-      } catch {}
 
-      return response;
-    } catch {
-      throw new Error("Failed to login. Please check your credentials.");
+        if (challenge?.requiresTwoFactor && challenge?.challengeId) {
+          return {
+            status: "requires_two_factor",
+            challengeId: challenge.challengeId,
+            message,
+          };
+        }
+      }
+
+      throw new Error(mapAuthError(error));
     }
   },
 
@@ -90,7 +154,6 @@ export const AuthService = {
    */
   async logout(): Promise<void> {
     try {
-      // call server to revoke refresh cookie/token
       await ApiClient.post(endpoints.auth.logout, undefined, {
         withCredentials: true,
       }).catch(() => {});
@@ -98,7 +161,6 @@ export const AuthService = {
 
     if (typeof window !== "undefined") {
       localStorage.removeItem(TOKEN_KEY);
-      // refresh token stored as HttpOnly cookie on server
       localStorage.removeItem(USER_ROLE_KEY);
       localStorage.removeItem(USER_EMAIL_KEY);
     }
@@ -125,7 +187,6 @@ export const AuthService = {
    * Get stored refresh token
    */
   getRefreshToken(): string | null {
-    // refresh token is not stored in localStorage when using HttpOnly cookie
     return null;
   },
 
@@ -134,7 +195,6 @@ export const AuthService = {
    */
   setRefreshToken(_token: string): void {
     void _token;
-    // No-op: refresh is stored as HttpOnly cookie by server
   },
 
   /**
@@ -142,7 +202,6 @@ export const AuthService = {
    */
   async refreshToken(): Promise<string | null> {
     try {
-      // Call refresh endpoint without body; server reads refresh token from HttpOnly cookie
       const response = await ApiClient.post<LoginResponse>(
         endpoints.auth.refresh,
         undefined,
@@ -151,16 +210,7 @@ export const AuthService = {
 
       if (response.accessToken) {
         AuthService.setToken(response.accessToken);
-        // server rotates refresh cookie; do not persist refresh token in localStorage
-        // update stored user info if present
-        try {
-          if (typeof window !== "undefined" && response.user) {
-            if (response.user.role)
-              window.localStorage.setItem(USER_ROLE_KEY, response.user.role);
-            if (response.user.email)
-              window.localStorage.setItem(USER_EMAIL_KEY, response.user.email);
-          }
-        } catch {}
+        persistUserInfo(response);
         return response.accessToken;
       }
 
@@ -208,7 +258,7 @@ export const AuthService = {
       const decoded = AuthService.decodeToken(token);
       if (!decoded || !decoded.exp) return true;
 
-      const expirationTime = decoded.exp * 1000; // Convert to milliseconds
+      const expirationTime = decoded.exp * 1000;
       return Date.now() >= expirationTime;
     } catch {
       return true;
