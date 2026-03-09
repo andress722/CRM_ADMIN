@@ -14,6 +14,22 @@ const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5071";
 const API_BASE = RAW_API_URL.replace(/\/+$/, "");
 const API_ROOT = API_BASE.endsWith("/api/v1") ? API_BASE : `${API_BASE}/api/v1`;
 
+const AUTH_ENDPOINT_MARKERS = [
+  "/auth/login",
+  "/auth/register",
+  "/auth/refresh",
+  "/auth/forgot-password",
+  "/auth/reset-password",
+  "/auth/verify-email",
+  "/auth/resend-verification",
+  "/auth/social/",
+];
+
+const isAuthEndpoint = (url?: string): boolean => {
+  if (!url) return false;
+  return AUTH_ENDPOINT_MARKERS.some((marker) => url.includes(marker));
+};
+
 // Create axios instance
 export const axiosInstance: AxiosInstance = axios.create({
   baseURL: API_ROOT,
@@ -36,7 +52,7 @@ const processQueue = (token: string) => {
 axiosInstance.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     const token = AuthService.getToken();
-    if (token) {
+    if (token && !isAuthEndpoint(config.url)) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -52,7 +68,11 @@ axiosInstance.interceptors.response.use(
       _retry?: boolean;
     };
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !isAuthEndpoint(originalRequest.url)
+    ) {
       if (isRefreshing) {
         // Queue the request while token is being refreshed
         return new Promise((resolve) => {
