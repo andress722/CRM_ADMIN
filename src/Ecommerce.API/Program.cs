@@ -670,6 +670,12 @@ app.UseIpRateLimiting();
 app.UseAuthentication();
 app.Use(async (context, next) =>
 {
+    if (context.Request.Path.StartsWithSegments("/api/v1/auth", StringComparison.OrdinalIgnoreCase))
+    {
+        await next();
+        return;
+    }
+
     if (context.User?.Identity?.IsAuthenticated == true)
     {
         var sub = context.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
@@ -1035,6 +1041,8 @@ catch (Exception ex)
 app.Run();
 
 public partial class Program { }
+
+
 
 
 

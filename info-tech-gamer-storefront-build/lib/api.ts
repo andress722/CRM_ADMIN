@@ -141,6 +141,16 @@ async function apiFetch<T>(
   useMock?: () => T
 ): Promise<T> {
   const token = getAccessToken()
+  const isPublicAuthPath =
+    path === "/auth/login" ||
+    path === "/auth/register" ||
+    path === "/auth/refresh" ||
+    path === "/auth/forgot-password" ||
+    path === "/auth/reset-password" ||
+    path === "/auth/verify-email" ||
+    path === "/auth/resend-verification" ||
+    path.startsWith("/auth/social/")
+
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
@@ -149,14 +159,14 @@ async function apiFetch<T>(
   if (csrfToken) {
     headers["X-CSRF-Token"] = csrfToken
   }
-  if (token) {
+  if (token && !isPublicAuthPath) {
     headers["Authorization"] = `Bearer ${token}`
   }
 
   try {
     let res = await fetch(`${API}${path}`, { ...options, headers, credentials: "include" })
 
-    if (res.status === 401 && token) {
+    if (res.status === 401 && token && !isPublicAuthPath) {
       const refreshed = await refreshAccessToken()
       if (refreshed) {
         headers["Authorization"] = `Bearer ${getAccessToken()}`
@@ -596,4 +606,5 @@ export async function trackEvent(data: {
     // Analytics failures are silent
   }
 }
+
 
