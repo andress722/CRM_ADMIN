@@ -2,7 +2,7 @@
 import { AuthService } from "@/services/auth";
 import { endpoints } from "@/services/endpoints";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type CustomerSummary = {
   id: string;
@@ -19,7 +19,7 @@ export default function CustomersPage() {
     token ? null : "Usuario nao autenticado.",
   );
 
-  const loadCustomers = () => {
+  const loadCustomers = useCallback(() => {
     if (!token) return;
 
     setLoading(true);
@@ -38,11 +38,11 @@ export default function CustomersPage() {
         setError("Erro ao carregar clientes.");
       })
       .finally(() => setLoading(false));
-  };
+  }, [token]);
 
   useEffect(() => {
     loadCustomers();
-  }, [token]);
+  }, [loadCustomers]);
 
   const toggleBlock = async (customer: CustomerSummary) => {
     if (!token) return;

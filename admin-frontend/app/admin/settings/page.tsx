@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useApiMutation, useApiQuery } from '@/hooks/useApi';
 import { endpoints } from '@/services/endpoints';
@@ -29,21 +29,35 @@ type AdminIntegration = {
   type: string;
 };
 
+const DEFAULT_SETTINGS: AdminSettings = {
+  storeName: '',
+  contactEmail: '',
+  maintenance: false,
+  defaultDarkMode: false,
+};
+
+const DEFAULT_PROFILE: AdminProfile = {
+  name: '',
+  email: '',
+  avatar: '',
+  preferences: {},
+};
+
 export default function SettingsPage() {
   const { addToast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: settings, isLoading: isSettingsLoading } = useApiQuery<AdminSettings>(
     ['admin-settings'],
-    endpoints.admin.settings
+    endpoints.admin.settings,
   );
   const { data: profile, isLoading: isProfileLoading } = useApiQuery<AdminProfile>(
     ['admin-profile'],
-    endpoints.admin.profile
+    endpoints.admin.profile,
   );
   const { data: integrations, isLoading: isIntegrationsLoading } = useApiQuery<AdminIntegration[]>(
     ['admin-integrations'],
-    endpoints.admin.integrations
+    endpoints.admin.integrations,
   );
 
   const saveSettingsMutation = useApiMutation<AdminSettings, AdminSettings>('put');
@@ -52,18 +66,8 @@ export default function SettingsPage() {
   const updateIntegrationMutation = useApiMutation<AdminIntegration, AdminIntegration>('put');
   const deleteIntegrationMutation = useApiMutation<{ success: boolean }>('delete');
 
-  const [settingsForm, setSettingsForm] = useState<AdminSettings>({
-    storeName: '',
-    contactEmail: '',
-    maintenance: false,
-    defaultDarkMode: false,
-  });
-  const [profileForm, setProfileForm] = useState<AdminProfile>({
-    name: '',
-    email: '',
-    avatar: '',
-    preferences: {},
-  });
+  const [settingsDraft, setSettingsDraft] = useState<Partial<AdminSettings>>({});
+  const [profileDraft, setProfileDraft] = useState<Partial<AdminProfile>>({});
   const [newIntegration, setNewIntegration] = useState<AdminIntegration>({
     id: '',
     name: '',
@@ -75,17 +79,17 @@ export default function SettingsPage() {
   const [editingIntegrationId, setEditingIntegrationId] = useState<string | null>(null);
   const [integrationDraft, setIntegrationDraft] = useState<AdminIntegration | null>(null);
 
-  useEffect(() => {
-    if (settings) {
-      setSettingsForm(settings);
-    }
-  }, [settings]);
+  const settingsForm: AdminSettings = {
+    ...DEFAULT_SETTINGS,
+    ...(settings ?? {}),
+    ...settingsDraft,
+  };
 
-  useEffect(() => {
-    if (profile) {
-      setProfileForm(profile);
-    }
-  }, [profile]);
+  const profileForm: AdminProfile = {
+    ...DEFAULT_PROFILE,
+    ...(profile ?? {}),
+    ...profileDraft,
+  };
 
   const saveSettings = async () => {
     try {
@@ -93,6 +97,7 @@ export default function SettingsPage() {
         url: endpoints.admin.settings,
         data: settingsForm,
       });
+      setSettingsDraft({});
       queryClient.invalidateQueries({ queryKey: ['admin-settings'] });
       addToast('✅ Configuracoes salvas', 'success');
     } catch {
@@ -106,6 +111,7 @@ export default function SettingsPage() {
         url: endpoints.admin.profile,
         data: profileForm,
       });
+      setProfileDraft({});
       queryClient.invalidateQueries({ queryKey: ['admin-profile'] });
       addToast('✅ Perfil atualizado', 'success');
     } catch {
@@ -203,7 +209,7 @@ export default function SettingsPage() {
                 <span className="text-sm text-slate-300">Store name</span>
                 <input
                   value={settingsForm.storeName}
-                  onChange={(e) => setSettingsForm((s) => ({ ...s, storeName: e.target.value }))}
+                  onChange={(e) => setSettingsDraft((s) => ({ ...s, storeName: e.target.value }))}
                   className="w-full rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-white"
                 />
               </label>
@@ -212,7 +218,7 @@ export default function SettingsPage() {
                 <input
                   type="email"
                   value={settingsForm.contactEmail}
-                  onChange={(e) => setSettingsForm((s) => ({ ...s, contactEmail: e.target.value }))}
+                  onChange={(e) => setSettingsDraft((s) => ({ ...s, contactEmail: e.target.value }))}
                   className="w-full rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-white"
                 />
               </label>
@@ -222,7 +228,7 @@ export default function SettingsPage() {
                 <input
                   type="checkbox"
                   checked={settingsForm.maintenance}
-                  onChange={(e) => setSettingsForm((s) => ({ ...s, maintenance: e.target.checked }))}
+                  onChange={(e) => setSettingsDraft((s) => ({ ...s, maintenance: e.target.checked }))}
                 />
                 Maintenance mode
               </label>
@@ -230,7 +236,7 @@ export default function SettingsPage() {
                 <input
                   type="checkbox"
                   checked={settingsForm.defaultDarkMode}
-                  onChange={(e) => setSettingsForm((s) => ({ ...s, defaultDarkMode: e.target.checked }))}
+                  onChange={(e) => setSettingsDraft((s) => ({ ...s, defaultDarkMode: e.target.checked }))}
                 />
                 Default dark mode
               </label>
@@ -251,7 +257,7 @@ export default function SettingsPage() {
                 <span className="text-sm text-slate-300">Name</span>
                 <input
                   value={profileForm.name}
-                  onChange={(e) => setProfileForm((p) => ({ ...p, name: e.target.value }))}
+                  onChange={(e) => setProfileDraft((p) => ({ ...p, name: e.target.value }))}
                   className="w-full rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-white"
                 />
               </label>
@@ -260,7 +266,7 @@ export default function SettingsPage() {
                 <input
                   type="email"
                   value={profileForm.email}
-                  onChange={(e) => setProfileForm((p) => ({ ...p, email: e.target.value }))}
+                  onChange={(e) => setProfileDraft((p) => ({ ...p, email: e.target.value }))}
                   className="w-full rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-white"
                 />
               </label>
@@ -268,7 +274,7 @@ export default function SettingsPage() {
                 <span className="text-sm text-slate-300">Avatar URL</span>
                 <input
                   value={profileForm.avatar}
-                  onChange={(e) => setProfileForm((p) => ({ ...p, avatar: e.target.value }))}
+                  onChange={(e) => setProfileDraft((p) => ({ ...p, avatar: e.target.value }))}
                   className="w-full rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-white"
                 />
               </label>
