@@ -42,6 +42,98 @@ export function OrderDetailsModal({
   const calculateItemSubtotal = (item: OrderItem) => {
     return (item.unitPrice * item.quantity).toFixed(2);
   };
+  const escapeHtml = (value: string) =>
+    value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+  const formatMoney = (value: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+
+  const handlePrint = () => {
+    const popup = window.open('', '_blank', 'width=960,height=700');
+    if (!popup) return;
+
+    const itemsRows = (order.items || [])
+      .map((item) => {
+        const sku = escapeHtml(item.productId || 'N/A');
+        const quantity = Number(item.quantity || 0);
+        const unitPrice = Number(item.unitPrice || 0);
+        const subtotal = unitPrice * quantity;
+
+        return `<tr>
+          <td>${sku}</td>
+          <td>${quantity}</td>
+          <td>${formatMoney(unitPrice)}</td>
+          <td>${formatMoney(subtotal)}</td>
+        </tr>`;
+      })
+      .join('');
+
+    const orderId = escapeHtml(order.id || 'N/A');
+    const customerName = escapeHtml(order.customerName || 'N/A');
+    const customerEmail = escapeHtml(order.customerEmail || 'N/A');
+    const status = escapeHtml(order.status || 'N/A');
+    const createdAt = order.createdAt ? new Date(order.createdAt).toLocaleString('pt-BR') : 'N/A';
+    const updatedAt = order.updatedAt ? new Date(order.updatedAt).toLocaleString('pt-BR') : 'N/A';
+    const total = formatMoney(Number(order.totalAmount || 0));
+
+    popup.document.write(`<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pedido ${orderId}</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; margin: 24px; color: #0f172a; }
+    h1 { margin: 0 0 8px; font-size: 22px; }
+    .meta { margin: 0 0 6px; font-size: 13px; color: #334155; }
+    .section { margin-top: 18px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #cbd5e1; padding: 8px; font-size: 12px; text-align: left; }
+    th { background: #f1f5f9; }
+    .totals { margin-top: 14px; text-align: right; font-size: 16px; font-weight: 700; }
+    @media print {
+      body { margin: 10mm; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Pedido #${orderId}</h1>
+  <p class="meta"><strong>Status:</strong> ${status}</p>
+  <p class="meta"><strong>Cliente:</strong> ${customerName} (${customerEmail})</p>
+  <p class="meta"><strong>Criado em:</strong> ${createdAt}</p>
+  <p class="meta"><strong>Atualizado em:</strong> ${updatedAt}</p>
+
+  <div class="section">
+    <h2 style="font-size:16px; margin:0;">Itens</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>SKU / Produto</th>
+          <th>Qtd</th>
+          <th>Unitário</th>
+          <th>Subtotal</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${itemsRows || '<tr><td colspan="4">Nenhum item</td></tr>'}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="totals">Total do pedido: ${total}</div>
+
+  <script>
+    window.onload = function () { window.print(); window.close(); };
+  </script>
+</body>
+</html>`);
+    popup.document.close();
+  };
 
   return (
     <div className={`fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:p-6 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
@@ -302,7 +394,7 @@ export function OrderDetailsModal({
               Fechar
             </button>
             <button
-              onClick={() => window.print()}
+              onClick={handlePrint}
               className="flex-1 px-4 py-2 bg-blue-600/20 border border-blue-500/30 text-blue-300 rounded-lg hover:bg-blue-600/30 transition-colors font-medium"
             >
               Imprimir Pedido
@@ -313,4 +405,5 @@ export function OrderDetailsModal({
     </div>
   );
 }
+
 
