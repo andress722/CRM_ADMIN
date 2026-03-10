@@ -28,6 +28,10 @@ services:
         value: https://*.vercel.app
       - key: Security__RequireAdmin2FA
         value: "false"
+      - key: Auth__BootstrapAdmin__Email
+        value: admin@example.com
+      - key: Auth__BootstrapAdmin__Password
+        value: demo123
       - key: Networking__EnableForwardedHeaders
         value: "true"
       - key: Networking__TrustAllForwardedHeaders
@@ -56,3 +60,4 @@ databases:
   - name: copilot-sdk-db-staging
     plan: free
     region: oregon
+

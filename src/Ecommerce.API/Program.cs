@@ -840,6 +840,62 @@ try
             await db.Database.EnsureCreatedAsync();
         }
 
+        var bootstrapAdminEmail =
+            builder.Configuration["Auth:BootstrapAdmin:Email"]
+            ?? builder.Configuration["Admin:Email"]
+            ?? Environment.GetEnvironmentVariable("AUTH_BOOTSTRAP_ADMIN_EMAIL")
+            ?? Environment.GetEnvironmentVariable("ADMIN_EMAIL");
+
+        var bootstrapAdminPassword =
+            builder.Configuration["Auth:BootstrapAdmin:Password"]
+            ?? builder.Configuration["Admin:Password"]
+            ?? Environment.GetEnvironmentVariable("AUTH_BOOTSTRAP_ADMIN_PASSWORD")
+            ?? Environment.GetEnvironmentVariable("ADMIN_PASSWORD");
+
+        if (!string.IsNullOrWhiteSpace(bootstrapAdminEmail) &&
+            !string.IsNullOrWhiteSpace(bootstrapAdminPassword) &&
+            await TableExistsAsync(db, "Users"))
+        {
+            var normalizedBootstrapEmail = bootstrapAdminEmail.Trim().ToLowerInvariant();
+            var existingBootstrapAdmin = db.Users
+                .AsEnumerable()
+                .FirstOrDefault(u =>
+                    !string.IsNullOrWhiteSpace(u.Email) &&
+                    u.Email.Equals(normalizedBootstrapEmail, StringComparison.OrdinalIgnoreCase));
+
+            if (existingBootstrapAdmin == null)
+            {
+                var newBootstrapAdmin = new Ecommerce.Domain.Entities.User
+                {
+                    Id = Guid.NewGuid(),
+                    Email = normalizedBootstrapEmail,
+                    FullName = "Admin User",
+                    PasswordHash = "",
+                    IsEmailVerified = true,
+                    IsBlocked = false,
+                    Role = "Admin",
+                    CreatedAt = DateTime.UtcNow,
+                };
+
+                newBootstrapAdmin.PasswordHash = passwordHasher.HashPassword(newBootstrapAdmin, bootstrapAdminPassword);
+                db.Users.Add(newBootstrapAdmin);
+                await db.SaveChangesAsync();
+                Console.WriteLine($"✅ Bootstrap admin created: {normalizedBootstrapEmail}");
+            }
+            else
+            {
+                existingBootstrapAdmin.Email = normalizedBootstrapEmail;
+                existingBootstrapAdmin.Role = "Admin";
+                existingBootstrapAdmin.IsEmailVerified = true;
+                existingBootstrapAdmin.IsBlocked = false;
+                existingBootstrapAdmin.PasswordHash = passwordHasher.HashPassword(existingBootstrapAdmin, bootstrapAdminPassword);
+
+                db.Users.Update(existingBootstrapAdmin);
+                await db.SaveChangesAsync();
+                Console.WriteLine($"✅ Bootstrap admin updated: {normalizedBootstrapEmail}");
+            }
+        }
+
         if (!seedDataEnabled)
         {
             Console.WriteLine("ℹ️ Seed data disabled (Database:SeedData=false)");
@@ -1108,11 +1164,4 @@ catch (Exception ex)
 app.Run();
 
 public partial class Program { }
-
-
-
-
-
-
-
 
