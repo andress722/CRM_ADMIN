@@ -2,14 +2,16 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Ecommerce.Application.Services;
 using Ecommerce.Application.Repositories;
+using Ecommerce.API.Services;
 using System.Text;
 using Ecommerce.Domain.Entities;
 using Microsoft.Extensions.DependencyInjection;
+using System.Security.Claims;
 
 namespace Ecommerce.API.Controllers;
 
 [ApiController]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,Manager,Seller")]
 [Route("api/v1/admin/crm")]
 [Route("admin/crm")]
 public class CrmController : ControllerBase
@@ -20,6 +22,7 @@ public class CrmController : ControllerBase
     private readonly IAnalyticsEventRepository _analyticsEvents;
     private readonly IEmailService _emailService;
     private readonly AdminReportService _adminReportService;
+    private readonly IAuditLogService _auditLogService;
 
     public CrmController(
         CrmService service,
@@ -27,7 +30,8 @@ public class CrmController : ControllerBase
         ProductService productService,
         IAnalyticsEventRepository analyticsEvents,
         IEmailService emailService,
-        AdminReportService adminReportService)
+        AdminReportService adminReportService,
+        IAuditLogService auditLogService)
     {
         _service = service;
         _userService = userService;
@@ -35,6 +39,7 @@ public class CrmController : ControllerBase
         _analyticsEvents = analyticsEvents;
         _emailService = emailService;
         _adminReportService = adminReportService;
+        _auditLogService = auditLogService;
     }
 
     #region Leads
@@ -46,6 +51,8 @@ public class CrmController : ControllerBase
         [HttpPost("leads")]
     public async Task<IActionResult> CreateLead([FromBody] CrmLeadCreateRequest request)
     {
+        var guard = EnsureCanMutate();
+        if (guard != null) return guard;
         if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length < 2)
         {
             return BadRequest(new { message = "Lead name must have at least 2 characters." });
@@ -94,6 +101,8 @@ public class CrmController : ControllerBase
     [HttpPut("leads/{id}")]
     public async Task<IActionResult> ReplaceLead(Guid id, [FromBody] CrmLeadCreateRequest request)
     {
+        var guard = EnsureCanMutate();
+        if (guard != null) return guard;
         var lead = await _service.GetLeadAsync(id);
         lead.Name = request.Name;
         lead.Email = request.Email;
@@ -110,6 +119,8 @@ public class CrmController : ControllerBase
     [HttpPatch("leads/{id}")]
     public async Task<IActionResult> UpdateLead(Guid id, [FromBody] CrmLeadUpdateRequest request)
     {
+        var guard = EnsureCanMutate();
+        if (guard != null) return guard;
         var lead = await _service.GetLeadAsync(id);
 
         if (request.Name != null) lead.Name = request.Name;
@@ -127,7 +138,12 @@ public class CrmController : ControllerBase
     [HttpDelete("leads/{id}")]
     public async Task<IActionResult> DeleteLead(Guid id)
     {
-        await _service.DeleteLeadAsync(id);
+        var guard = EnsureCanMutate();
+        if (guard != null) return guard;
+        var lead = await _service.GetLeadAsync(id);
+        lead.Status = "Archived";
+        await _service.UpdateLeadAsync(lead);
+        await WriteAuditAsync("crm.lead.archive", "CrmLead", id.ToString(), new { lead.Name, lead.Email, lead.Company });
         return NoContent();
     }
 
@@ -142,6 +158,8 @@ public class CrmController : ControllerBase
         [HttpPost("deals")]
     public async Task<IActionResult> CreateDeal([FromBody] CrmDealCreateRequest request)
     {
+        var guard = EnsureCanMutate();
+        if (guard != null) return guard;
         if (string.IsNullOrWhiteSpace(request.Title))
         {
             return BadRequest(new { message = "Deal title is required." });
@@ -179,6 +197,8 @@ public class CrmController : ControllerBase
     [HttpPut("deals/{id}")]
     public async Task<IActionResult> ReplaceDeal(Guid id, [FromBody] CrmDealCreateRequest request)
     {
+        var guard = EnsureCanMutate();
+        if (guard != null) return guard;
         var deal = await _service.GetDealAsync(id);
         deal.Title = request.Title;
         deal.Company = request.Company;
@@ -194,6 +214,8 @@ public class CrmController : ControllerBase
     [HttpPatch("deals/{id}")]
     public async Task<IActionResult> UpdateDeal(Guid id, [FromBody] CrmDealUpdateRequest request)
     {
+        var guard = EnsureCanMutate();
+        if (guard != null) return guard;
         var deal = await _service.GetDealAsync(id);
 
         if (request.Title != null) deal.Title = request.Title;
@@ -210,7 +232,221 @@ public class CrmController : ControllerBase
     [HttpDelete("deals/{id}")]
     public async Task<IActionResult> DeleteDeal(Guid id)
     {
-        await _service.DeleteDealAsync(id);
+        var guard = EnsureCanMutate();
+        if (guard != null) return guard;
+        var deal = await _service.GetDealAsync(id);
+        deal.Stage = "Archived";
+        await _service.UpdateDealAsync(deal);
+        await WriteAuditAsync("crm.deal.archive", "CrmDeal", id.ToString(), new { deal.Title, deal.Company });
+        return NoContent();
+    }
+
+        #endregion
+
+    #region Companies
+
+    [HttpGet("companies")]
+    public async Task<IActionResult> GetCompanies([FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 200);
+
+        var leads = (await _service.GetLeadsAsync()).ToList();
+        var deals = (await _service.GetDealsAsync()).ToList();
+        var contacts = (await _service.GetContactsAsync()).ToList();
+
+        var companies = leads.Select(x => x.Company)
+            .Concat(deals.Select(x => x.Company))
+            .Concat(contacts.Select(x => x.Company))
+            .Select(x => (x ?? string.Empty).Trim())
+            .Where(x => x.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(name => new
+            {
+                name,
+                contacts = contacts.Count(c => string.Equals(c.Company, name, StringComparison.OrdinalIgnoreCase)),
+                leads = leads.Count(l => string.Equals(l.Company, name, StringComparison.OrdinalIgnoreCase) && !string.Equals(l.Status, "Archived", StringComparison.OrdinalIgnoreCase)),
+                opportunities = deals.Count(d => string.Equals(d.Company, name, StringComparison.OrdinalIgnoreCase) && !string.Equals(d.Stage, "Archived", StringComparison.OrdinalIgnoreCase)),
+                pipelineValue = deals.Where(d => string.Equals(d.Company, name, StringComparison.OrdinalIgnoreCase) && !string.Equals(d.Stage, "Lost", StringComparison.OrdinalIgnoreCase)).Sum(d => d.Value),
+                owner = contacts.FirstOrDefault(c => string.Equals(c.Company, name, StringComparison.OrdinalIgnoreCase))?.Owner
+                    ?? leads.FirstOrDefault(l => string.Equals(l.Company, name, StringComparison.OrdinalIgnoreCase))?.Owner
+                    ?? deals.FirstOrDefault(d => string.Equals(d.Company, name, StringComparison.OrdinalIgnoreCase))?.Owner
+                    ?? "CRM"
+            })
+            .OrderBy(x => x.name)
+            .ToList();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            companies = companies
+                .Where(x => x.name.Contains(search.Trim(), StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
+        var total = companies.Count;
+        var data = companies.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
+        return Ok(new
+        {
+            data,
+            pagination = new { page, pageSize, total, totalPages = (int)Math.Ceiling(total / (double)pageSize) }
+        });
+    }
+
+    [HttpPost("companies")]
+    public async Task<IActionResult> CreateCompany([FromBody] CrmCompanyCreateRequest request)
+    {
+        var guard = EnsureCanMutate();
+        if (guard != null) return guard;
+        var name = (request.Name ?? string.Empty).Trim();
+        if (name.Length < 2)
+        {
+            return BadRequest(new { message = "Company name must have at least 2 characters." });
+        }
+
+        var existing = (await _service.GetContactsAsync())
+            .Any(c => string.Equals(c.Company, name, StringComparison.OrdinalIgnoreCase));
+        if (!existing)
+        {
+            var placeholder = new CrmContact
+            {
+                Name = $"Primary contact - {name}",
+                Email = $"company+{Guid.NewGuid():N}@local.crm",
+                Company = name,
+                Owner = string.IsNullOrWhiteSpace(request.Owner) ? "CRM" : request.Owner.Trim(),
+                Segment = "New",
+                Lifecycle = "Lead",
+                Notes = request.Notes ?? "Auto-created company record"
+            };
+            await _service.CreateContactAsync(placeholder);
+        }
+
+        await WriteAuditAsync("crm.company.create", "CrmCompany", name, new { name, request.Owner });
+        return Ok(new { name, owner = request.Owner ?? "CRM" });
+    }
+
+    [HttpPatch("companies/rename")]
+    public async Task<IActionResult> RenameCompany([FromBody] CrmCompanyRenameRequest request)
+    {
+        var guard = EnsureCanMutate();
+        if (guard != null) return guard;
+        var from = (request.From ?? string.Empty).Trim();
+        var to = (request.To ?? string.Empty).Trim();
+        if (from.Length < 2 || to.Length < 2)
+        {
+            return BadRequest(new { message = "From/To company names are required." });
+        }
+
+        var leads = (await _service.GetLeadsAsync()).Where(x => string.Equals(x.Company, from, StringComparison.OrdinalIgnoreCase)).ToList();
+        var deals = (await _service.GetDealsAsync()).Where(x => string.Equals(x.Company, from, StringComparison.OrdinalIgnoreCase)).ToList();
+        var contacts = (await _service.GetContactsAsync()).Where(x => string.Equals(x.Company, from, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        foreach (var lead in leads) { lead.Company = to; await _service.UpdateLeadAsync(lead); }
+        foreach (var deal in deals) { deal.Company = to; await _service.UpdateDealAsync(deal); }
+        foreach (var contact in contacts) { contact.Company = to; await _service.UpdateContactAsync(contact); }
+
+        await WriteAuditAsync("crm.company.rename", "CrmCompany", from, new { from, to, leads = leads.Count, deals = deals.Count, contacts = contacts.Count });
+        return Ok(new { from, to, leads = leads.Count, deals = deals.Count, contacts = contacts.Count });
+    }
+
+    [HttpDelete("companies")]
+    public async Task<IActionResult> DeleteCompany([FromQuery] string name, [FromQuery] string? reassignTo)
+    {
+        var guard = EnsureCanMutate();
+        if (guard != null) return guard;
+        var normalized = (name ?? string.Empty).Trim();
+        if (normalized.Length < 2)
+        {
+            return BadRequest(new { message = "Company name is required." });
+        }
+
+        var target = string.IsNullOrWhiteSpace(reassignTo) ? "Unassigned" : reassignTo.Trim();
+
+        var leads = (await _service.GetLeadsAsync()).Where(x => string.Equals(x.Company, normalized, StringComparison.OrdinalIgnoreCase)).ToList();
+        var deals = (await _service.GetDealsAsync()).Where(x => string.Equals(x.Company, normalized, StringComparison.OrdinalIgnoreCase)).ToList();
+        var contacts = (await _service.GetContactsAsync()).Where(x => string.Equals(x.Company, normalized, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        foreach (var lead in leads) { lead.Company = target; await _service.UpdateLeadAsync(lead); }
+        foreach (var deal in deals) { deal.Company = target; await _service.UpdateDealAsync(deal); }
+        foreach (var contact in contacts) { contact.Company = target; await _service.UpdateContactAsync(contact); }
+
+        await WriteAuditAsync("crm.company.delete", "CrmCompany", normalized, new { name = normalized, reassignTo = target, leads = leads.Count, deals = deals.Count, contacts = contacts.Count });
+        return NoContent();
+    }
+
+    #endregion
+
+    #region Proposals
+
+    [HttpGet("proposals")]
+    public async Task<IActionResult> GetProposals()
+    {
+        var proposals = (await _service.GetDealsAsync())
+            .Where(d => string.Equals(d.Stage, "Proposal", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(d.Stage, "Negotiation", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(d.Stage, "Won", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(d.Stage, "Lost", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        return Ok(proposals);
+    }
+
+    [HttpPost("proposals")]
+    public async Task<IActionResult> CreateProposal([FromBody] CrmProposalCreateRequest request)
+    {
+        var guard = EnsureCanMutate();
+        if (guard != null) return guard;
+        if (string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Company))
+        {
+            return BadRequest(new { message = "Proposal title and company are required." });
+        }
+
+        var deal = new CrmDeal
+        {
+            Title = request.Title.Trim(),
+            Company = request.Company.Trim(),
+            Owner = string.IsNullOrWhiteSpace(request.Owner) ? "CRM" : request.Owner.Trim(),
+            Value = Math.Max(0, request.Value),
+            Stage = string.IsNullOrWhiteSpace(request.Status) ? "Proposal" : request.Status.Trim(),
+            Probability = request.Probability is < 0 or > 100 ? 50 : request.Probability,
+            ExpectedClose = ParseDate(request.ValidUntil)
+        };
+
+        var created = await _service.CreateDealAsync(deal);
+        await WriteAuditAsync("crm.proposal.create", "CrmProposal", created.Id.ToString(), new { created.Title, created.Company, created.Value, created.Stage });
+        return Ok(created);
+    }
+
+    [HttpPatch("proposals/{id}")]
+    public async Task<IActionResult> UpdateProposal(Guid id, [FromBody] CrmProposalUpdateRequest request)
+    {
+        var guard = EnsureCanMutate();
+        if (guard != null) return guard;
+        var deal = await _service.GetDealAsync(id);
+
+        if (request.Title != null) deal.Title = request.Title;
+        if (request.Company != null) deal.Company = request.Company;
+        if (request.Owner != null) deal.Owner = request.Owner;
+        if (request.Value.HasValue) deal.Value = Math.Max(0, request.Value.Value);
+        if (request.Status != null) deal.Stage = request.Status;
+        if (request.Probability.HasValue) deal.Probability = Math.Clamp(request.Probability.Value, 0, 100);
+        if (request.ValidUntil != null) deal.ExpectedClose = ParseDate(request.ValidUntil) ?? deal.ExpectedClose;
+
+        var updated = await _service.UpdateDealAsync(deal);
+        await WriteAuditAsync("crm.proposal.update", "CrmProposal", id.ToString(), new { updated.Title, updated.Company, updated.Value, updated.Stage });
+        return Ok(updated);
+    }
+
+    [HttpDelete("proposals/{id}")]
+    public async Task<IActionResult> DeleteProposal(Guid id)
+    {
+        var guard = EnsureCanMutate();
+        if (guard != null) return guard;
+        var deal = await _service.GetDealAsync(id);
+        deal.Stage = "Archived";
+        await _service.UpdateDealAsync(deal);
+
+        await WriteAuditAsync("crm.proposal.archive", "CrmProposal", id.ToString(), new { deal.Title, deal.Company });
         return NoContent();
     }
 
@@ -225,6 +461,8 @@ public class CrmController : ControllerBase
     [HttpPost("contacts")]
     public async Task<IActionResult> CreateContact([FromBody] CrmContactCreateRequest request)
     {
+        var guard = EnsureCanMutate();
+        if (guard != null) return guard;
         var contact = new CrmContact
         {
             Name = request.Name,
@@ -248,6 +486,8 @@ public class CrmController : ControllerBase
     [HttpPost("contacts/{id}/send-viewed-suggestions")]
     public async Task<IActionResult> SendViewedSuggestionsEmail(Guid id, [FromBody] SendViewedSuggestionsRequest? request)
     {
+        var guard = EnsureCanMutate();
+        if (guard != null) return guard;
         var contact = await _service.GetContactAsync(id);
         var user = await _userService.GetUserByEmailAsync(contact.Email);
         if (user == null)
@@ -323,6 +563,8 @@ public class CrmController : ControllerBase
     [HttpPut("contacts/{id}")]
     public async Task<IActionResult> ReplaceContact(Guid id, [FromBody] CrmContactCreateRequest request)
     {
+        var guard = EnsureCanMutate();
+        if (guard != null) return guard;
         var contact = await _service.GetContactAsync(id);
         contact.Name = request.Name;
         contact.Email = request.Email;
@@ -339,6 +581,8 @@ public class CrmController : ControllerBase
     [HttpPatch("contacts/{id}")]
     public async Task<IActionResult> UpdateContact(Guid id, [FromBody] CrmContactUpdateRequest request)
     {
+        var guard = EnsureCanMutate();
+        if (guard != null) return guard;
         var contact = await _service.GetContactAsync(id);
 
         if (request.Name != null) contact.Name = request.Name;
@@ -356,7 +600,12 @@ public class CrmController : ControllerBase
     [HttpDelete("contacts/{id}")]
     public async Task<IActionResult> DeleteContact(Guid id)
     {
-        await _service.DeleteContactAsync(id);
+        var guard = EnsureCanMutate();
+        if (guard != null) return guard;
+        var contact = await _service.GetContactAsync(id);
+        contact.Lifecycle = "Archived";
+        await _service.UpdateContactAsync(contact);
+        await WriteAuditAsync("crm.contact.archive", "CrmContact", id.ToString(), new { contact.Name, contact.Email, contact.Company });
         return NoContent();
     }
 
@@ -409,6 +658,8 @@ public class CrmController : ControllerBase
     [HttpPost("reports/overview/email")]
     public async Task<IActionResult> SendReportsOverviewEmail([FromBody] CrmSendOverviewReportEmailRequest request)
     {
+        var guard = EnsureCanMutate();
+        if (guard != null) return guard;
         if (string.IsNullOrWhiteSpace(request.To))
         {
             return BadRequest(new { message = "Destination email is required." });
@@ -438,6 +689,8 @@ public class CrmController : ControllerBase
     [HttpPost("activities")]
     public async Task<IActionResult> CreateActivity([FromBody] CrmActivityCreateRequest request)
     {
+        var guard = EnsureCanMutate();
+        if (guard != null) return guard;
         var activity = new CrmActivity
         {
             Subject = request.Subject,
@@ -460,6 +713,8 @@ public class CrmController : ControllerBase
     [HttpPut("activities/{id}")]
     public async Task<IActionResult> ReplaceActivity(Guid id, [FromBody] CrmActivityCreateRequest request)
     {
+        var guard = EnsureCanMutate();
+        if (guard != null) return guard;
         var activity = await _service.GetActivityAsync(id);
         activity.Subject = request.Subject;
         activity.Owner = request.Owner;
@@ -475,6 +730,8 @@ public class CrmController : ControllerBase
     [HttpPatch("activities/{id}")]
     public async Task<IActionResult> UpdateActivity(Guid id, [FromBody] CrmActivityUpdateRequest request)
     {
+        var guard = EnsureCanMutate();
+        if (guard != null) return guard;
         var activity = await _service.GetActivityAsync(id);
 
         if (request.Subject != null) activity.Subject = request.Subject;
@@ -491,12 +748,48 @@ public class CrmController : ControllerBase
     [HttpDelete("activities/{id}")]
     public async Task<IActionResult> DeleteActivity(Guid id)
     {
-        await _service.DeleteActivityAsync(id);
+        var guard = EnsureCanMutate();
+        if (guard != null) return guard;
+        var activity = await _service.GetActivityAsync(id);
+        activity.Status = "Archived";
+        await _service.UpdateActivityAsync(activity);
+        await WriteAuditAsync("crm.activity.archive", "CrmActivity", id.ToString(), new { activity.Subject, activity.Contact });
         return NoContent();
     }
 
     #endregion
 
+
+    private IActionResult? EnsureCanMutate()
+    {
+        if (User.IsInRole("Seller") && !User.IsInRole("Admin") && !User.IsInRole("Manager"))
+        {
+            return Forbid();
+        }
+
+        return null;
+    }
+    private async Task WriteAuditAsync(string action, string entityType, string? entityId, object? metadata)
+    {
+        var actorEmail = User.FindFirstValue(ClaimTypes.Email)
+            ?? User.FindFirstValue("email")
+            ?? "admin@local";
+
+        Guid? actorUserId = null;
+        var sub = User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (Guid.TryParse(sub, out var parsed)) actorUserId = parsed;
+
+        await _auditLogService.WriteAsync(
+            actorUserId,
+            actorEmail,
+            action,
+            entityType,
+            entityId,
+            metadata,
+            HttpContext.Connection.RemoteIpAddress?.ToString(),
+            Request.Headers.UserAgent.ToString(),
+            HttpContext.RequestAborted);
+    }
     private static DateTime ParseDateOrNow(string? date, DateTime? fallback = null)
     {
         if (string.IsNullOrWhiteSpace(date))
@@ -595,8 +888,44 @@ public record CrmActivityUpdateRequest(
 
 
 
+public record CrmCompanyCreateRequest(
+    string Name,
+    string? Owner,
+    string? Notes);
+
+public record CrmCompanyRenameRequest(
+    string From,
+    string To);
+
+public record CrmProposalCreateRequest(
+    string Title,
+    string Company,
+    string? Owner,
+    decimal Value,
+    string? Status,
+    int Probability,
+    string? ValidUntil);
+
+public record CrmProposalUpdateRequest(
+    string? Title,
+    string? Company,
+    string? Owner,
+    decimal? Value,
+    string? Status,
+    int? Probability,
+    string? ValidUntil);
 public record SendViewedSuggestionsRequest(int? Limit, string? Subject, string? Intro);
 public record CrmSendOverviewReportEmailRequest(string To, string? Subject);
+
+
+
+
+
+
+
+
+
+
 
 
 

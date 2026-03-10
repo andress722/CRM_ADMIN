@@ -14,19 +14,20 @@
 - [x] Revisar checkout storefront (`/users/me` 401 e `/orders/from-cart` 500)
 
 ## Fase 1 - CRM funcional completo (backend + frontend)
-- [ ] Empresas (CRUD + filtros + paginação)
-- [ ] Contatos (CRUD + vínculo com empresa)
-- [ ] Leads (origem, score, status, responsável, conversão)
-- [ ] Oportunidades/funil (etapas, probabilidade, previsão, histórico)
-- [ ] Atividades (tarefas, ligações, reuniões, follow-up)
-- [ ] Propostas (CRUD + status + validade)
-- [ ] Dashboard CRM (KPIs de pipeline e produtividade)
-- [ ] Relatórios CRM (origem, etapa, responsável, período)
+- [x] Empresas (CRUD + filtros + paginação)
+- [x] Contatos (CRUD + vínculo com empresa)
+- [x] Leads (origem, score, status, responsável, conversão)
+- [x] Oportunidades/funil (etapas, probabilidade, previsão, histórico)
+- [x] Atividades (tarefas, ligações, reuniões, follow-up)
+- [x] Propostas (CRUD + status + validade)
+- [x] Dashboard CRM (KPIs de pipeline e produtividade)
+- [x] Relatórios CRM (origem, etapa, responsável, período)
 
 ## Fase 2 - Experiência e governança
-- [ ] Permissões por perfil (`admin`, `gerente`, `vendedor`)
-- [ ] Soft delete/auditoria onde aplicável
+- [x] Permissões por perfil (`admin`, `gerente`, `vendedor`)
+- [x] Soft delete/auditoria onde aplicável
 - [ ] Testes de fluxo crítico (login, leads, oportunidades, atividades)
 - [ ] Checklist final de validação + documentação de operação
+
 
 
