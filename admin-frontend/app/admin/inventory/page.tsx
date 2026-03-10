@@ -15,6 +15,18 @@ interface InventoryFilters {
   pageSize: number;
 }
 
+function getStockTone(stock: number): { textClass: string; iconClass: string } {
+  if (stock === 0) {
+    return { textClass: 'text-red-400', iconClass: 'text-red-400' };
+  }
+
+  if (stock < 10) {
+    return { textClass: 'text-yellow-400', iconClass: 'text-yellow-400' };
+  }
+
+  return { textClass: 'text-green-400', iconClass: 'text-green-400' };
+}
+
 export default function InventoryPage() {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
@@ -37,38 +49,46 @@ export default function InventoryPage() {
 
   const updateMutation = useApiMutation('patch');
 
-  const handleAdjustStock = async (productId: string, currentStock: number, delta: number) => {
-    const newStock = Math.max(0, currentStock + delta);
+  const applyStock = async (productId: string, nextStock: number) => {
+    const normalized = Math.max(0, nextStock);
+
     try {
       await updateMutation.mutateAsync({
         url: `${endpoints.admin.products}/${productId}`,
-        data: { stock: newStock, isActive: newStock > 0 },
+        data: { stock: normalized, isActive: normalized > 0 },
       });
+
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      addToast(`✅ Stock updated to ${newStock} units`, 'success');
+      addToast(`✅ Stock updated to ${normalized} units`, 'success');
       setAdjustingId(null);
+      setAdjustAmount(1);
     } catch {
       addToast('❌ Failed to update stock', 'error');
     }
   };
 
+  const handleAdjustStock = async (productId: string, currentStock: number, delta: number) => {
+    await applyStock(productId, currentStock + delta);
+  };
+
+  const handleZeroStock = async (productId: string) => {
+    await applyStock(productId, 0);
+  };
+
   const products = productsData?.data || [];
   const totalPages = productsData?.pagination?.totalPages || 1;
 
-  // Calculate inventory metrics
   const lowStockProducts = products.filter((p) => p.stock < 10).length;
   const outOfStock = products.filter((p) => p.stock === 0).length;
   const totalValue = products.reduce((sum, p) => sum + p.price * p.stock, 0);
 
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-white">Inventory Management</h1>
         <p className="text-slate-400 mt-1">Manage product stock and inventory levels</p>
       </div>
 
-      {/* Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
           <p className="text-slate-400 text-sm">Total Products</p>
@@ -88,7 +108,6 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      {/* Loading State */}
       {isLoading && (
         <div className="space-y-2">
           {[1, 2, 3, 4, 5].map((i) => (
@@ -97,14 +116,12 @@ export default function InventoryPage() {
         </div>
       )}
 
-      {/* Error State */}
       {error && (
         <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-4">
           <p className="text-red-400">Failed to load products</p>
         </div>
       )}
 
-      {/* Inventory Table */}
       {!isLoading && !error && (
         <div className="border border-slate-700 rounded-lg overflow-hidden">
           <table className="w-full">
@@ -129,7 +146,7 @@ export default function InventoryPage() {
                 products.map((product) => {
                   const isLowStock = product.stock < 10;
                   const isOutOfStock = product.stock === 0;
-                  const stockColor = isOutOfStock ? 'red' : isLowStock ? 'yellow' : 'green';
+                  const tone = getStockTone(product.stock);
 
                   return (
                     <tr key={product.id} className="border-t border-slate-700 hover:bg-slate-800/50">
@@ -137,47 +154,53 @@ export default function InventoryPage() {
                       <td className="px-6 py-4 text-sm text-slate-400">{product.sku}</td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          {(isLowStock || isOutOfStock) && (
-                            <AlertTriangle className={`w-4 h-4 text-${stockColor}-400`} />
-                          )}
-                          <span className={`font-semibold text-${stockColor}-400`}>
-                            {product.stock} units
-                          </span>
+                          {(isLowStock || isOutOfStock) && <AlertTriangle className={`w-4 h-4 ${tone.iconClass}`} />}
+                          <span className={`font-semibold ${tone.textClass}`}>{product.stock} units</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-white font-medium">
-                        ${product.price.toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 text-sm font-semibold text-blue-400">
-                        ${(product.price * product.stock).toFixed(2)}
-                      </td>
+                      <td className="px-6 py-4 text-sm text-white font-medium">${product.price.toFixed(2)}</td>
+                      <td className="px-6 py-4 text-sm font-semibold text-blue-400">${(product.price * product.stock).toFixed(2)}</td>
                       <td className="px-6 py-4">
                         {adjustingId === product.id ? (
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <button
-                              onClick={() =>
-                                handleAdjustStock(product.id, product.stock, -1)
-                              }
-                              disabled={adjustAmount < 1}
-                              className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-slate-200 disabled:opacity-50 transition-colors"
+                              onClick={() => setAdjustAmount((value) => Math.max(1, value - 1))}
+                              className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-slate-200 transition-colors"
+                              title="Diminuir quantidade"
                             >
                               <Minus className="w-4 h-4" />
                             </button>
                             <input
                               type="number"
                               value={adjustAmount}
-                              onChange={(e) => setAdjustAmount(Math.max(1, parseInt(e.target.value) || 1))}
-                              className="w-12 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-center text-sm"
+                              onChange={(e) => setAdjustAmount(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                              className="w-14 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-center text-sm"
                               min="1"
                             />
                             <button
-                              onClick={() =>
-                                handleAdjustStock(product.id, product.stock, 1)
-                              }
-                              disabled={adjustAmount < 1}
-                              className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-slate-200 disabled:opacity-50 transition-colors"
+                              onClick={() => setAdjustAmount((value) => value + 1)}
+                              className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-slate-200 transition-colors"
+                              title="Aumentar quantidade"
                             >
                               <Plus className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleAdjustStock(product.id, product.stock, adjustAmount)}
+                              className="px-2 py-1 text-xs bg-emerald-700 hover:bg-emerald-600 text-white rounded transition-colors"
+                            >
+                              + Aplicar
+                            </button>
+                            <button
+                              onClick={() => handleAdjustStock(product.id, product.stock, -adjustAmount)}
+                              className="px-2 py-1 text-xs bg-amber-700 hover:bg-amber-600 text-white rounded transition-colors"
+                            >
+                              - Aplicar
+                            </button>
+                            <button
+                              onClick={() => handleZeroStock(product.id)}
+                              className="px-2 py-1 text-xs bg-red-700 hover:bg-red-600 text-white rounded transition-colors"
+                            >
+                              Zerar
                             </button>
                             <button
                               onClick={() => {
@@ -210,7 +233,6 @@ export default function InventoryPage() {
         </div>
       )}
 
-      {/* Pagination */}
       {!isLoading && !error && totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
           <button
@@ -247,4 +269,3 @@ export default function InventoryPage() {
     </div>
   );
 }
-

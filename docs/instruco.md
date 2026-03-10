@@ -32,3 +32,8 @@
 
 
 
+
+## Fase 3 - Consolidação de UX
+- [x] Rotas legadas redirecionadas para interfaces modernas (/admin/products, /admin/orders, /admin/promotions)
+- [x] Ajuste de estoque revisado (controle de quantidade, aplicar +/-, zerar estoque e inativação automática)
+
