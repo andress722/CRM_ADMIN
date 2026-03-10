@@ -8,6 +8,8 @@ import type {
   UserStats,
   CartItem,
   SubscriptionPlan,
+  Banner,
+  CouponValidation,
 } from "./types"
 
 const RAW_BASE_URL =
@@ -512,10 +514,35 @@ export async function wishlistContains(productId: string): Promise<boolean> {
   return Boolean(data?.contains ?? data?.Contains)
 }
 
+
+// --- Marketing ---
+
+export async function getActiveBanners(): Promise<Banner[]> {
+  const data = await apiFetch<any[]>("/banners")
+  return (data || []).map((item) => ({
+    id: String(item?.id ?? item?.Id ?? ""),
+    title: String(item?.title ?? item?.Title ?? ""),
+    image: String(item?.image ?? item?.Image ?? ""),
+    link: item?.link ?? item?.Link,
+    startDate: item?.startDate ?? item?.StartDate,
+    endDate: item?.endDate ?? item?.EndDate,
+  }))
+}
+
+export async function validateCoupon(code: string): Promise<CouponValidation> {
+  const qs = new URLSearchParams({ code: code.trim() })
+  const data = await apiFetch<any>("/coupons/validate?" + qs.toString())
+  return {
+    code: String(data?.code ?? data?.Code ?? ""),
+    discount: Number(data?.discount ?? data?.Discount ?? 0),
+    active: Boolean(data?.active ?? data?.Active),
+  }
+}
 // --- Orders ---
 
-export async function createOrderFromCart(): Promise<{ id: string; totalAmount: number }> {
-  const data = await apiFetch<any>("/orders/from-cart", { method: "POST" })
+export async function createOrderFromCart(couponCode?: string): Promise<{ id: string; totalAmount: number }> {
+  const body = couponCode ? JSON.stringify({ couponCode }) : undefined
+  const data = await apiFetch<any>("/orders/from-cart", { method: "POST", body })
   return {
     id: String(data?.id ?? data?.Id ?? ""),
     totalAmount: Number(data?.totalAmount ?? data?.TotalAmount ?? 0),
@@ -606,5 +633,9 @@ export async function trackEvent(data: {
     // Analytics failures are silent
   }
 }
+
+
+
+
 
 

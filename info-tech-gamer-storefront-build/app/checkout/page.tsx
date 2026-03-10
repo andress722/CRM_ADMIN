@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -15,7 +16,8 @@ import { Separator } from "@/components/ui/separator"
 import { useCart } from "@/lib/cart-context"
 import { useAuth } from "@/lib/auth-context"
 import { useLocale } from "@/lib/locale-context"
-import { createOrderFromCart, createCheckout } from "@/lib/api"
+import { createOrderFromCart, createCheckout, validateCoupon } from "@/lib/api"
+import type { CouponValidation } from "@/lib/types"
 import { toast } from "sonner"
 
 const checkoutSchema = z.object({
@@ -36,11 +38,15 @@ const paymentMethods = [
 ] as const
 
 export default function CheckoutPage() {
+  const router = useRouter()
   const { items, subtotal, clearCart, itemCount } = useCart()
-  const { user } = useAuth()
+  const { user, isAuthenticated } = useAuth()
   const { t } = useLocale()
   const [submitted, setSubmitted] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [couponCode, setCouponCode] = useState("")
+  const [couponLoading, setCouponLoading] = useState(false)
+  const [appliedCoupon, setAppliedCoupon] = useState<CouponValidation | null>(null)
 
   const {
     register,
@@ -55,7 +61,9 @@ export default function CheckoutPage() {
 
   const selectedPayment = watch("payment")
   const shipping = subtotal >= 99 ? 0 : 9.99
-  const total = subtotal + shipping
+  const rawTotal = subtotal + shipping
+  const discountValue = appliedCoupon ? (rawTotal * appliedCoupon.discount) / 100 : 0
+  const total = Math.max(rawTotal - discountValue, 0)
 
   if (items.length === 0 && !submitted) {
     return (
@@ -89,10 +97,36 @@ export default function CheckoutPage() {
     )
   }
 
-  async function onSubmit() {
+  const applyCoupon = async () => {
+    const normalized = couponCode.trim()
+    if (!normalized) {
+      toast.error(t("Enter a coupon code", "Digite um cupom"))
+      return
+    }
+
+    setCouponLoading(true)
+    try {
+      const validated = await validateCoupon(normalized)
+      setAppliedCoupon(validated)
+      toast.success(t("Coupon applied", "Cupom aplicado"))
+    } catch {
+      setAppliedCoupon(null)
+      toast.error(t("Invalid coupon", "Cupom inválido"))
+    } finally {
+      setCouponLoading(false)
+    }
+  }
+
+  async function onSubmit(_values: CheckoutFormValues) {
+    if (!isAuthenticated) {
+      toast.error(t("Please sign in before checkout.", "Faça login antes de finalizar."))
+      router.push("/account?returnTo=/checkout")
+      return
+    }
+
     setIsProcessing(true)
     try {
-      const order = await createOrderFromCart()
+      const order = await createOrderFromCart(appliedCoupon?.code)
       const checkout = await createCheckout(order.id, user?.email)
       const redirectUrl = checkout.initPoint || checkout.sandboxInitPoint
       if (redirectUrl) {
@@ -201,6 +235,18 @@ export default function CheckoutPage() {
                   <span className="font-mono text-foreground">${(item.product.price * item.quantity).toFixed(2)}</span>
                 </div>
               ))}
+
+              <div className="space-y-2 rounded-lg border border-border p-3">
+                <Label htmlFor="coupon" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("Coupon", "Cupom")}</Label>
+                <div className="flex gap-2">
+                  <Input id="coupon" value={couponCode} onChange={(e) => setCouponCode(e.target.value)} className="border-border bg-secondary" />
+                  <Button type="button" variant="outline" onClick={applyCoupon} disabled={couponLoading} className="border-border">
+                    {couponLoading ? t("Applying...", "Aplicando...") : t("Apply", "Aplicar")}
+                  </Button>
+                </div>
+                {appliedCoupon && <p className="text-xs text-emerald-400">{t("Discount", "Desconto")}: {appliedCoupon.discount}%</p>}
+              </div>
+
               <Separator className="bg-border" />
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">{t("Subtotal", "Subtotal")} ({itemCount})</span>
@@ -210,11 +256,20 @@ export default function CheckoutPage() {
                 <span className="text-muted-foreground">{t("Shipping", "Frete")}</span>
                 <span className="font-mono text-foreground">{shipping === 0 ? t("Free", "Grátis") : `$${shipping.toFixed(2)}`}</span>
               </div>
+              {appliedCoupon && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">{t("Discount", "Desconto")} ({appliedCoupon.code})</span>
+                  <span className="font-mono text-emerald-400">- ${discountValue.toFixed(2)}</span>
+                </div>
+              )}
               <Separator className="bg-border" />
               <div className="flex justify-between font-bold">
                 <span className="text-foreground">{t("Total", "Total")}</span>
                 <span className="font-mono text-primary">${total.toFixed(2)}</span>
               </div>
+              {!isAuthenticated && (
+                <p className="text-xs text-amber-400">{t("You need to sign in to complete checkout.", "Voce precisa estar logado para finalizar o pedido.")}</p>
+              )}
               <Button type="submit" className="w-full bg-primary text-sm font-bold uppercase tracking-wider text-primary-foreground hover:bg-primary/90 hover:glow-cyan-sm" size="lg" disabled={isProcessing}>
                 {isProcessing ? t("Processing...", "Processando...") : t("Place Order", "Finalizar pedido")}
               </Button>

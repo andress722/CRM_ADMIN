@@ -85,3 +85,19 @@ export interface SubscriptionPlan {
   features: string[]
   highlighted?: boolean
 }
+
+export interface Banner {
+  id: string
+  title: string
+  image: string
+  link?: string
+  startDate?: string
+  endDate?: string
+}
+
+export interface CouponValidation {
+  code: string
+  discount: number
+  active: boolean
+}
+

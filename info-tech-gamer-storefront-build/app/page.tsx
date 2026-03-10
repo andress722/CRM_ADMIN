@@ -10,8 +10,9 @@ import { ProductCard } from "@/components/product-card"
 import { SearchFilters } from "@/components/search-filters"
 import { PaginationControls } from "@/components/pagination-controls"
 import { RecommendationGrid } from "@/components/recommendation-grid"
-import { searchProducts, getRecommendations, getProductCategories } from "@/lib/api"
-import type { Product, ProductSummary } from "@/lib/types"
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
+import { searchProducts, getRecommendations, getProductCategories, getActiveBanners } from "@/lib/api"
+import type { Product, ProductSummary, Banner } from "@/lib/types"
 
 const PAGE_SIZE = 6
 
@@ -35,6 +36,7 @@ function HomeContent() {
   const [products, setProducts] = useState<Product[]>([])
   const [total, setTotal] = useState(0)
   const [recommendations, setRecommendations] = useState<ProductSummary[]>([])
+  const [banners, setBanners] = useState<Banner[]>([])
   const [loading, setLoading] = useState(true)
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
@@ -67,6 +69,7 @@ function HomeContent() {
   useEffect(() => {
     getRecommendations().then(setRecommendations).catch(() => {})
     getProductCategories().then(setCategories).catch(() => setCategories(["All"]))
+    getActiveBanners().then(setBanners).catch(() => setBanners([]))
   }, [])
 
   useEffect(() => {
@@ -75,6 +78,43 @@ function HomeContent() {
 
   return (
     <div>
+      {banners.length > 0 && (
+        <section className="border-b border-border bg-card/30">
+          <div className="mx-auto max-w-[1200px] px-6 py-4">
+            <Carousel opts={{ loop: true }} className="w-full">
+              <CarouselContent>
+                {banners.map((banner) => (
+                  <CarouselItem key={banner.id}>
+                    <a
+                      href={banner.link?.trim() ? banner.link : "#catalog"}
+                      target={banner.link?.startsWith("http") ? "_blank" : undefined}
+                      rel={banner.link?.startsWith("http") ? "noreferrer" : undefined}
+                      className="group block overflow-hidden rounded-xl border border-border"
+                    >
+                      <div className="relative aspect-[21/6] w-full bg-secondary">
+                        <img
+                          src={banner.image}
+                          alt={banner.title || "Banner"}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-r from-black/45 via-black/10 to-transparent" />
+                        {banner.title && (
+                          <div className="absolute bottom-4 left-4">
+                            <p className="text-sm font-black uppercase tracking-wider text-white lg:text-lg">{banner.title}</p>
+                          </div>
+                        )}
+                      </div>
+                    </a>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              <CarouselPrevious className="left-2" />
+              <CarouselNext className="right-2" />
+            </Carousel>
+          </div>
+        </section>
+      )}
+
       <section className="relative overflow-hidden border-b border-border">
         <div className="absolute inset-0 bg-[linear-gradient(hsl(175_100%_42%/0.03)_1px,transparent_1px),linear-gradient(90deg,hsl(175_100%_42%/0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />

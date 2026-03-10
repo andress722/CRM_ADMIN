@@ -8,12 +8,18 @@ public class OrderService
     private readonly IOrderRepository _orderRepository;
     private readonly IProductRepository _productRepository;
     private readonly ICartRepository _cartRepository;
+    private readonly ICouponRepository _couponRepository;
 
-    public OrderService(IOrderRepository orderRepository, IProductRepository productRepository, ICartRepository cartRepository)
+    public OrderService(
+        IOrderRepository orderRepository,
+        IProductRepository productRepository,
+        ICartRepository cartRepository,
+        ICouponRepository couponRepository)
     {
         _orderRepository = orderRepository;
         _productRepository = productRepository;
         _cartRepository = cartRepository;
+        _couponRepository = couponRepository;
     }
 
     public async Task<Order> GetOrderAsync(Guid id)
@@ -49,6 +55,9 @@ public class OrderService
             if (product == null)
                 throw new KeyNotFoundException($"Product with ID {item.ProductId} not found");
 
+            if (item.Quantity <= 0)
+                throw new InvalidOperationException($"Invalid quantity for product {product.Name}");
+
             if (product.Stock < item.Quantity)
                 throw new InvalidOperationException($"Insufficient stock for product {product.Name}");
 
@@ -75,7 +84,7 @@ public class OrderService
         return order;
     }
 
-    public async Task<Order> CreateOrderFromCartAsync(Guid userId)
+    public async Task<Order> CreateOrderFromCartAsync(Guid userId, string? couponCode = null)
     {
         var cartItems = (await _cartRepository.GetByUserIdAsync(userId)).ToList();
         if (!cartItems.Any())
@@ -83,11 +92,46 @@ public class OrderService
             throw new InvalidOperationException("Cart is empty");
         }
 
-        var items = cartItems
+        var validItems = cartItems
+            .Where(item => item.ProductId != Guid.Empty && item.Quantity > 0)
             .Select(item => (item.ProductId, item.Quantity))
             .ToList();
 
-        return await CreateOrderAsync(userId, items);
+        if (!validItems.Any())
+        {
+            throw new InvalidOperationException("Cart has no valid items");
+        }
+
+        var order = await CreateOrderAsync(userId, validItems);
+
+        var normalizedCode = (couponCode ?? string.Empty).Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(normalizedCode))
+        {
+            return order;
+        }
+
+        var coupon = (await _couponRepository.GetAllAsync())
+            .FirstOrDefault(c =>
+                c.Active &&
+                c.Code.Trim().ToUpperInvariant() == normalizedCode);
+
+        if (coupon == null)
+        {
+            throw new InvalidOperationException("Invalid or inactive coupon");
+        }
+
+        var discountPercent = Math.Clamp(coupon.Discount, 0m, 100m);
+        if (discountPercent <= 0)
+        {
+            return order;
+        }
+
+        var discountMultiplier = (100m - discountPercent) / 100m;
+        order.TotalAmount = Math.Round(order.TotalAmount * discountMultiplier, 2, MidpointRounding.AwayFromZero);
+        order.UpdatedAt = DateTime.UtcNow;
+        await _orderRepository.UpdateAsync(order);
+
+        return order;
     }
 
     public async Task<Order> UpdateOrderStatusAsync(Guid id, OrderStatus status)
@@ -115,7 +159,7 @@ public class OrderService
     {
         var orders = await _orderRepository.GetAllAsync();
         var confirmedOrders = orders.Where(o => o.Status == OrderStatus.Confirmed || o.Status == OrderStatus.Shipped || o.Status == OrderStatus.Delivered);
-        
+
         return new DashboardStatistics
         {
             TotalOrders = orders.Count(),
@@ -130,7 +174,7 @@ public class OrderService
     {
         var orders = await _orderRepository.GetAllAsync();
         var periodOrders = orders.Where(o => o.CreatedAt.Date >= startDate.Date && o.CreatedAt.Date <= endDate.Date);
-        
+
         return new SalesStatistics
         {
             TotalSales = periodOrders.Sum(o => o.TotalAmount),
@@ -165,7 +209,7 @@ public class OrderService
         var topCategories = orders
             .SelectMany(o => o.Items)
             .GroupBy(oi => oi.ProductId)
-            .GroupBy(g => 
+            .GroupBy(g =>
             {
                 var product = _productRepository.GetByIdAsync(g.Key).Result;
                 return product?.Category ?? "Unknown";

@@ -132,7 +132,7 @@ public class OrdersController : ControllerBase
     /// Cria pedido a partir do carrinho do usuário
     /// </summary>
     [HttpPost("from-cart")]
-    public async Task<IActionResult> CreateOrderFromCart()
+    public async Task<IActionResult> CreateOrderFromCart([FromBody] CreateOrderFromCartRequest? request)
     {
         try
         {
@@ -147,7 +147,7 @@ public class OrdersController : ControllerBase
                 return StatusCode(429, new { message = "Too many checkout attempts. Please wait." });
             }
 
-            var order = await _service.CreateOrderFromCartAsync(currentUserId);
+            var order = await _service.CreateOrderFromCartAsync(currentUserId, request?.CouponCode);
             return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, order);
         }
         catch (InvalidOperationException ex)
@@ -202,3 +202,7 @@ public record CreateOrderRequest(
 public record UpdateOrderStatusRequest(
     OrderStatus Status
 );
+
+public record CreateOrderFromCartRequest(string? CouponCode);
+
+
