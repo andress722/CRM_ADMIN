@@ -193,7 +193,7 @@ public class AuthController : ControllerBase
                 return StatusCode(403, new { message = "Email not verified" });
             }
 
-            var adminRequire2Fa = _configuration.GetValue("Security:RequireAdmin2FA", true);
+            var adminRequire2Fa = _configuration.GetValue("Security:RequireAdmin2FA", false);
             if (adminRequire2Fa && user.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase))
             {
                 if (request.TwoFactorChallengeId == null)
@@ -726,4 +726,5 @@ public class ResetPasswordRequest
     public string? NewPassword { get; set; }
     public string? CaptchaToken { get; set; }
 }
+
 
