@@ -52,3 +52,25 @@ pwsh -File scripts/staging/build-release-evidence-bundle.ps1 -StagingArtifactsDi
 ```
 
 Release must be blocked if smoke is not 100% green.
+
+## Staging execution evidence (2026-03-10)
+Executed with:
+- API: `https://crm-admin-8alt.onrender.com`
+- Admin: `https://app.infotechgamer.site`
+- Storefront: `https://app.infotechgamer.site`
+- Admin auth: `admin@example.com`
+- CRM CRUD smoke: enabled (`-RunCrmCrud`)
+
+Results:
+- Preflight: passed (3/3)
+- Smoke: passed (10/10)
+
+Generated artifacts:
+- `artifacts/staging/staging-preflight-20260310-223239.json`
+- `artifacts/staging/staging-preflight-latest.json`
+- `artifacts/staging/staging-smoke-20260310-223243.json`
+- `artifacts/staging/staging-smoke-latest.json`
+- `artifacts/staging/STAGING_EVIDENCE_SUMMARY.md`
+- `artifacts/staging/RELEASE_EVIDENCE_INDEX.md`
+- `artifacts/staging/staging-release-evidence-20260310-223250.zip`
+- `artifacts/staging/staging-release-evidence-latest.zip`
