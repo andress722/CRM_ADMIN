@@ -44,7 +44,7 @@ export function OrderDetailsModal({
   };
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+    <div className={`fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:p-6 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -52,7 +52,7 @@ export function OrderDetailsModal({
       />
 
       {/* Modal Content */}
-      <div className="relative bg-slate-900 rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto border border-slate-700">
+      <div className="relative bg-slate-900 rounded-xl shadow-2xl max-w-2xl w-full my-4 sm:my-8 max-h-[calc(100vh-2rem)] overflow-hidden border border-slate-700">
         {/* Header */}
         <div className="sticky top-0 flex items-center justify-between p-6 border-b border-slate-700 bg-slate-900">
           <div>
@@ -68,7 +68,7 @@ export function OrderDetailsModal({
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(100vh-10rem)]">
           {/* Checklist Completo de Follow Up */}
           <div className="space-y-6">
             {/* 1) Identificação do pedido */}
@@ -313,3 +313,4 @@ export function OrderDetailsModal({
     </div>
   );
 }
+

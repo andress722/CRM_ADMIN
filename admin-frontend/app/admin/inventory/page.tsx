@@ -23,7 +23,7 @@ export default function InventoryPage() {
     pageSize: 20,
   });
   const [adjustingId, setAdjustingId] = useState<string | null>(null);
-  const [adjustAmount, setAdjustAmount] = useState(0);
+  const [adjustAmount, setAdjustAmount] = useState(1);
 
   const url = getApiUrl(endpoints.admin.products, {
     page: filters.page,
@@ -42,7 +42,7 @@ export default function InventoryPage() {
     try {
       await updateMutation.mutateAsync({
         url: `${endpoints.admin.products}/${productId}`,
-        data: { stock: newStock },
+        data: { stock: newStock, isActive: newStock > 0 },
       });
       queryClient.invalidateQueries({ queryKey: ['products'] });
       addToast(`✅ Stock updated to ${newStock} units`, 'success');
@@ -156,9 +156,9 @@ export default function InventoryPage() {
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() =>
-                                handleAdjustStock(product.id, product.stock, -adjustAmount)
+                                handleAdjustStock(product.id, product.stock, -1)
                               }
-                              disabled={adjustAmount === 0}
+                              disabled={adjustAmount < 1}
                               className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-slate-200 disabled:opacity-50 transition-colors"
                             >
                               <Minus className="w-4 h-4" />
@@ -166,15 +166,15 @@ export default function InventoryPage() {
                             <input
                               type="number"
                               value={adjustAmount}
-                              onChange={(e) => setAdjustAmount(Math.max(0, parseInt(e.target.value) || 0))}
+                              onChange={(e) => setAdjustAmount(Math.max(1, parseInt(e.target.value) || 1))}
                               className="w-12 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-center text-sm"
-                              min="0"
+                              min="1"
                             />
                             <button
                               onClick={() =>
-                                handleAdjustStock(product.id, product.stock, adjustAmount)
+                                handleAdjustStock(product.id, product.stock, 1)
                               }
-                              disabled={adjustAmount === 0}
+                              disabled={adjustAmount < 1}
                               className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-slate-200 disabled:opacity-50 transition-colors"
                             >
                               <Plus className="w-4 h-4" />
@@ -182,7 +182,7 @@ export default function InventoryPage() {
                             <button
                               onClick={() => {
                                 setAdjustingId(null);
-                                setAdjustAmount(0);
+                                setAdjustAmount(1);
                               }}
                               className="px-2 py-1 text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 rounded transition-colors"
                             >
@@ -193,7 +193,7 @@ export default function InventoryPage() {
                           <button
                             onClick={() => {
                               setAdjustingId(product.id);
-                              setAdjustAmount(0);
+                              setAdjustAmount(1);
                             }}
                             className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
                           >
@@ -247,3 +247,4 @@ export default function InventoryPage() {
     </div>
   );
 }
+

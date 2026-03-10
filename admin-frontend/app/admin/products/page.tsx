@@ -1,23 +1,26 @@
 'use client';
 
-import { useApiQuery, useApiMutation } from '@/hooks/useApi';
+import { useApiQuery, useApiMutation, useApiUpload } from '@/hooks/useApi';
 import { useToast } from '@/contexts/ToastContext';
 import { endpoints, getApiUrl } from '@/services/endpoints';
 import { Product, PaginatedResponse } from '@/types/api';
 import { ProductModal } from '@/components/ProductModal';
 import { Plus, Edit2, Trash2, Search, Star } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { ApiClient } from '@/services/api-client';
 
 interface ProductsFilters {
   page: number;
   pageSize: number;
 }
 
+type ProductFormData = Partial<Product> & { imageFile?: File | null };
+
 interface ProductValidationResult {
   valid: boolean;
   message?: string;
-  payload?: Partial<Product>;
+  payload?: ProductFormData;
 }
 
 const SKU_PATTERN = /^[a-zA-Z0-9_-]{3,50}$/;
@@ -43,7 +46,7 @@ function extractErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-function validateProductInput(data: Partial<Product>): ProductValidationResult {
+function validateProductInput(data: ProductFormData): ProductValidationResult {
   const name = (data.name ?? '').trim();
   const description = (data.description ?? '').trim();
   const category = (data.category ?? '').trim();
@@ -99,6 +102,7 @@ export default function ProductsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [productImageMap, setProductImageMap] = useState<Record<string, string>>({});
 
   const url = getApiUrl(endpoints.admin.products, {
     page: filters.page,
@@ -110,12 +114,13 @@ export default function ProductsPage() {
     url
   );
 
-  const createProductMutation = useApiMutation('post');
+  const createProductMutation = useApiMutation<{ id: string }, ProductFormData>('post');
   const updateProductMutation = useApiMutation('put');
   const deleteProductMutation = useApiMutation('delete');
   const featureProductMutation = useApiMutation('patch');
+  const addImageMutation = useApiUpload<{ success: boolean; imageUrl?: string }>();
 
-  const handleCreateProduct = async (data: Partial<Product>) => {
+  const handleCreateProduct = async (data: ProductFormData) => {
     const validation = validateProductInput(data);
     if (!validation.valid || !validation.payload) {
       addToast(`❌ ${validation.message ?? 'Dados invalidos.'}`, 'error');
@@ -123,10 +128,19 @@ export default function ProductsPage() {
     }
 
     try {
-      await createProductMutation.mutateAsync({
+      const created = await createProductMutation.mutateAsync({
         url: endpoints.admin.products,
         data: validation.payload,
       });
+
+      if (data.imageFile && created?.id) {
+        const formData = new FormData();
+        formData.append('file', data.imageFile);
+        await addImageMutation.mutateAsync({
+          url: endpoints.admin.productImages(created.id),
+          formData,
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ['products'] });
       setShowCreateModal(false);
       addToast('✅ Product created successfully!', 'success');
@@ -135,7 +149,7 @@ export default function ProductsPage() {
     }
   };
 
-  const handleUpdateProduct = async (data: Partial<Product>) => {
+  const handleUpdateProduct = async (data: ProductFormData) => {
     if (!editingProduct) return;
 
     const validation = validateProductInput(data);
@@ -182,6 +196,37 @@ export default function ProductsPage() {
       addToast(`❌ ${extractErrorMessage(err, 'Failed to update highlight')}`, 'error');
     }
   };
+
+  useEffect(() => {
+    const productsForImages = productsData?.data ?? [];
+    if (productsForImages.length === 0) {
+      setProductImageMap({});
+      return;
+    }
+
+    let cancelled = false;
+    const loadImages = async () => {
+      const entries = await Promise.all(
+        productsForImages.map(async (product) => {
+          try {
+            const images = await ApiClient.get<string[]>(endpoints.admin.productImages(product.id));
+            return [product.id, images?.[0] ?? product.imageUrl ?? ''] as const;
+          } catch {
+            return [product.id, product.imageUrl ?? ''] as const;
+          }
+        }),
+      );
+
+      if (!cancelled) {
+        setProductImageMap(Object.fromEntries(entries));
+      }
+    };
+
+    void loadImages();
+    return () => {
+      cancelled = true;
+    };
+  }, [productsData?.data]);
 
   const products = productsData?.data || [];
   const totalPages = productsData?.pagination?.totalPages || 1;
@@ -241,6 +286,7 @@ export default function ProductsPage() {
           <table className="w-full">
             <thead>
               <tr className="bg-slate-800">
+                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-300">Image</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-300">Name</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-300">SKU</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-300">Price</th>
@@ -254,13 +300,21 @@ export default function ProductsPage() {
             <tbody>
               {filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-8 text-center text-slate-400">
+                  <td colSpan={9} className="px-6 py-8 text-center text-slate-400">
                     No products found
                   </td>
                 </tr>
               ) : (
                 filteredProducts.map((product) => (
                   <tr key={product.id} className="border-t border-slate-700 hover:bg-slate-800/50">
+                    <td className="px-6 py-4">
+                      {productImageMap[product.id] ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={productImageMap[product.id]} alt={product.name} className="w-10 h-10 rounded object-cover border border-slate-700" />
+                      ) : (
+                        <div className="w-10 h-10 rounded bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500 text-xs">IMG</div>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-sm font-medium text-white">{product.name}</td>
                     <td className="px-6 py-4 text-sm text-slate-400">{product.sku}</td>
                     <td className="px-6 py-4 text-sm text-white">${product.price?.toFixed(2)}</td>

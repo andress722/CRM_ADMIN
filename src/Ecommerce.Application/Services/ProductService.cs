@@ -59,6 +59,7 @@ public class ProductService
         product.Description = description;
         product.Price = price;
         product.Stock = stock;
+        product.IsActive = stock > 0;
         product.Category = category;
         if (isFeatured.HasValue)
         {
@@ -74,6 +75,7 @@ public class ProductService
     {
         var product = await GetProductAsync(id);
         product.Stock = newStock;
+        product.IsActive = newStock > 0;
         product.UpdatedAt = DateTime.UtcNow;
 
         await _repository.UpdateAsync(product);
@@ -103,3 +105,4 @@ public class ProductService
         await _repository.DeleteAsync(id);
     }
 }
+

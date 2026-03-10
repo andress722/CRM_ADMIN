@@ -23,6 +23,14 @@ type BannerItem = {
   endDate: string;
 };
 
+const fileToDataUrl = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Falha ao ler imagem'));
+    reader.readAsDataURL(file);
+  });
+
 export default function PromotionsPage() {
   const { addToast } = useToast();
   const queryClient = useQueryClient();
@@ -67,6 +75,16 @@ export default function PromotionsPage() {
 
   const refreshCoupons = () => queryClient.invalidateQueries({ queryKey: ['admin-coupons'] });
   const refreshBanners = () => queryClient.invalidateQueries({ queryKey: ['admin-banners'] });
+
+  const handleNewBannerImageFile = async (file: File) => {
+    const dataUrl = await fileToDataUrl(file);
+    setNewBanner((b) => ({ ...b, image: dataUrl }));
+  };
+
+  const handleDraftBannerImageFile = async (file: File) => {
+    const dataUrl = await fileToDataUrl(file);
+    setBannerDraft((d) => (d ? { ...d, image: dataUrl } : d));
+  };
 
   const createCoupon = async () => {
     if (!newCoupon.code.trim() || newCoupon.discount <= 0) {
@@ -234,8 +252,10 @@ export default function PromotionsPage() {
                 Add Coupon
               </button>
             </div>
+            <p className="text-xs text-slate-400">Link do banner: URL de destino quando o cliente clicar no banner no storefront.</p>
 
             <div className="border border-slate-700 rounded-lg overflow-hidden">
+
               <table className="w-full">
                 <thead className="bg-slate-900/70">
                   <tr>
@@ -338,12 +358,25 @@ export default function PromotionsPage() {
                 onChange={(e) => setNewBanner((b) => ({ ...b, title: e.target.value }))}
                 className="rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-white"
               />
-              <input
-                placeholder="Image URL"
-                value={newBanner.image}
-                onChange={(e) => setNewBanner((b) => ({ ...b, image: e.target.value }))}
-                className="rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-white"
-              />
+              <div className="space-y-2">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      void handleNewBannerImageFile(file);
+                    }
+                  }}
+                  className="rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-white w-full"
+                />
+                <input
+                  placeholder="Image URL (ou deixe o upload acima)"
+                  value={newBanner.image}
+                  onChange={(e) => setNewBanner((b) => ({ ...b, image: e.target.value }))}
+                  className="rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-white w-full"
+                />
+              </div>
               <input
                 placeholder="Link"
                 value={newBanner.link}
@@ -351,13 +384,15 @@ export default function PromotionsPage() {
                 className="rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-white"
               />
               <input
-                placeholder="Start (ISO)"
+                type="datetime-local"
+                title="Inicio da exibicao"
                 value={newBanner.startDate}
                 onChange={(e) => setNewBanner((b) => ({ ...b, startDate: e.target.value }))}
                 className="rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-white"
               />
               <input
-                placeholder="End (ISO)"
+                type="datetime-local"
+                title="Fim da exibicao"
                 value={newBanner.endDate}
                 onChange={(e) => setNewBanner((b) => ({ ...b, endDate: e.target.value }))}
                 className="rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-white"
@@ -410,12 +445,27 @@ export default function PromotionsPage() {
                           />
                         </td>
                         <td className="px-4 py-2">
-                          <input
-                            disabled={!isEditing}
-                            value={item.link}
-                            onChange={(e) => setBannerDraft((d) => (d ? { ...d, link: e.target.value } : d))}
-                            className="w-full rounded bg-slate-900 border border-slate-700 px-2 py-1 text-sm text-white disabled:opacity-80"
-                          />
+                          <div className="space-y-2">
+                            {isEditing && (
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    void handleDraftBannerImageFile(file);
+                                  }
+                                }}
+                                className="w-full rounded bg-slate-900 border border-slate-700 px-2 py-1 text-xs text-white"
+                              />
+                            )}
+                            <input
+                              disabled={!isEditing}
+                              value={item.link}
+                              onChange={(e) => setBannerDraft((d) => (d ? { ...d, link: e.target.value } : d))}
+                              className="w-full rounded bg-slate-900 border border-slate-700 px-2 py-1 text-sm text-white disabled:opacity-80"
+                            />
+                          </div>
                         </td>
                         <td className="px-4 py-2">
                           <label className="flex items-center gap-2 text-slate-300 text-sm">
