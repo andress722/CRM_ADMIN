@@ -52,6 +52,8 @@ if (!string.IsNullOrWhiteSpace(sentryDsn))
 // Add CORS
 var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
 corsOrigins = corsOrigins?.Where(origin => !string.IsNullOrWhiteSpace(origin)).ToArray();
+var corsOriginPatterns = builder.Configuration.GetSection("Cors:AllowedOriginPatterns").Get<string[]>();
+corsOriginPatterns = corsOriginPatterns?.Where(pattern => !string.IsNullOrWhiteSpace(pattern)).ToArray() ?? Array.Empty<string>();
 if (corsOrigins == null || corsOrigins.Length == 0)
 {
     corsOrigins = new[]
@@ -60,6 +62,71 @@ if (corsOrigins == null || corsOrigins.Length == 0)
         "http://localhost:3001",
         "http://127.0.0.1:3000",
     };
+}
+var normalizedCorsOrigins = new HashSet<string>(
+    corsOrigins.Select(origin => origin.TrimEnd('/')),
+    StringComparer.OrdinalIgnoreCase);
+
+bool IsOriginAllowed(string origin)
+{
+    if (string.IsNullOrWhiteSpace(origin))
+    {
+        return false;
+    }
+
+    var normalizedOrigin = origin.TrimEnd('/');
+    if (normalizedCorsOrigins.Contains(normalizedOrigin))
+    {
+        return true;
+    }
+
+    if (!Uri.TryCreate(normalizedOrigin, UriKind.Absolute, out var originUri))
+    {
+        return false;
+    }
+
+    foreach (var pattern in corsOriginPatterns)
+    {
+        if (IsOriginPatternMatch(originUri, pattern))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool IsOriginPatternMatch(Uri originUri, string pattern)
+{
+    if (string.IsNullOrWhiteSpace(pattern))
+    {
+        return false;
+    }
+
+    if (!Uri.TryCreate(pattern.Replace("*.", "wildcard."), UriKind.Absolute, out var patternUri))
+    {
+        return false;
+    }
+
+    if (!string.Equals(originUri.Scheme, patternUri.Scheme, StringComparison.OrdinalIgnoreCase))
+    {
+        return false;
+    }
+
+    if (!patternUri.IsDefaultPort && originUri.Port != patternUri.Port)
+    {
+        return false;
+    }
+
+    var patternHost = patternUri.Host;
+    if (patternHost.StartsWith("wildcard.", StringComparison.OrdinalIgnoreCase))
+    {
+        var suffix = patternHost["wildcard.".Length..];
+        return originUri.Host.Length > suffix.Length &&
+               originUri.Host.EndsWith($".{suffix}", StringComparison.OrdinalIgnoreCase);
+    }
+
+    return string.Equals(originUri.Host, patternHost, StringComparison.OrdinalIgnoreCase);
 }
 
 builder.Services.AddCors(options =>
@@ -73,7 +140,7 @@ builder.Services.AddCors(options =>
         }
 
         policy
-            .WithOrigins(corsOrigins)
+            .SetIsOriginAllowed(IsOriginAllowed)
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials();
@@ -1041,6 +1108,7 @@ catch (Exception ex)
 app.Run();
 
 public partial class Program { }
+
 
 
 

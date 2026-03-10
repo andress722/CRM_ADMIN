@@ -129,13 +129,6 @@ export const AuthService = {
         const challenge = error.response.data as TwoFactorChallengeResponse;
         const message = challenge?.message || "2FA required";
 
-        if (challenge?.requiresTwoFactorSetup) {
-          return {
-            status: "requires_two_factor_setup",
-            message,
-          };
-        }
-
         if (challenge?.requiresTwoFactor && challenge?.challengeId) {
           return {
             status: "requires_two_factor",
@@ -143,6 +136,12 @@ export const AuthService = {
             message,
           };
         }
+
+        // Treat any 428 auth response as a 2FA/setup precondition, not invalid credentials.
+        return {
+          status: "requires_two_factor_setup",
+          message,
+        };
       }
 
       throw new Error(mapAuthError(error));
@@ -265,3 +264,4 @@ export const AuthService = {
     }
   },
 };
+

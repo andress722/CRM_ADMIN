@@ -12,8 +12,12 @@ export default function LegacyLoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await AuthService.login(email, password);
-      router.push('/leads');
+      const result = await AuthService.login({ email, password });
+      if (result.status === 'authenticated') {
+        router.push('/leads');
+      } else {
+        alert(result.message);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Login failed';
       alert(message);

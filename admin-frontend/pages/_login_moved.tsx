@@ -12,9 +12,13 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await AuthService.login(email, password);
+      const result = await AuthService.login({ email, password });
       // AuthService.login persists tokens and user info
-      router.push('/leads');
+      if (result.status === 'authenticated') {
+        router.push('/leads');
+      } else {
+        alert(result.message);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Login failed';
       alert(message);

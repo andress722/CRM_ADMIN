@@ -24,6 +24,10 @@ services:
         value: https://app.infotechgamer.site
       - key: Cors__AllowedOrigins__1
         value: https://www.infotechgamer.site
+      - key: Cors__AllowedOriginPatterns__0
+        value: https://*.vercel.app
+      - key: Security__RequireAdmin2FA
+        value: "false"
       - key: Networking__EnableForwardedHeaders
         value: "true"
       - key: Networking__TrustAllForwardedHeaders
@@ -52,4 +56,3 @@ databases:
   - name: copilot-sdk-db-staging
     plan: free
     region: oregon
-

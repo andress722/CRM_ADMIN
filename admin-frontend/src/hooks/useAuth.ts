@@ -78,6 +78,13 @@ export function useAuth(): UseAuthReturn {
 
         setIsAuthenticated(false);
         setUser(null);
+
+        if (result.status === "requires_two_factor") {
+          // 2FA challenge is expected as part of login flow; do not show generic error.
+          setError(null);
+          return result;
+        }
+
         setError(result.message);
         return result;
       } catch (err) {
@@ -119,3 +126,4 @@ export function useAuth(): UseAuthReturn {
     user,
   };
 }
+
