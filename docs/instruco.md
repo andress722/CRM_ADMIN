@@ -26,8 +26,9 @@
 ## Fase 2 - Experiência e governança
 - [x] Permissões por perfil (`admin`, `gerente`, `vendedor`)
 - [x] Soft delete/auditoria onde aplicável
-- [ ] Testes de fluxo crítico (login, leads, oportunidades, atividades)
-- [ ] Checklist final de validação + documentação de operação
+- [x] Testes de fluxo crítico (login, leads, oportunidades, atividades)
+- [x] Checklist final de validação + documentação de operação (ver `docs/CRM_PHASE2_VALIDATION.md`)
+
 
 
 

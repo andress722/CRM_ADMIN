@@ -10,7 +10,7 @@ Use this checklist before production cut for admin panel changes.
 ## Staging functional gate
 - [ ] Login page available (`/login`).
 - [ ] CRM leads list available with admin token.
-- [ ] CRM create/update/delete flow validated (manual or smoke `-RunCrmCrud`).
+- [ ] CRM create/update/delete flow validated (manual or smoke `-RunCrmCrud`) for leads, opportunities and activities.
 - [ ] No blocking console/runtime errors in admin UI.
 
 ## Security and config gate
@@ -33,3 +33,4 @@ Use this checklist before production cut for admin panel changes.
 - [ ] Tech owner approved.
 - [ ] Release manager approved.
 - [ ] Rollback plan documented.
+

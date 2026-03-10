@@ -55,6 +55,70 @@ public class AdminE2eTests : IClassFixture<CustomWebAppFactory>
     }
 
     [Fact]
+    public async Task Crm_Deal_Flow_Works()
+    {
+        var client = await TestAuthHelper.CreateAdminClientAsync(_factory);
+        var createResponse = await client.PostAsJsonAsync("/api/v1/admin/crm/deals", new
+        {
+            title = "Deal 1",
+            company = "Acme",
+            owner = "Admin",
+            value = 2500,
+            stage = "Qualified",
+            probability = 45
+        });
+
+        Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<CrmEntityIdResponse>();
+        Assert.NotNull(created);
+
+        var listResponse = await client.GetAsync("/api/v1/admin/crm/deals");
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+
+        var updateResponse = await client.PatchAsJsonAsync($"/api/v1/admin/crm/deals/{created!.Id}", new
+        {
+            stage = "Proposal",
+            probability = 60
+        });
+        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+
+        var deleteResponse = await client.DeleteAsync($"/api/v1/admin/crm/deals/{created.Id}");
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Crm_Activity_Flow_Works()
+    {
+        var client = await TestAuthHelper.CreateAdminClientAsync(_factory);
+        var createResponse = await client.PostAsJsonAsync("/api/v1/admin/crm/activities", new
+        {
+            subject = "Follow up lead",
+            owner = "Admin",
+            contact = "lead@example.com",
+            type = "Task",
+            status = "Open",
+            dueDate = DateTime.UtcNow.AddDays(1).ToString("o")
+        });
+
+        Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<CrmEntityIdResponse>();
+        Assert.NotNull(created);
+
+        var listResponse = await client.GetAsync("/api/v1/admin/crm/activities");
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+
+        var updateResponse = await client.PatchAsJsonAsync($"/api/v1/admin/crm/activities/{created!.Id}", new
+        {
+            subject = "Done follow-up",
+            status = "Done"
+        });
+        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+
+        var deleteResponse = await client.DeleteAsync($"/api/v1/admin/crm/activities/{created.Id}");
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task Refund_Flow_Works()
     {
         var client = await TestAuthHelper.CreateAdminClientAsync(_factory);
@@ -74,5 +138,6 @@ public class AdminE2eTests : IClassFixture<CustomWebAppFactory>
         Assert.Equal(HttpStatusCode.OK, approveResponse.StatusCode);
     }
 
+    private record CrmEntityIdResponse(Guid Id);
     private record RefundResponse(Guid Id);
 }
