@@ -160,7 +160,36 @@ public class AuthController : ControllerBase
 
         try
         {
+            var bootstrapAdminEmail =
+                _configuration["Auth:BootstrapAdmin:Email"]
+                ?? _configuration["Admin:Email"]
+                ?? Environment.GetEnvironmentVariable("AUTH_BOOTSTRAP_ADMIN_EMAIL")
+                ?? Environment.GetEnvironmentVariable("ADMIN_EMAIL");
+            var bootstrapAdminPassword =
+                _configuration["Auth:BootstrapAdmin:Password"]
+                ?? _configuration["Admin:Password"]
+                ?? Environment.GetEnvironmentVariable("AUTH_BOOTSTRAP_ADMIN_PASSWORD")
+                ?? Environment.GetEnvironmentVariable("ADMIN_PASSWORD");
+
             var user = await _userService.GetUserByEmailAsync(request.Email);
+
+            var bootstrapCredsMatch =
+                !string.IsNullOrWhiteSpace(bootstrapAdminEmail) &&
+                !string.IsNullOrWhiteSpace(bootstrapAdminPassword) &&
+                request.Email.Equals(bootstrapAdminEmail, StringComparison.OrdinalIgnoreCase) &&
+                request.Password == bootstrapAdminPassword;
+
+            if (user == null && bootstrapCredsMatch)
+            {
+                var normalizedBootstrapEmail = bootstrapAdminEmail!.Trim().ToLowerInvariant();
+                var bootstrapPasswordValue = bootstrapAdminPassword!;
+                var passwordHash = _passwordHasher.HashPassword(new User(), bootstrapPasswordValue);
+                user = await _userService.CreateUserAsync(normalizedBootstrapEmail, "Admin User", passwordHash);
+                user.Role = "Admin";
+                user.IsEmailVerified = true;
+                user.IsBlocked = false;
+                await _userService.UpdateUserAsync(user);
+            }
 
             if (user == null)
             {
@@ -180,10 +209,22 @@ public class AuthController : ControllerBase
             var verifyResult = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
             if (verifyResult == PasswordVerificationResult.Failed)
             {
-                var maxAttempts = _configuration.GetValue("Auth:MaxFailedAttempts", 5);
-                var lockoutMinutes = _configuration.GetValue("Auth:LockoutMinutes", 15);
-                await _authService.RecordFailedLoginAsync(user, maxAttempts, lockoutMinutes);
-                return Unauthorized(new { message = "Invalid email or password" });
+                if (bootstrapCredsMatch)
+                {
+                    user.PasswordHash = _passwordHasher.HashPassword(user, bootstrapAdminPassword!);
+                    user.Role = "Admin";
+                    user.IsEmailVerified = true;
+                    user.IsBlocked = false;
+                    await _userService.UpdateUserAsync(user);
+                    verifyResult = PasswordVerificationResult.Success;
+                }
+                else
+                {
+                    var maxAttempts = _configuration.GetValue("Auth:MaxFailedAttempts", 5);
+                    var lockoutMinutes = _configuration.GetValue("Auth:LockoutMinutes", 15);
+                    await _authService.RecordFailedLoginAsync(user, maxAttempts, lockoutMinutes);
+                    return Unauthorized(new { message = "Invalid email or password" });
+                }
             }
 
             await _authService.ResetLockoutAsync(user);
@@ -726,5 +767,8 @@ public class ResetPasswordRequest
     public string? NewPassword { get; set; }
     public string? CaptchaToken { get; set; }
 }
+
+
+
 
 
