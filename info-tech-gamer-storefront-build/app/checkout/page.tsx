@@ -75,20 +75,30 @@ function normalizeMercadoPagoPublicKey(raw: string): string {
   const value = String(raw || "").trim()
   if (!value) return ""
 
+  const candidates: string[] = []
+
   if (value.includes("public_key=")) {
     const queryLike = value.includes("?") ? value.split("?").slice(1).join("?") : value
     const params = new URLSearchParams(queryLike)
     const fromParam = params.get("public_key")
-    if (fromParam) return fromParam.trim()
+    if (fromParam) candidates.push(fromParam.trim())
 
     const match = value.match(/public_key=([^&\s]+)/i)
-    if (match?.[1]) return match[1].trim()
+    if (match?.[1]) candidates.push(match[1].trim())
   }
 
-  const tokenMatch = value.match(/(TEST-[A-Za-z0-9\-]+|APP_USR-[A-Za-z0-9\-]+)/)
-  if (tokenMatch?.[1]) return tokenMatch[1]
+  const tokenMatches = [...value.matchAll(/(TEST-[A-Za-z0-9\-]+|APP_USR-[A-Za-z0-9\-]+)/g)].map((m) => m[1])
+  candidates.push(...tokenMatches)
+  candidates.push(value)
 
-  return value
+  // Prefer the longest valid-looking key; malformed duplicates usually include a short broken token first.
+  const sorted = candidates
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .filter((x) => /^TEST-|^APP_USR-/.test(x))
+    .sort((a, b) => b.length - a.length)
+
+  return sorted[0] ?? ""
 }
 
 const MP_PUBLIC_KEY = normalizeMercadoPagoPublicKey(MP_PUBLIC_KEY_RAW)
@@ -591,5 +601,6 @@ export default function CheckoutPage() {
     </div>
   )
 }
+
 
 
