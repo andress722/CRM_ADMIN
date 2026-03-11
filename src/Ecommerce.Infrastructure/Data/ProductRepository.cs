@@ -15,10 +15,10 @@ public class ProductRepository : IProductRepository
         => await _context.Products.FirstOrDefaultAsync(p => p.Id == id);
 
     public async Task<IEnumerable<Product>> GetAllAsync()
-        => await _context.Products.Where(p => p.IsActive).ToListAsync();
+        => await _context.Products.Where(p => p.IsActive).OrderByDescending(p => p.CreatedAt).ThenBy(p => p.Name).ToListAsync();
 
     public async Task<IEnumerable<Product>> GetByCategoryAsync(string category)
-        => await _context.Products.Where(p => p.Category == category && p.IsActive).ToListAsync();
+        => await _context.Products.Where(p => p.Category == category && p.IsActive).OrderByDescending(p => p.CreatedAt).ThenBy(p => p.Name).ToListAsync();
 
     public async Task<Product?> GetBySkuAsync(string sku)
         => await _context.Products.FirstOrDefaultAsync(p => p.Sku == sku);
@@ -54,7 +54,8 @@ public class ProductRepository : IProductRepository
 
         var total = await searchQuery.CountAsync();
         var items = await searchQuery
-            .OrderBy(p => p.Name)
+                        .OrderByDescending(p => p.CreatedAt)
+            .ThenBy(p => p.Name)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
@@ -84,3 +85,4 @@ public class ProductRepository : IProductRepository
         }
     }
 }
+
