@@ -40,3 +40,7 @@
 
 - [x] Checkout reforçado (cupom validado antes da criação do pedido + fluxo PIX/Boleto transparente com CPF/telefone no storefront)
 
+- [x] CRM Contatos com criação direta e filtros de lifecycle/segmento + ações em massa
+- [x] CRM Relatórios repaginado (KPIs completos por período + top produtos + export JSON/CSV)
+- [x] Modal de pedido e impressão sem dados mockados (somente dados reais do pedido)
+
