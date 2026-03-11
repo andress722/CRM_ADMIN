@@ -17,7 +17,6 @@ const RAW_BASE_URL =
   (process.env.NODE_ENV === "development" ? "http://localhost:5071" : "")
 const API_BASE = RAW_BASE_URL.replace(/\/+$/, "")
 const API = API_BASE.endsWith("/api/v1") ? API_BASE : `${API_BASE}/api/v1`
-
 const ORDER_STATUS_LABELS: Record<number, string> = {
   0: "Pending",
   1: "Confirmed",
@@ -25,6 +24,17 @@ const ORDER_STATUS_LABELS: Record<number, string> = {
   3: "Shipped",
   4: "Delivered",
   5: "Cancelled",
+}
+
+
+class ApiRequestError extends Error {
+  status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = "ApiRequestError"
+    this.status = status
+  }
 }
 
 function getAccessToken(): string | null {
@@ -177,15 +187,31 @@ async function apiFetch<T>(
     }
 
     if (!res.ok) {
-      throw new Error(`API error: ${res.status}`)
+      const bodyText = await res.text()
+      let message = `API error: ${res.status}`
+
+      if (bodyText) {
+        try {
+          const parsed = JSON.parse(bodyText)
+          const apiMessage = parsed?.message || parsed?.error || parsed?.title
+          if (typeof apiMessage === "string" && apiMessage.trim()) {
+            message = apiMessage.trim()
+          }
+        } catch {
+          message = bodyText.slice(0, 200)
+        }
+      }
+
+      throw new ApiRequestError(res.status, message)
     }
 
     if (res.status === 204) return undefined as T
     const text = await res.text()
     if (!text) return undefined as T
     return JSON.parse(text) as T
-  } catch {
+  } catch (error) {
     if (useMock) return useMock()
+    if (error instanceof Error) throw error
     throw new Error(`Failed to fetch ${path}`)
   }
 }
@@ -677,6 +703,10 @@ export async function trackEvent(data: {
     // Analytics failures are silent
   }
 }
+
+
+
+
 
 
 

@@ -31,6 +31,33 @@ const fileToDataUrl = (file: File): Promise<string> =>
     reader.readAsDataURL(file);
   });
 
+const defaultBanner: BannerItem = {
+  id: '',
+  title: '',
+  image: '',
+  link: '',
+  active: true,
+  startDate: '',
+  endDate: '',
+};
+
+function normalizeBannerLink(link: string): string {
+  const value = link.trim();
+  if (!value) return '';
+  if (value.startsWith('/') || value.startsWith('#')) return value;
+  if (/^https?:\/\//i.test(value)) return value;
+  return `https://${value}`;
+}
+
+function getBannerValidationError(banner: BannerItem): string | null {
+  if (!banner.title.trim()) return 'Titulo do banner e obrigatorio.';
+  if (!banner.image.trim()) return 'Imagem do banner e obrigatoria (upload ou URL).';
+  if (banner.startDate && banner.endDate && new Date(banner.startDate) > new Date(banner.endDate)) {
+    return 'Data inicial nao pode ser maior que a data final.';
+  }
+  return null;
+}
+
 export default function PromotionsPage() {
   const { addToast } = useToast();
   const queryClient = useQueryClient();
@@ -61,15 +88,7 @@ export default function PromotionsPage() {
   const [editingCouponId, setEditingCouponId] = useState<string | null>(null);
   const [couponDraft, setCouponDraft] = useState<CouponItem | null>(null);
 
-  const [newBanner, setNewBanner] = useState<BannerItem>({
-    id: '',
-    title: '',
-    image: '',
-    link: '',
-    active: true,
-    startDate: '',
-    endDate: '',
-  });
+  const [newBanner, setNewBanner] = useState<BannerItem>(defaultBanner);
   const [editingBannerId, setEditingBannerId] = useState<string | null>(null);
   const [bannerDraft, setBannerDraft] = useState<BannerItem | null>(null);
 
@@ -95,7 +114,7 @@ export default function PromotionsPage() {
     try {
       await createCouponMutation.mutateAsync({
         url: endpoints.admin.coupons,
-        data: { ...newCoupon, id: '' },
+        data: { ...newCoupon, code: newCoupon.code.trim().toUpperCase(), id: '' },
       });
       setNewCoupon({ id: '', code: '', discount: 0, active: true });
       refreshCoupons();
@@ -106,14 +125,17 @@ export default function PromotionsPage() {
   };
 
   const saveCoupon = async () => {
-    if (!editingCouponId || !couponDraft) {
+    if (!editingCouponId || !couponDraft) return;
+
+    if (!couponDraft.code.trim() || couponDraft.discount <= 0) {
+      addToast('❌ Informe um codigo e desconto maior que zero', 'error');
       return;
     }
 
     try {
       await updateCouponMutation.mutateAsync({
         url: `${endpoints.admin.coupons}/${editingCouponId}`,
-        data: couponDraft,
+        data: { ...couponDraft, code: couponDraft.code.trim().toUpperCase() },
       });
       setEditingCouponId(null);
       setCouponDraft(null);
@@ -125,25 +147,19 @@ export default function PromotionsPage() {
   };
 
   const createBanner = async () => {
-    if (!newBanner.title.trim()) {
-      addToast('❌ Titulo do banner e obrigatorio', 'error');
+    const payload = { ...newBanner, link: normalizeBannerLink(newBanner.link) };
+    const error = getBannerValidationError(payload);
+    if (error) {
+      addToast(`❌ ${error}`, 'error');
       return;
     }
 
     try {
       await createBannerMutation.mutateAsync({
         url: endpoints.admin.banners,
-        data: { ...newBanner, id: '' },
+        data: { ...payload, id: '' },
       });
-      setNewBanner({
-        id: '',
-        title: '',
-        image: '',
-        link: '',
-        active: true,
-        startDate: '',
-        endDate: '',
-      });
+      setNewBanner(defaultBanner);
       refreshBanners();
       addToast('✅ Banner criado', 'success');
     } catch {
@@ -152,14 +168,19 @@ export default function PromotionsPage() {
   };
 
   const saveBanner = async () => {
-    if (!editingBannerId || !bannerDraft) {
+    if (!editingBannerId || !bannerDraft) return;
+
+    const payload = { ...bannerDraft, link: normalizeBannerLink(bannerDraft.link) };
+    const error = getBannerValidationError(payload);
+    if (error) {
+      addToast(`❌ ${error}`, 'error');
       return;
     }
 
     try {
       await updateBannerMutation.mutateAsync({
         url: `${endpoints.admin.banners}/${editingBannerId}`,
-        data: bannerDraft,
+        data: payload,
       });
       setEditingBannerId(null);
       setBannerDraft(null);
@@ -171,9 +192,7 @@ export default function PromotionsPage() {
   };
 
   const deleteBanner = async (id: string) => {
-    if (!confirm('Excluir este banner?')) {
-      return;
-    }
+    if (!confirm('Excluir este banner?')) return;
 
     try {
       await deleteBannerMutation.mutateAsync({
@@ -204,7 +223,7 @@ export default function PromotionsPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold text-white">Promotions & Coupons</h1>
-        <p className="text-slate-400 mt-1">Create and manage coupons and banners</p>
+        <p className="text-slate-400 mt-1">Crie cupons e banners com preview e validade.</p>
       </div>
 
       {isLoading && (
@@ -218,11 +237,11 @@ export default function PromotionsPage() {
       {!isLoading && (
         <>
           <section className="rounded-lg border border-white/10 bg-slate-800/50 p-6 space-y-4">
-            <h2 className="text-lg font-semibold text-white">Coupons</h2>
+            <h2 className="text-lg font-semibold text-white">Cupons</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
               <input
-                placeholder="Code"
+                placeholder="Codigo (ex: DEMO10)"
                 value={newCoupon.code}
                 onChange={(e) => setNewCoupon((c) => ({ ...c, code: e.target.value.toUpperCase() }))}
                 className="rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-white"
@@ -231,7 +250,7 @@ export default function PromotionsPage() {
                 type="number"
                 min="0"
                 step="0.01"
-                placeholder="Discount"
+                placeholder="Desconto (%)"
                 value={newCoupon.discount}
                 onChange={(e) => setNewCoupon((c) => ({ ...c, discount: Number(e.target.value) }))}
                 className="rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-white"
@@ -242,33 +261,44 @@ export default function PromotionsPage() {
                   checked={newCoupon.active}
                   onChange={(e) => setNewCoupon((c) => ({ ...c, active: e.target.checked }))}
                 />
-                Active
+                Ativo
               </label>
               <button
                 onClick={createCoupon}
                 disabled={createCouponMutation.isPending}
                 className="rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-3 py-2"
               >
-                Add Coupon
+                Adicionar cupom
               </button>
             </div>
-            <p className="text-xs text-slate-400">Link do banner: URL de destino quando o cliente clicar no banner no storefront.</p>
+
+            <div className="flex flex-wrap gap-2">
+              {[5, 10, 15, 20].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setNewCoupon((c) => ({ ...c, discount: value }))}
+                  className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-300 hover:border-blue-500"
+                >
+                  {value}%
+                </button>
+              ))}
+            </div>
 
             <div className="border border-slate-700 rounded-lg overflow-hidden">
-
               <table className="w-full">
                 <thead className="bg-slate-900/70">
                   <tr>
-                    <th className="px-4 py-2 text-left text-sm text-slate-300">Code</th>
-                    <th className="px-4 py-2 text-left text-sm text-slate-300">Discount</th>
+                    <th className="px-4 py-2 text-left text-sm text-slate-300">Codigo</th>
+                    <th className="px-4 py-2 text-left text-sm text-slate-300">Desconto</th>
                     <th className="px-4 py-2 text-left text-sm text-slate-300">Status</th>
-                    <th className="px-4 py-2 text-right text-sm text-slate-300">Actions</th>
+                    <th className="px-4 py-2 text-right text-sm text-slate-300">Acoes</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(coupons ?? []).length === 0 && (
                     <tr>
-                      <td colSpan={4} className="px-4 py-6 text-center text-slate-400">No coupons found</td>
+                      <td colSpan={4} className="px-4 py-6 text-center text-slate-400">Nenhum cupom encontrado</td>
                     </tr>
                   )}
                   {(coupons ?? []).map((coupon) => {
@@ -304,7 +334,7 @@ export default function PromotionsPage() {
                               checked={item.active}
                               onChange={(e) => setCouponDraft((d) => (d ? { ...d, active: e.target.checked } : d))}
                             />
-                            {item.active ? 'Active' : 'Inactive'}
+                            {item.active ? 'Ativo' : 'Inativo'}
                           </label>
                         </td>
                         <td className="px-4 py-2">
@@ -317,7 +347,7 @@ export default function PromotionsPage() {
                                 }}
                                 className="px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs"
                               >
-                                Edit
+                                Editar
                               </button>
                             ) : (
                               <>
@@ -325,7 +355,7 @@ export default function PromotionsPage() {
                                   onClick={saveCoupon}
                                   className="px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-600 text-white text-xs"
                                 >
-                                  Save
+                                  Salvar
                                 </button>
                                 <button
                                   onClick={() => {
@@ -334,7 +364,7 @@ export default function PromotionsPage() {
                                   }}
                                   className="px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs"
                                 >
-                                  Cancel
+                                  Cancelar
                                 </button>
                               </>
                             )}
@@ -350,10 +380,13 @@ export default function PromotionsPage() {
 
           <section className="rounded-lg border border-white/10 bg-slate-800/50 p-6 space-y-4">
             <h2 className="text-lg font-semibold text-white">Banners</h2>
+            <p className="text-xs text-slate-400">
+              O banner aparece no topo da home do storefront. Link pode ser interno (`/produto/x`, `#catalog`) ou externo (`https://...`).
+            </p>
 
             <div className="grid grid-cols-1 md:grid-cols-7 gap-2">
               <input
-                placeholder="Title"
+                placeholder="Titulo"
                 value={newBanner.title}
                 onChange={(e) => setNewBanner((b) => ({ ...b, title: e.target.value }))}
                 className="rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-white"
@@ -364,21 +397,19 @@ export default function PromotionsPage() {
                   accept="image/*"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
-                    if (file) {
-                      void handleNewBannerImageFile(file);
-                    }
+                    if (file) void handleNewBannerImageFile(file);
                   }}
                   className="rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-white w-full"
                 />
                 <input
-                  placeholder="Image URL (ou deixe o upload acima)"
+                  placeholder="URL da imagem (opcional se enviar arquivo)"
                   value={newBanner.image}
                   onChange={(e) => setNewBanner((b) => ({ ...b, image: e.target.value }))}
                   className="rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-white w-full"
                 />
               </div>
               <input
-                placeholder="Link"
+                placeholder="Link de destino"
                 value={newBanner.link}
                 onChange={(e) => setNewBanner((b) => ({ ...b, link: e.target.value }))}
                 className="rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-white"
@@ -403,31 +434,38 @@ export default function PromotionsPage() {
                   checked={newBanner.active}
                   onChange={(e) => setNewBanner((b) => ({ ...b, active: e.target.checked }))}
                 />
-                Active
+                Ativo
               </label>
               <button
                 onClick={createBanner}
                 disabled={createBannerMutation.isPending}
                 className="rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-3 py-2"
               >
-                Add Banner
+                Adicionar banner
               </button>
             </div>
+
+            {newBanner.image && (
+              <div className="rounded border border-slate-700 p-2 w-fit bg-slate-900/70">
+                <p className="text-xs text-slate-400 mb-1">Preview</p>
+                <img src={newBanner.image} alt="Preview do banner" className="h-20 w-40 rounded object-cover" />
+              </div>
+            )}
 
             <div className="border border-slate-700 rounded-lg overflow-hidden">
               <table className="w-full">
                 <thead className="bg-slate-900/70">
                   <tr>
-                    <th className="px-4 py-2 text-left text-sm text-slate-300">Title</th>
-                    <th className="px-4 py-2 text-left text-sm text-slate-300">Link</th>
+                    <th className="px-4 py-2 text-left text-sm text-slate-300">Banner</th>
+                    <th className="px-4 py-2 text-left text-sm text-slate-300">Validade</th>
                     <th className="px-4 py-2 text-left text-sm text-slate-300">Status</th>
-                    <th className="px-4 py-2 text-right text-sm text-slate-300">Actions</th>
+                    <th className="px-4 py-2 text-right text-sm text-slate-300">Acoes</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(banners ?? []).length === 0 && (
                     <tr>
-                      <td colSpan={4} className="px-4 py-6 text-center text-slate-400">No banners found</td>
+                      <td colSpan={4} className="px-4 py-6 text-center text-slate-400">Nenhum banner encontrado</td>
                     </tr>
                   )}
                   {(banners ?? []).map((banner) => {
@@ -436,15 +474,34 @@ export default function PromotionsPage() {
 
                     return (
                       <tr key={banner.id} className="border-t border-slate-700">
-                        <td className="px-4 py-2">
-                          <input
-                            disabled={!isEditing}
-                            value={item.title}
-                            onChange={(e) => setBannerDraft((d) => (d ? { ...d, title: e.target.value } : d))}
-                            className="w-full rounded bg-slate-900 border border-slate-700 px-2 py-1 text-sm text-white disabled:opacity-80"
-                          />
+                        <td className="px-4 py-2 align-top">
+                          <div className="space-y-2">
+                            {item.image && <img src={item.image} alt={item.title} className="h-16 w-28 rounded object-cover" />}
+                            <input
+                              disabled={!isEditing}
+                              value={item.title}
+                              onChange={(e) => setBannerDraft((d) => (d ? { ...d, title: e.target.value } : d))}
+                              className="w-full rounded bg-slate-900 border border-slate-700 px-2 py-1 text-sm text-white disabled:opacity-80"
+                            />
+                            <input
+                              disabled={!isEditing}
+                              value={item.link}
+                              onChange={(e) => setBannerDraft((d) => (d ? { ...d, link: e.target.value } : d))}
+                              className="w-full rounded bg-slate-900 border border-slate-700 px-2 py-1 text-sm text-white disabled:opacity-80"
+                            />
+                            {item.link && (
+                              <a
+                                href={normalizeBannerLink(item.link)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs text-blue-300 underline"
+                              >
+                                Abrir link
+                              </a>
+                            )}
+                          </div>
                         </td>
-                        <td className="px-4 py-2">
+                        <td className="px-4 py-2 align-top">
                           <div className="space-y-2">
                             {isEditing && (
                               <input
@@ -452,22 +509,28 @@ export default function PromotionsPage() {
                                 accept="image/*"
                                 onChange={(e) => {
                                   const file = e.target.files?.[0];
-                                  if (file) {
-                                    void handleDraftBannerImageFile(file);
-                                  }
+                                  if (file) void handleDraftBannerImageFile(file);
                                 }}
                                 className="w-full rounded bg-slate-900 border border-slate-700 px-2 py-1 text-xs text-white"
                               />
                             )}
                             <input
                               disabled={!isEditing}
-                              value={item.link}
-                              onChange={(e) => setBannerDraft((d) => (d ? { ...d, link: e.target.value } : d))}
+                              type="datetime-local"
+                              value={item.startDate || ''}
+                              onChange={(e) => setBannerDraft((d) => (d ? { ...d, startDate: e.target.value } : d))}
+                              className="w-full rounded bg-slate-900 border border-slate-700 px-2 py-1 text-sm text-white disabled:opacity-80"
+                            />
+                            <input
+                              disabled={!isEditing}
+                              type="datetime-local"
+                              value={item.endDate || ''}
+                              onChange={(e) => setBannerDraft((d) => (d ? { ...d, endDate: e.target.value } : d))}
                               className="w-full rounded bg-slate-900 border border-slate-700 px-2 py-1 text-sm text-white disabled:opacity-80"
                             />
                           </div>
                         </td>
-                        <td className="px-4 py-2">
+                        <td className="px-4 py-2 align-top">
                           <label className="flex items-center gap-2 text-slate-300 text-sm">
                             <input
                               disabled={!isEditing}
@@ -475,22 +538,22 @@ export default function PromotionsPage() {
                               checked={item.active}
                               onChange={(e) => setBannerDraft((d) => (d ? { ...d, active: e.target.checked } : d))}
                             />
-                            {item.active ? 'Active' : 'Inactive'}
+                            {item.active ? 'Ativo' : 'Inativo'}
                           </label>
                         </td>
-                        <td className="px-4 py-2">
+                        <td className="px-4 py-2 align-top">
                           <div className="flex justify-end gap-2 flex-wrap">
                             <button
                               onClick={() => moveBanner(banner.id, 'up')}
                               className="px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs"
                             >
-                              Up
+                              Subir
                             </button>
                             <button
                               onClick={() => moveBanner(banner.id, 'down')}
                               className="px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs"
                             >
-                              Down
+                              Descer
                             </button>
                             {!isEditing ? (
                               <button
@@ -500,7 +563,7 @@ export default function PromotionsPage() {
                                 }}
                                 className="px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs"
                               >
-                                Edit
+                                Editar
                               </button>
                             ) : (
                               <>
@@ -508,7 +571,7 @@ export default function PromotionsPage() {
                                   onClick={saveBanner}
                                   className="px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-600 text-white text-xs"
                                 >
-                                  Save
+                                  Salvar
                                 </button>
                                 <button
                                   onClick={() => {
@@ -517,7 +580,7 @@ export default function PromotionsPage() {
                                   }}
                                   className="px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs"
                                 >
-                                  Cancel
+                                  Cancelar
                                 </button>
                               </>
                             )}
@@ -525,7 +588,7 @@ export default function PromotionsPage() {
                               onClick={() => deleteBanner(banner.id)}
                               className="px-2 py-1 rounded bg-red-800 hover:bg-red-700 text-white text-xs"
                             >
-                              Delete
+                              Excluir
                             </button>
                           </div>
                         </td>

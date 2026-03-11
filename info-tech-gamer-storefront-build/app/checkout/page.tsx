@@ -131,6 +131,12 @@ export default function CheckoutPage() {
     )
   }
 
+  const getErrorMessage = (error: unknown): string => {
+    if (!error || typeof error !== "object") return t("Unknown error", "Erro desconhecido")
+    const e = error as { message?: string }
+    return e.message || t("Unknown error", "Erro desconhecido")
+  }
+
   const applyCoupon = async () => {
     const normalized = couponCode.trim()
     if (!normalized) {
@@ -143,9 +149,9 @@ export default function CheckoutPage() {
       const validated = await validateCoupon(normalized)
       setAppliedCoupon(validated)
       toast.success(t("Coupon applied", "Cupom aplicado"))
-    } catch {
+    } catch (error) {
       setAppliedCoupon(null)
-      toast.error(t("Invalid coupon", "Cupom inválido"))
+      toast.error(`${t("Invalid coupon", "Cupom inválido")}: ${getErrorMessage(error)}`)
     } finally {
       setCouponLoading(false)
     }
@@ -159,10 +165,11 @@ export default function CheckoutPage() {
     }
 
     setIsProcessing(true)
+    setTransparentResult(null)
     try {
       const order = await createOrderFromCart(appliedCoupon?.code)
 
-      if (selectedPayment === "credit_card") {
+      if (values.payment === "credit_card") {
         const checkout = await createCheckout(order.id, user?.email)
         const redirectUrl = checkout.initPoint || checkout.sandboxInitPoint
         if (redirectUrl) {
@@ -172,7 +179,7 @@ export default function CheckoutPage() {
       } else {
         const [firstName, ...lastNameParts] = values.name.trim().split(" ")
         const lastName = lastNameParts.join(" ").trim() || "Cliente"
-        const method = selectedPayment === "pix" ? "pix" : "boleto"
+        const method = values.payment === "pix" ? "pix" : "boleto"
 
         const result = await createTransparentCheckout({
           orderId: order.id,
@@ -201,7 +208,8 @@ export default function CheckoutPage() {
       setSubmitted(true)
       toast.success(t("Order placed successfully!", "Pedido realizado com sucesso!"))
     } catch (error) {
-      toast.error(t("Failed to place the order.", "Falha ao finalizar pedido."))
+      const message = getErrorMessage(error)
+      toast.error(`${t("Failed to place the order.", "Falha ao finalizar pedido.")} ${message}`)
       console.error("checkout_error", error)
     } finally {
       setIsProcessing(false)
@@ -321,7 +329,7 @@ export default function CheckoutPage() {
               <div className="space-y-2 rounded-lg border border-border p-3">
                 <Label htmlFor="coupon" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("Coupon", "Cupom")}</Label>
                 <div className="flex gap-2">
-                  <Input id="coupon" value={couponCode} onChange={(e) => setCouponCode(e.target.value)} className="border-border bg-secondary" />
+                  <Input id="coupon" value={couponCode} onChange={(e) => setCouponCode(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void applyCoupon(); } }} className="border-border bg-secondary" />
                   <Button type="button" variant="outline" onClick={applyCoupon} disabled={couponLoading} className="border-border">
                     {couponLoading ? t("Applying...", "Aplicando...") : t("Apply", "Aplicar")}
                   </Button>
@@ -362,3 +370,4 @@ export default function CheckoutPage() {
     </div>
   )
 }
+
