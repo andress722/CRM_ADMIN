@@ -17,15 +17,46 @@ type OrderStatusConfig = {
   value: Order['status'];
   label: string;
   icon: LucideIcon;
-  color: 'yellow' | 'blue' | 'cyan' | 'green' | 'red';
+  activeFilterClass: string;
+  badgeClass: string;
 };
 
 const ORDER_STATUSES: OrderStatusConfig[] = [
-  { value: 'Pending', label: 'Pending', icon: Clock, color: 'yellow' },
-  { value: 'Processing', label: 'Processing', icon: AlertCircle, color: 'blue' },
-  { value: 'Shipped', label: 'Shipped', icon: Truck, color: 'cyan' },
-  { value: 'Delivered', label: 'Delivered', icon: CheckCircle, color: 'green' },
-  { value: 'Cancelled', label: 'Cancelled', icon: XCircle, color: 'red' },
+  {
+    value: 'Pending',
+    label: 'Pending',
+    icon: Clock,
+    activeFilterClass: 'bg-yellow-600 text-white',
+    badgeClass: 'text-yellow-400',
+  },
+  {
+    value: 'Processing',
+    label: 'Processing',
+    icon: AlertCircle,
+    activeFilterClass: 'bg-blue-600 text-white',
+    badgeClass: 'text-blue-400',
+  },
+  {
+    value: 'Shipped',
+    label: 'Shipped',
+    icon: Truck,
+    activeFilterClass: 'bg-cyan-600 text-white',
+    badgeClass: 'text-cyan-400',
+  },
+  {
+    value: 'Delivered',
+    label: 'Delivered',
+    icon: CheckCircle,
+    activeFilterClass: 'bg-green-600 text-white',
+    badgeClass: 'text-green-400',
+  },
+  {
+    value: 'Cancelled',
+    label: 'Cancelled',
+    icon: XCircle,
+    activeFilterClass: 'bg-red-600 text-white',
+    badgeClass: 'text-red-400',
+  },
 ];
 
 export default function OrdersPage() {
@@ -58,7 +89,6 @@ export default function OrdersPage() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-white">Orders</h1>
@@ -66,7 +96,6 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setSelectedStatus(undefined)}
@@ -84,7 +113,7 @@ export default function OrdersPage() {
             onClick={() => setSelectedStatus(status.value)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               selectedStatus === status.value
-                ? `bg-${status.color}-600 text-white`
+                ? status.activeFilterClass
                 : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
             }`}
           >
@@ -94,7 +123,6 @@ export default function OrdersPage() {
         ))}
       </div>
 
-      {/* Loading State */}
       {isLoading && (
         <div className="space-y-2">
           {[1, 2, 3, 4, 5].map((i) => (
@@ -106,14 +134,12 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {/* Error State */}
       {error && (
         <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-4">
           <p className="text-red-400">Failed to load orders</p>
         </div>
       )}
 
-      {/* Orders Table */}
       {!isLoading && !error && (
         <div className="border border-slate-700 rounded-lg overflow-hidden">
           <table className="w-full">
@@ -156,9 +182,9 @@ export default function OrdersPage() {
                         {order.items?.length || 0} items
                       </td>
                       <td className="px-6 py-4 text-sm">
-                        <div className="flex items-center gap-2">
-                          <StatusIcon className={`w-4 h-4 text-${statusConfig?.color}-400`} />
-                          <span className={`font-medium text-${statusConfig?.color}-400`}>
+                        <div className={`flex items-center gap-2 ${statusConfig?.badgeClass || 'text-slate-300'}`}>
+                          <StatusIcon className="w-4 h-4" />
+                          <span className="font-medium">
                             {statusConfig?.label || order.status}
                           </span>
                         </div>
@@ -177,7 +203,6 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {/* Pagination */}
       {!isLoading && !error && totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
           <button
@@ -214,7 +239,6 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {/* Order Details Modal */}
       {selectedOrder && (
         <OrderDetailsModal
           order={selectedOrder}
