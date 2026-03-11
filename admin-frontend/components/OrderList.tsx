@@ -1,16 +1,17 @@
-// Listagem de pedidos com filtros avançados
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ADMIN_API_URL } from "../src/services/endpoints";
 import OrderDetailsModal from "./OrderDetailsModal";
 import OrderExport from "./OrderExport";
 
-interface Order {
+type Order = {
   id: string;
   customerName: string;
   status: string;
   createdAt: string;
   totalAmount: number;
-}
+};
+
+type OrdersApiResponse = Order[] | { data?: Order[] };
 
 export default function OrderList() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -18,37 +19,41 @@ export default function OrderList() {
   const [statusFilter, setStatusFilter] = useState("");
   const [customerFilter, setCustomerFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`${ADMIN_API_URL}/admin/orders`)
-      .then((res) => res.json())
-      .then((data) => {
-        setOrders(data);
-        setLoading(false);
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to load orders (${res.status})`);
+        return res.json() as Promise<OrdersApiResponse>;
       })
-      .catch(() => setLoading(false));
+      .then((payload) => {
+        const list = Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : [];
+        setOrders(list);
+      })
+      .catch(() => setOrders([]))
+      .finally(() => setLoading(false));
   }, []);
 
-  const filtered = orders.filter(
-    (order) =>
-      (!statusFilter || order.status === statusFilter) &&
-      (!customerFilter ||
-        order.customerName
-          .toLowerCase()
-          .includes(customerFilter.toLowerCase())) &&
-      (!dateFilter || order.createdAt.startsWith(dateFilter)),
+  const filtered = useMemo(
+    () =>
+      orders.filter(
+        (order) =>
+          (!statusFilter || order.status === statusFilter) &&
+          (!customerFilter || (order.customerName || "").toLowerCase().includes(customerFilter.toLowerCase())) &&
+          (!dateFilter || (order.createdAt || "").startsWith(dateFilter)),
+      ),
+    [orders, statusFilter, customerFilter, dateFilter],
   );
-
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
   return (
     <div className="p-4">
-      <h2 className="text-xl font-bold mb-4">Pedidos</h2>
-      <div className="flex gap-4 mb-4">
+      <h2 className="mb-4 text-xl font-bold">Pedidos</h2>
+      <div className="mb-4 flex flex-wrap gap-2">
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="border rounded px-2 py-1"
+          className="rounded border px-2 py-1"
         >
           <option value="">Status</option>
           <option value="Pending">Pendente</option>
@@ -61,13 +66,13 @@ export default function OrderList() {
           value={customerFilter}
           onChange={(e) => setCustomerFilter(e.target.value)}
           placeholder="Cliente"
-          className="border rounded px-2 py-1"
+          className="rounded border px-2 py-1"
         />
         <input
           value={dateFilter}
           onChange={(e) => setDateFilter(e.target.value)}
           placeholder="Data (YYYY-MM-DD)"
-          className="border rounded px-2 py-1"
+          className="rounded border px-2 py-1"
         />
       </div>
       <OrderExport orders={filtered} />
@@ -78,29 +83,25 @@ export default function OrderList() {
           <table className="min-w-full border text-xs sm:text-sm">
             <thead>
               <tr className="bg-gray-100">
-                <th className="p-2 whitespace-nowrap">ID</th>
-                <th className="p-2 whitespace-nowrap">Cliente</th>
-                <th className="p-2 whitespace-nowrap">Status</th>
-                <th className="p-2 whitespace-nowrap">Data</th>
-                <th className="p-2 whitespace-nowrap">Total</th>
-                <th className="p-2 whitespace-nowrap">Ações</th>
+                <th className="whitespace-nowrap p-2">ID</th>
+                <th className="whitespace-nowrap p-2">Cliente</th>
+                <th className="whitespace-nowrap p-2">Status</th>
+                <th className="whitespace-nowrap p-2">Data</th>
+                <th className="whitespace-nowrap p-2">Total</th>
+                <th className="whitespace-nowrap p-2">Acoes</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((order) => (
                 <tr key={order.id} className="border-b">
-                  <td className="p-2 whitespace-nowrap">{order.id}</td>
-                  <td className="p-2 whitespace-nowrap">
-                    {order.customerName}
-                  </td>
-                  <td className="p-2 whitespace-nowrap">{order.status}</td>
-                  <td className="p-2 whitespace-nowrap">{order.createdAt}</td>
-                  <td className="p-2 whitespace-nowrap">
-                    R$ {order.totalAmount.toFixed(2)}
-                  </td>
-                  <td className="p-2 whitespace-nowrap">
+                  <td className="whitespace-nowrap p-2">{order.id}</td>
+                  <td className="whitespace-nowrap p-2">{order.customerName || "N/A"}</td>
+                  <td className="whitespace-nowrap p-2">{order.status}</td>
+                  <td className="whitespace-nowrap p-2">{order.createdAt}</td>
+                  <td className="whitespace-nowrap p-2">R$ {Number(order.totalAmount || 0).toFixed(2)}</td>
+                  <td className="whitespace-nowrap p-2">
                     <button
-                      className="bg-gray-200 px-2 py-1 rounded"
+                      className="rounded bg-gray-200 px-2 py-1"
                       onClick={() => setSelectedOrderId(order.id)}
                     >
                       Detalhes
@@ -121,4 +122,3 @@ export default function OrderList() {
     </div>
   );
 }
-
