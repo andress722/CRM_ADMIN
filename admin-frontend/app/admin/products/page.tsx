@@ -163,6 +163,16 @@ export default function ProductsPage() {
         url: `${endpoints.admin.products}/${editingProduct.id}`,
         data: validation.payload,
       });
+
+      if (data.imageFile) {
+        const formData = new FormData();
+        formData.append('file', data.imageFile);
+        await addImageMutation.mutateAsync({
+          url: endpoints.admin.productImages(editingProduct.id),
+          formData,
+        });
+      }
+
       queryClient.invalidateQueries({ queryKey: ['products'] });
       setEditingProduct(null);
       addToast('✅ Product updated successfully!', 'success');
@@ -423,3 +433,4 @@ export default function ProductsPage() {
     </div>
   );
 }
+

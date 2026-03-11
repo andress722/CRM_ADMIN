@@ -8,7 +8,7 @@ interface ProductModalProps {
   isOpen?: boolean;
   product?: Product | null;
   onClose: () => void;
-  onSubmit: (product: Partial<Product>) => Promise<void>;
+  onSubmit: (product: Partial<Product> & { imageFile?: File | null }) => Promise<void>;
   initialData?: Product | null;
   isLoading: boolean;
 }
@@ -46,7 +46,7 @@ function ProductModalContent({ product, onClose, onSubmit, initialData, isLoadin
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await onSubmit(formData);
+    await onSubmit({ ...formData, imageFile });
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -210,3 +210,4 @@ export function ProductModal({ isOpen, product, onClose, onSubmit, initialData, 
     />
   );
 }
+
