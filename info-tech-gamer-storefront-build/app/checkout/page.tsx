@@ -68,8 +68,30 @@ const paymentMethods = [
 
 const onlyDigits = (value: string) => value.replace(/\D/g, "")
 const MP_SDK_URL = "https://sdk.mercadopago.com/js/v2"
-const MP_PUBLIC_KEY = process.env.NEXT_PUBLIC_MP_PUBLIC_KEY || process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY || ""
+const MP_PUBLIC_KEY_RAW = process.env.NEXT_PUBLIC_MP_PUBLIC_KEY || process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY || ""
 
+
+function normalizeMercadoPagoPublicKey(raw: string): string {
+  const value = String(raw || "").trim()
+  if (!value) return ""
+
+  if (value.includes("public_key=")) {
+    const queryLike = value.includes("?") ? value.split("?").slice(1).join("?") : value
+    const params = new URLSearchParams(queryLike)
+    const fromParam = params.get("public_key")
+    if (fromParam) return fromParam.trim()
+
+    const match = value.match(/public_key=([^&\s]+)/i)
+    if (match?.[1]) return match[1].trim()
+  }
+
+  const tokenMatch = value.match(/(TEST-[A-Za-z0-9\-]+|APP_USR-[A-Za-z0-9\-]+)/)
+  if (tokenMatch?.[1]) return tokenMatch[1]
+
+  return value
+}
+
+const MP_PUBLIC_KEY = normalizeMercadoPagoPublicKey(MP_PUBLIC_KEY_RAW)
 let mpSdkPromise: Promise<void> | null = null
 
 function ensureMercadoPagoSdkLoaded(): Promise<void> {
@@ -99,6 +121,10 @@ function ensureMercadoPagoSdkLoaded(): Promise<void> {
 async function tokenizeCard(values: CheckoutFormValues): Promise<{ token: string; paymentMethodId: string; installments: number }> {
   if (!MP_PUBLIC_KEY) {
     throw new Error("Missing NEXT_PUBLIC_MP_PUBLIC_KEY")
+  }
+
+  if (!/^TEST-|^APP_USR-/.test(MP_PUBLIC_KEY)) {
+    throw new Error("Invalid Mercado Pago public key format")
   }
 
   await ensureMercadoPagoSdkLoaded()
@@ -565,4 +591,5 @@ export default function CheckoutPage() {
     </div>
   )
 }
+
 
