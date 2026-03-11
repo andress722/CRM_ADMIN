@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useApiMutation, useApiQuery } from '@/hooks/useApi';
-import { endpoints } from '@/services/endpoints';
+import { API_BASE, endpoints } from '@/services/endpoints';
 import { useToast } from '@/contexts/ToastContext';
 
 type CouponItem = {
@@ -52,9 +52,8 @@ function normalizeBannerLink(link: string): string {
 function getBannerValidationError(banner: BannerItem): string | null {
   if (!banner.title.trim()) return 'Titulo do banner e obrigatorio.';
   if (!banner.image.trim()) return 'Imagem do banner e obrigatoria (upload ou URL).';
-  if (banner.startDate && banner.endDate && new Date(banner.startDate) > new Date(banner.endDate)) {
-    return 'Data inicial nao pode ser maior que a data final.';
-  }
+  const inlineDateError = getInlineBannerDateError(banner.startDate, banner.endDate);
+  if (inlineDateError) return inlineDateError;
   return null;
 }
 
@@ -65,6 +64,38 @@ function isValidCouponDiscount(value: number): boolean {
 function toDateTimeLocal(date: Date): string {
   const pad = (v: number) => String(v).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+function resolveMediaUrl(url: string): string {
+  const value = (url || '').trim();
+  if (!value) return '';
+  if (value.startsWith('data:') || value.startsWith('blob:')) return value;
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith('//')) return `https:${value}`;
+  if (value.startsWith('/')) return `${API_BASE}${value}`;
+  return `${API_BASE}/${value}`;
+}
+
+function getInlineBannerDateError(startDate: string, endDate: string): string | null {
+  const pattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+  if (startDate && !pattern.test(startDate)) return 'Data inicial invalida. Use AAAA-MM-DDTHH:mm.';
+  if (endDate && !pattern.test(endDate)) return 'Data final invalida. Use AAAA-MM-DDTHH:mm.';
+
+  const now = Date.now();
+  if (startDate) {
+    const start = new Date(startDate).getTime();
+    if (!Number.isFinite(start)) return 'Data inicial invalida.';
+    if (start < now) return 'Data inicial nao pode ser menor que a data atual.';
+  }
+  if (endDate) {
+    const end = new Date(endDate).getTime();
+    if (!Number.isFinite(end)) return 'Data final invalida.';
+    if (end < now) return 'Data final nao pode ser menor que a data atual.';
+  }
+  if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+    return 'Data inicial nao pode ser maior que a data final.';
+  }
+
+  return null;
 }
 
 export default function PromotionsPage() {
@@ -98,6 +129,7 @@ export default function PromotionsPage() {
   const [couponDraft, setCouponDraft] = useState<CouponItem | null>(null);
 
   const [newBanner, setNewBanner] = useState<BannerItem>(defaultBanner);
+  const [newBannerDateError, setNewBannerDateError] = useState<string>('');
   const [editingBannerId, setEditingBannerId] = useState<string | null>(null);
   const [bannerDraft, setBannerDraft] = useState<BannerItem | null>(null);
 
@@ -108,6 +140,7 @@ export default function PromotionsPage() {
   };
 
   const clearBannerWindow = () => {
+    setNewBannerDateError('');
     setNewBanner((b) => ({ ...b, startDate: '', endDate: '' }));
   };
 
@@ -166,6 +199,13 @@ export default function PromotionsPage() {
   };
 
   const createBanner = async () => {
+    const inlineDateError = getInlineBannerDateError(newBanner.startDate, newBanner.endDate);
+    setNewBannerDateError(inlineDateError ?? '');
+    if (inlineDateError) {
+      addToast(`❌ ${inlineDateError}`, 'error');
+      return;
+    }
+
     const payload = { ...newBanner, link: normalizeBannerLink(newBanner.link) };
     const error = getBannerValidationError(payload);
     if (error) {
@@ -179,6 +219,7 @@ export default function PromotionsPage() {
         data: { ...payload, id: '' },
       });
       setNewBanner(defaultBanner);
+      setNewBannerDateError('');
       refreshBanners();
       addToast('✅ Banner criado', 'success');
     } catch {
@@ -440,16 +481,17 @@ export default function PromotionsPage() {
                 type="datetime-local"
                 title="Inicio da exibicao"
                 value={newBanner.startDate}
-                onChange={(e) => setNewBanner((b) => ({ ...b, startDate: e.target.value }))}
+                onChange={(e) => { const nextStart = e.target.value; setNewBanner((b) => ({ ...b, startDate: nextStart })); setNewBannerDateError(getInlineBannerDateError(nextStart, newBanner.endDate) ?? ""); }}
                 className="rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-white"
               />
               <input
                 type="datetime-local"
                 title="Fim da exibicao"
                 value={newBanner.endDate}
-                onChange={(e) => setNewBanner((b) => ({ ...b, endDate: e.target.value }))}
+                onChange={(e) => { const nextEnd = e.target.value; setNewBanner((b) => ({ ...b, endDate: nextEnd })); setNewBannerDateError(getInlineBannerDateError(newBanner.startDate, nextEnd) ?? ""); }}
                 className="rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-white"
               />
+              {newBannerDateError && <p className="text-xs text-red-400">{newBannerDateError}</p>}
               <label className="flex items-center gap-2 rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-slate-300">
                 <input
                   type="checkbox"
@@ -482,7 +524,7 @@ export default function PromotionsPage() {
             {newBanner.image && (
               <div className="rounded border border-slate-700 p-2 w-fit bg-slate-900/70">
                 <p className="text-xs text-slate-400 mb-1">Preview</p>
-                <img src={newBanner.image} alt="Preview do banner" className="h-20 w-40 rounded object-cover" />
+                <img src={resolveMediaUrl(newBanner.image)} alt="Preview do banner" className="h-20 w-40 rounded object-cover" />
               </div>
             )}
 
@@ -510,7 +552,7 @@ export default function PromotionsPage() {
                       <tr key={banner.id} className="border-t border-slate-700">
                         <td className="px-4 py-2 align-top">
                           <div className="space-y-2">
-                            {item.image && <img src={item.image} alt={item.title} className="h-16 w-28 rounded object-cover" />}
+                            {item.image && <img src={resolveMediaUrl(item.image)} alt={item.title} className="h-16 w-28 rounded object-cover" />}
                             <input
                               disabled={!isEditing}
                               value={item.title}
@@ -638,4 +680,7 @@ export default function PromotionsPage() {
     </div>
   );
 }
+
+
+
 

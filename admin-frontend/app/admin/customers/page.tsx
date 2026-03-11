@@ -44,21 +44,25 @@ export default function CustomersPage() {
   const viewedQuery = useApiQuery<CustomerViewedItem[]>(
     ['customer-viewed', selectedCustomer?.id],
     viewedUrl,
-    { enabled: !!selectedCustomer }
+    { enabled: !!selectedCustomer, retry: false }
   );
 
   const favoritedQuery = useApiQuery<CustomerFavoritedItem[]>(
     ['customer-favorited', selectedCustomer?.id],
     favoritedUrl,
-    { enabled: !!selectedCustomer }
+    { enabled: !!selectedCustomer, retry: false }
   );
 
   const suggestedQuery = useApiQuery<CustomerSuggestedItem[]>(
     ['customer-suggested', selectedCustomer?.id],
     suggestedUrl,
-    { enabled: !!selectedCustomer }
+    { enabled: !!selectedCustomer, retry: false }
   );
 
+  const customerActionsUnavailable = [viewedQuery.error, favoritedQuery.error, suggestedQuery.error].some((err) => {
+    const status = (err as { response?: { status?: number } } | null)?.response?.status;
+    return status === 404;
+  });
   const customers = customersData?.data || [];
   const totalPages = customersData?.pagination?.totalPages || 1;
 
@@ -179,6 +183,12 @@ export default function CustomersPage() {
               </button>
             </div>
 
+            {customerActionsUnavailable && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+                Customer actions indisponiveis neste ambiente (endpoint retornou 404).
+              </div>
+            )}
+
             <div className="grid md:grid-cols-3 gap-4">
               <section className="bg-slate-800/60 border border-slate-700 rounded-lg p-3">
                 <h3 className="text-sm font-semibold text-white mb-2">Itens vistos</h3>
@@ -234,3 +244,5 @@ export default function CustomersPage() {
     </div>
   );
 }
+
+

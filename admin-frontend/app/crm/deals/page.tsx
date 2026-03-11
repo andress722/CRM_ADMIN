@@ -217,12 +217,12 @@ export default function DealsPage() {
         <BackButton />
         <div>
           <h1 className="text-2xl font-bold">CRM • Deals</h1>
-          <p className="text-slate-500">Pipeline com previsão de receita por etapa.</p>
+          <p className="text-slate-400">Pipeline com previsão de receita por etapa.</p>
         </div>
       </header>
 
-      <section className="bg-white border rounded-xl p-4 shadow flex flex-wrap gap-4">
-        {loading && <div className="text-sm text-slate-500">Carregando negócios...</div>}
+      <section className="rounded-xl border border-slate-700 bg-slate-900/60 p-4 shadow shadow-black/20 flex flex-wrap gap-4">
+        {loading && <div className="text-sm text-slate-400">Carregando negócios...</div>}
         {error && <div className="text-sm text-red-500">{error}</div>}
         {STAGES.map((stage) => (
           <div key={stage} className="flex-1 min-w-[160px]">
@@ -232,17 +232,17 @@ export default function DealsPage() {
         ))}
       </section>
 
-      <section className="bg-white border rounded-xl p-4 shadow space-y-4">
+      <section className="rounded-xl border border-slate-700 bg-slate-900/60 p-4 shadow shadow-black/20 space-y-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <input
-            className="border rounded px-3 py-2 w-full md:max-w-md"
+            className="border border-slate-700 bg-slate-950 text-slate-100 rounded px-3 py-2 w-full md:max-w-md"
             placeholder="Buscar negócios por título, empresa ou responsável"
             value={filter}
             onChange={(event) => setFilter(event.target.value)}
           />
           <div className="flex items-center gap-3 text-sm text-slate-500">
             <span>{filteredDeals.length} negócios</span>
-            <Link href="/crm/deals/pipeline" className="text-blue-600 hover:underline">
+            <Link href="/crm/deals/pipeline" className="text-blue-400 hover:underline">
               Ver pipeline
             </Link>
           </div>
@@ -253,7 +253,7 @@ export default function DealsPage() {
             type="button"
             onClick={() => handleBulkAction('Email')}
             disabled={bulkEmailing || selectedIds.size === 0}
-            className="border px-3 py-1 rounded disabled:opacity-60"
+            className="border border-slate-700 bg-slate-900 text-slate-200 px-3 py-1 rounded hover:border-slate-500 disabled:opacity-60"
           >
             {bulkEmailing ? 'Enviando...' : 'Enviar email em massa'}
           </button>
@@ -261,19 +261,19 @@ export default function DealsPage() {
             type="button"
             onClick={() => handleBulkAction('Task')}
             disabled={bulkTasking || selectedIds.size === 0}
-            className="border px-3 py-1 rounded disabled:opacity-60"
+            className="border border-slate-700 bg-slate-900 text-slate-200 px-3 py-1 rounded hover:border-slate-500 disabled:opacity-60"
           >
             {bulkTasking ? 'Criando...' : 'Criar tarefas em massa'}
           </button>
           <DateInput
-            className="border rounded px-2 py-1 text-sm"
+            className="border border-slate-700 bg-slate-950 text-slate-100 rounded px-2 py-1 text-sm"
             value={bulkTaskDueDate}
             onChange={setBulkTaskDueDate}
             placeholder="YYYY-MM-DD"
           />
           <div className="flex items-center gap-2">
             <input
-              className="border rounded px-2 py-1 text-sm"
+              className="border border-slate-700 bg-slate-950 text-slate-100 rounded px-2 py-1 text-sm"
               placeholder="Novo responsável"
               value={bulkOwner}
               onChange={(event) => setBulkOwner(event.target.value)}
@@ -282,7 +282,7 @@ export default function DealsPage() {
               type="button"
               onClick={handleBulkOwner}
               disabled={bulkReassigning || selectedIds.size === 0 || !bulkOwner.trim()}
-              className="border px-3 py-1 rounded disabled:opacity-60"
+              className="border border-slate-700 bg-slate-900 text-slate-200 px-3 py-1 rounded hover:border-slate-500 disabled:opacity-60"
             >
               {bulkReassigning ? 'Atribuindo...' : 'Reatribuir'}
             </button>
@@ -293,13 +293,13 @@ export default function DealsPage() {
               onChange={(value) => setBulkStage(value as Stage | '')}
               options={STAGES.map((stage) => ({ value: stage, label: stage }))}
               placeholder="Mover para etapa"
-              buttonClassName="border rounded px-2 py-1 text-sm"
+              buttonClassName="border border-slate-700 bg-slate-950 text-slate-100 rounded px-2 py-1 text-sm"
             />
             <button
               type="button"
               onClick={handleBulkStage}
               disabled={bulkStageUpdating || selectedIds.size === 0 || !bulkStage}
-              className="border px-3 py-1 rounded disabled:opacity-60"
+              className="border border-slate-700 bg-slate-900 text-slate-200 px-3 py-1 rounded hover:border-slate-500 disabled:opacity-60"
             >
               {bulkStageUpdating ? 'Movendo...' : 'Atualizar etapa'}
             </button>
@@ -308,13 +308,13 @@ export default function DealsPage() {
 
         <div className="grid md:grid-cols-3 gap-4">
           {STAGES.map((stage) => (
-            <div key={stage} className="bg-slate-50 rounded-lg p-3 border">
+            <div key={stage} className="rounded-lg border border-slate-700 bg-slate-900/50 p-3">
               <h3 className="text-sm font-semibold mb-3">{stage}</h3>
               <div className="space-y-3">
                 {filteredDeals
                   .filter((deal) => deal.stage === stage)
                   .map((deal) => (
-                    <div key={deal.id} className="bg-white border rounded-lg p-3 shadow-sm">
+                    <div key={deal.id} className="rounded-lg border border-slate-700 bg-slate-950/70 p-3">
                       <label className="flex items-center gap-2 text-xs text-slate-500 mb-2">
                         <input
                           type="checkbox"
@@ -326,8 +326,8 @@ export default function DealsPage() {
                       <Link href={`/crm/deals/${deal.id}`} className="font-semibold text-blue-600 hover:underline">
                         {deal.title}
                       </Link>
-                      <p className="text-sm text-slate-500">{deal.company}</p>
-                      <p className="text-sm text-slate-500">Owner: {deal.owner}</p>
+                      <p className="text-sm text-slate-400">{deal.company}</p>
+                      <p className="text-sm text-slate-400">Owner: {deal.owner}</p>
                       <div className="flex items-center justify-between mt-2 text-sm">
                         <span className="font-semibold">R$ {deal.value.toLocaleString()}</span>
                         <span className="text-slate-400">{deal.probability}%</span>
@@ -338,7 +338,7 @@ export default function DealsPage() {
                           value={deal.stage}
                           onChange={(value) => moveDeal(deal.id, value as Stage)}
                           options={STAGES.map((option) => ({ value: option, label: option }))}
-                          buttonClassName="border rounded px-2 py-1 text-sm"
+                          buttonClassName="border border-slate-700 bg-slate-950 text-slate-100 rounded px-2 py-1 text-sm"
                         />
                       </div>
                     </div>
@@ -351,6 +351,7 @@ export default function DealsPage() {
     </div>
   );
 }
+
 
 
 

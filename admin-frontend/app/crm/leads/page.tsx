@@ -306,22 +306,22 @@ export default function LeadsPage() {
         <BackButton />
         <div>
           <h1 className="text-2xl font-bold">CRM • Leads</h1>
-          <p className="text-slate-500">Captação, qualificação e priorização de oportunidades.</p>
+          <p className="text-slate-400">Captação, qualificação e priorização de oportunidades.</p>
         </div>
       </header>
 
-      <section className="bg-white border rounded-xl p-4 shadow space-y-4">
+      <section className="rounded-xl border border-slate-700 bg-slate-900/60 p-4 shadow shadow-black/20 space-y-4">
         <h2 className="text-lg font-semibold">Novo Lead</h2>
         <form onSubmit={handleCreate} className="grid md:grid-cols-6 gap-3">
           <input
-            className="border rounded px-3 py-2 md:col-span-2"
+            className="border border-slate-700 bg-slate-950 text-slate-100 rounded px-3 py-2 md:col-span-2"
             placeholder="Nome"
             value={form.name}
             onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
             required
           />
           <input
-            className="border rounded px-3 py-2 md:col-span-2"
+            className="border border-slate-700 bg-slate-950 text-slate-100 rounded px-3 py-2 md:col-span-2"
             placeholder="Email"
             type="email"
             value={form.email}
@@ -329,14 +329,14 @@ export default function LeadsPage() {
             required
           />
           <input
-            className="border rounded px-3 py-2"
+            className="border border-slate-700 bg-slate-950 text-slate-100 rounded px-3 py-2"
             placeholder="Empresa"
             value={form.company}
             onChange={(event) => setForm((prev) => ({ ...prev, company: event.target.value }))}
             required
           />
           <input
-            className="border rounded px-3 py-2"
+            className="border border-slate-700 bg-slate-950 text-slate-100 rounded px-3 py-2"
             placeholder="Valor (R$)"
             type="number"
             min="0"
@@ -347,19 +347,19 @@ export default function LeadsPage() {
             value={form.source}
             onChange={(value) => setForm((prev) => ({ ...prev, source: value }))}
             options={SOURCES.map((source) => ({ value: source, label: source }))}
-            buttonClassName="border rounded px-3 py-2"
+            buttonClassName="border border-slate-700 bg-slate-950 text-slate-100 rounded px-3 py-2"
           />
-          <button className="bg-blue-600 text-white rounded px-4 py-2 font-semibold">Criar Lead</button>
+          <button className="bg-blue-600 hover:bg-blue-700 text-white rounded px-4 py-2 font-semibold">Criar Lead</button>
         </form>
       </section>
 
-      <section className="bg-white border rounded-xl p-4 shadow space-y-4">
-        {loading && <div className="text-sm text-slate-500">Carregando leads...</div>}
+      <section className="rounded-xl border border-slate-700 bg-slate-900/60 p-4 shadow shadow-black/20 space-y-4">
+        {loading && <div className="text-sm text-slate-400">Carregando leads...</div>}
         {error && <div className="text-sm text-red-500">{error}</div>}
         <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
           <div className="flex gap-3 flex-1">
             <input
-              className="border rounded px-3 py-2 flex-1"
+              className="border border-slate-700 bg-slate-950 text-slate-100 rounded px-3 py-2 flex-1"
               placeholder="Buscar por nome, email ou empresa"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
@@ -369,17 +369,17 @@ export default function LeadsPage() {
               onChange={(value) => setStatusFilter(value as LeadStatus | 'All')}
               options={STATUSES.map((status) => ({ value: status, label: status }))}
               placeholder="Status"
-              buttonClassName="border rounded px-3 py-2"
+              buttonClassName="border border-slate-700 bg-slate-950 text-slate-100 rounded px-3 py-2"
             />
             <Select
               value={sourceFilter}
               onChange={(value) => setSourceFilter(value as (typeof SOURCES)[number] | 'All')}
               options={SOURCES.map((source) => ({ value: source, label: source }))}
               placeholder="Origem"
-              buttonClassName="border rounded px-3 py-2"
+              buttonClassName="border border-slate-700 bg-slate-950 text-slate-100 rounded px-3 py-2"
             />
           </div>
-          <div className="text-sm text-slate-500">{filteredLeads.length} leads encontrados</div>
+          <div className="text-sm text-slate-400">{filteredLeads.length} leads encontrados</div>
         </div>
 
         <BulkActionsBar selectedCount={selectedIds.size}>
@@ -387,7 +387,7 @@ export default function LeadsPage() {
             type="button"
             onClick={() => handleBulkAction('Email')}
             disabled={bulkEmailing || selectedIds.size === 0}
-            className="border px-3 py-1 rounded disabled:opacity-60"
+            className="border border-slate-700 bg-slate-900 text-slate-200 px-3 py-1 rounded hover:border-slate-500 disabled:opacity-60"
           >
             {bulkEmailing ? 'Enviando...' : 'Enviar email em massa'}
           </button>
@@ -395,19 +395,19 @@ export default function LeadsPage() {
             type="button"
             onClick={() => handleBulkAction('Task')}
             disabled={bulkTasking || selectedIds.size === 0}
-            className="border px-3 py-1 rounded disabled:opacity-60"
+            className="border border-slate-700 bg-slate-900 text-slate-200 px-3 py-1 rounded hover:border-slate-500 disabled:opacity-60"
           >
             {bulkTasking ? 'Criando...' : 'Criar tarefas em massa'}
           </button>
           <DateInput
-            className="border rounded px-2 py-1 text-sm"
+            className="border border-slate-700 bg-slate-950 text-slate-100 rounded px-2 py-1 text-sm"
             value={bulkTaskDueDate}
             onChange={setBulkTaskDueDate}
             placeholder="YYYY-MM-DD"
           />
           <div className="flex items-center gap-2">
             <input
-              className="border rounded px-2 py-1 text-sm"
+              className="border border-slate-700 bg-slate-950 text-slate-100 rounded px-2 py-1 text-sm"
               placeholder="Novo responsável"
               value={bulkOwner}
               onChange={(event) => setBulkOwner(event.target.value)}
@@ -416,7 +416,7 @@ export default function LeadsPage() {
               type="button"
               onClick={handleBulkOwner}
               disabled={bulkReassigning || selectedIds.size === 0 || !bulkOwner.trim()}
-              className="border px-3 py-1 rounded disabled:opacity-60"
+              className="border border-slate-700 bg-slate-900 text-slate-200 px-3 py-1 rounded hover:border-slate-500 disabled:opacity-60"
             >
               {bulkReassigning ? 'Atribuindo...' : 'Reatribuir'}
             </button>
@@ -427,13 +427,13 @@ export default function LeadsPage() {
               onChange={(value) => setBulkStatus(value as LeadStatus | '')}
               options={STATUSES.map((status) => ({ value: status, label: status }))}
               placeholder="Atualizar status"
-              buttonClassName="border rounded px-2 py-1 text-sm"
+              buttonClassName="border border-slate-700 bg-slate-950 text-slate-100 rounded px-2 py-1 text-sm"
             />
             <button
               type="button"
               onClick={handleBulkStatus}
               disabled={bulkStatusUpdating || selectedIds.size === 0 || !bulkStatus}
-              className="border px-3 py-1 rounded disabled:opacity-60"
+              className="border border-slate-700 bg-slate-900 text-slate-200 px-3 py-1 rounded hover:border-slate-500 disabled:opacity-60"
             >
               {bulkStatusUpdating ? 'Atualizando...' : 'Aplicar'}
             </button>
@@ -441,51 +441,51 @@ export default function LeadsPage() {
         </BulkActionsBar>
 
         <div className="overflow-auto">
-          <table className="w-full border">
+          <table className="w-full border border-slate-700">
             <thead>
-              <tr className="bg-slate-50 text-left">
-                <th className="p-2 border">
+              <tr className="bg-slate-800/70 text-left text-slate-200">
+                <th className="p-2 border border-slate-700">
                   <input
                     type="checkbox"
                     checked={filteredLeads.length > 0 && filteredLeads.every((lead) => selectedIds.has(lead.id))}
                     onChange={toggleSelectAll}
                   />
                 </th>
-                <th className="p-2 border">Lead</th>
-                <th className="p-2 border">Empresa</th>
-                <th className="p-2 border">Responsável</th>
-                <th className="p-2 border">Valor</th>
-                <th className="p-2 border">Origem</th>
-                <th className="p-2 border">Status</th>
-                <th className="p-2 border">Criado em</th>
+                <th className="p-2 border border-slate-700">Lead</th>
+                <th className="p-2 border border-slate-700">Empresa</th>
+                <th className="p-2 border border-slate-700">Responsável</th>
+                <th className="p-2 border border-slate-700">Valor</th>
+                <th className="p-2 border border-slate-700">Origem</th>
+                <th className="p-2 border border-slate-700">Status</th>
+                <th className="p-2 border border-slate-700">Criado em</th>
               </tr>
             </thead>
             <tbody>
               {filteredLeads.map((lead) => (
-                <tr key={lead.id} className="hover:bg-slate-50">
-                  <td className="p-2 border">
+                <tr key={lead.id} className="hover:bg-slate-800/40">
+                  <td className="p-2 border border-slate-700">
                     <input
                       type="checkbox"
                       checked={selectedIds.has(lead.id)}
                       onChange={() => toggleSelect(lead.id)}
                     />
                   </td>
-                  <td className="p-2 border">
+                  <td className="p-2 border border-slate-700">
                     <Link href={`/crm/leads/${lead.id}`} className="font-semibold text-blue-600 hover:underline">
                       {lead.name}
                     </Link>
-                    <div className="text-xs text-slate-500">{lead.email}</div>
+                    <div className="text-xs text-slate-400">{lead.email}</div>
                   </td>
-                  <td className="p-2 border">{lead.company}</td>
+                  <td className="p-2 border border-slate-700">{lead.company}</td>
                   <td className="p-2 border text-sm text-slate-500">{lead.owner || '—'}</td>
-                  <td className="p-2 border">R$ {lead.value.toLocaleString()}</td>
-                  <td className="p-2 border">{lead.source}</td>
-                  <td className="p-2 border">
+                  <td className="p-2 border border-slate-700">R$ {lead.value.toLocaleString()}</td>
+                  <td className="p-2 border border-slate-700">{lead.source}</td>
+                  <td className="p-2 border border-slate-700">
                     <Select
                       value={lead.status}
                       onChange={(value) => updateStatus(lead.id, value as LeadStatus)}
                       options={STATUSES.map((status) => ({ value: status, label: status }))}
-                      buttonClassName="border rounded px-2 py-1"
+                      buttonClassName="border border-slate-700 bg-slate-950 text-slate-100 rounded px-2 py-1"
                     />
                   </td>
                   <td className="p-2 border text-sm text-slate-500">{lead.createdAt}</td>
@@ -498,6 +498,7 @@ export default function LeadsPage() {
     </div>
   );
 }
+
 
 
 

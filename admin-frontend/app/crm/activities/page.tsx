@@ -222,16 +222,16 @@ export default function ActivitiesPage() {
         <BackButton />
         <div>
           <h1 className="text-2xl font-bold">CRM • Atividades</h1>
-          <p className="text-slate-500">Agenda de tarefas, reuniões e follow-ups.</p>
+          <p className="text-slate-400">Agenda de tarefas, reuniões e follow-ups.</p>
         </div>
       </header>
 
-      <section className="bg-white border rounded-xl p-4 shadow space-y-4">
-        {loading && <div className="text-sm text-slate-500">Carregando atividades...</div>}
+      <section className="rounded-xl border border-slate-700 bg-slate-900/60 p-4 shadow shadow-black/20 space-y-4">
+        {loading && <div className="text-sm text-slate-400">Carregando atividades...</div>}
         {error && <div className="text-sm text-red-500">{error}</div>}
         <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
           <input
-            className="border rounded px-3 py-2 flex-1"
+            className="border border-slate-700 bg-slate-950 text-slate-100 rounded px-3 py-2 flex-1"
             placeholder="Buscar por assunto, contato ou responsável"
             value={filter}
             onChange={(event) => setFilter(event.target.value)}
@@ -241,7 +241,7 @@ export default function ActivitiesPage() {
             onChange={(value) => setTypeFilter(value as Activity['type'] | 'All')}
             options={TYPES.map((type) => ({ value: type, label: type }))}
             placeholder="Tipo"
-            buttonClassName="border rounded px-3 py-2"
+            buttonClassName="border border-slate-700 bg-slate-950 text-slate-100 rounded px-3 py-2"
           />
         </div>
 
@@ -250,7 +250,7 @@ export default function ActivitiesPage() {
             type="button"
             onClick={() => handleBulkStatus('Done')}
             disabled={bulkUpdating || selectedIds.size === 0}
-            className="border px-3 py-1 rounded disabled:opacity-60"
+            className="border border-slate-700 bg-slate-900 text-slate-200 px-3 py-1 rounded hover:border-slate-500 disabled:opacity-60"
           >
             {bulkUpdating ? 'Atualizando...' : 'Marcar como feito'}
           </button>
@@ -258,13 +258,13 @@ export default function ActivitiesPage() {
             type="button"
             onClick={() => handleBulkStatus('Open')}
             disabled={bulkUpdating || selectedIds.size === 0}
-            className="border px-3 py-1 rounded disabled:opacity-60"
+            className="border border-slate-700 bg-slate-900 text-slate-200 px-3 py-1 rounded hover:border-slate-500 disabled:opacity-60"
           >
             {bulkUpdating ? 'Atualizando...' : 'Reabrir atividades'}
           </button>
           <div className="flex items-center gap-2">
             <input
-              className="border rounded px-2 py-1 text-sm"
+              className="border border-slate-700 bg-slate-950 text-slate-100 rounded px-2 py-1 text-sm"
               placeholder="Novo responsável"
               value={bulkOwner}
               onChange={(event) => setBulkOwner(event.target.value)}
@@ -273,14 +273,14 @@ export default function ActivitiesPage() {
               type="button"
               onClick={handleBulkOwner}
               disabled={bulkReassigning || selectedIds.size === 0 || !bulkOwner.trim()}
-              className="border px-3 py-1 rounded disabled:opacity-60"
+              className="border border-slate-700 bg-slate-900 text-slate-200 px-3 py-1 rounded hover:border-slate-500 disabled:opacity-60"
             >
               {bulkReassigning ? 'Atribuindo...' : 'Reatribuir'}
             </button>
           </div>
           <div className="flex items-center gap-2">
             <DateInput
-              className="border rounded px-2 py-1 text-sm"
+              className="border border-slate-700 bg-slate-950 text-slate-100 rounded px-2 py-1 text-sm"
               value={bulkDueDate}
               onChange={setBulkDueDate}
               placeholder="YYYY-MM-DD"
@@ -289,7 +289,7 @@ export default function ActivitiesPage() {
               type="button"
               onClick={handleBulkDueDate}
               disabled={bulkDateUpdating || selectedIds.size === 0 || !bulkDueDate}
-              className="border px-3 py-1 rounded disabled:opacity-60"
+              className="border border-slate-700 bg-slate-900 text-slate-200 px-3 py-1 rounded hover:border-slate-500 disabled:opacity-60"
             >
               {bulkDateUpdating ? 'Atualizando...' : 'Atualizar prazo'}
             </button>
@@ -297,44 +297,44 @@ export default function ActivitiesPage() {
         </BulkActionsBar>
 
         <div className="overflow-auto">
-          <table className="w-full border">
+          <table className="w-full border border-slate-700">
             <thead>
-              <tr className="bg-slate-50 text-left">
-                <th className="p-2 border">
+              <tr className="bg-slate-800/70 text-left text-slate-200">
+                <th className="p-2 border border-slate-700">
                   <input
                     type="checkbox"
                     checked={filtered.length > 0 && filtered.every((activity) => selectedIds.has(activity.id))}
                     onChange={toggleSelectAll}
                   />
                 </th>
-                <th className="p-2 border">Atividade</th>
-                <th className="p-2 border">Contato</th>
-                <th className="p-2 border">Responsável</th>
-                <th className="p-2 border">Tipo</th>
-                <th className="p-2 border">Prazo</th>
-                <th className="p-2 border">Status</th>
+                <th className="p-2 border border-slate-700">Atividade</th>
+                <th className="p-2 border border-slate-700">Contato</th>
+                <th className="p-2 border border-slate-700">Responsável</th>
+                <th className="p-2 border border-slate-700">Tipo</th>
+                <th className="p-2 border border-slate-700">Prazo</th>
+                <th className="p-2 border border-slate-700">Status</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((activity) => (
-                <tr key={activity.id} className="hover:bg-slate-50">
-                  <td className="p-2 border">
+                <tr key={activity.id} className="hover:bg-slate-800/40">
+                  <td className="p-2 border border-slate-700">
                     <input
                       type="checkbox"
                       checked={selectedIds.has(activity.id)}
                       onChange={() => toggleSelect(activity.id)}
                     />
                   </td>
-                  <td className="p-2 border">
+                  <td className="p-2 border border-slate-700">
                     <Link href={`/crm/activities/${activity.id}`} className="font-semibold text-blue-600 hover:underline">
                       {activity.subject}
                     </Link>
                   </td>
-                  <td className="p-2 border">{activity.contact}</td>
-                  <td className="p-2 border">{activity.owner}</td>
-                  <td className="p-2 border">{activity.type}</td>
+                  <td className="p-2 border border-slate-700">{activity.contact}</td>
+                  <td className="p-2 border border-slate-700">{activity.owner}</td>
+                  <td className="p-2 border border-slate-700">{activity.type}</td>
                   <td className="p-2 border text-sm text-slate-500">{activity.dueDate}</td>
-                  <td className="p-2 border">
+                  <td className="p-2 border border-slate-700">
                     <button
                       type="button"
                       onClick={() => toggleStatus(activity.id)}
@@ -358,6 +358,7 @@ export default function ActivitiesPage() {
     </div>
   );
 }
+
 
 
 

@@ -2,7 +2,7 @@
 
 import { useApiQuery, useApiMutation, useApiUpload } from '@/hooks/useApi';
 import { useToast } from '@/contexts/ToastContext';
-import { endpoints, getApiUrl } from '@/services/endpoints';
+import { API_BASE, endpoints, getApiUrl } from '@/services/endpoints';
 import { Product, PaginatedResponse } from '@/types/api';
 import { ProductModal } from '@/components/ProductModal';
 import { Plus, Edit2, Trash2, Search, Star } from 'lucide-react';
@@ -24,6 +24,17 @@ interface ProductValidationResult {
 }
 
 const SKU_PATTERN = /^[a-zA-Z0-9_-]{3,50}$/;
+
+function resolveMediaUrl(url?: string | null): string {
+  const value = String(url || "").trim();
+  if (!value) return "";
+  if (value.startsWith("data:") || value.startsWith("blob:")) return value;
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith("//")) return `https:${value}`;
+  if (value.startsWith("/")) return `${API_BASE}${value}`;
+  return `${API_BASE}/${value}`;
+}
+
 
 function extractErrorMessage(error: unknown, fallback: string): string {
   if (!error || typeof error !== 'object') {
@@ -220,9 +231,9 @@ export default function ProductsPage() {
         productsForImages.map(async (product) => {
           try {
             const images = await ApiClient.get<string[]>(endpoints.admin.productImages(product.id));
-            return [product.id, images?.[0] ?? product.imageUrl ?? ''] as const;
+            return [product.id, resolveMediaUrl(images?.[0] ?? product.imageUrl ?? '')] as const;
           } catch {
-            return [product.id, product.imageUrl ?? ''] as const;
+            return [product.id, resolveMediaUrl(product.imageUrl ?? '')] as const;
           }
         }),
       );
@@ -433,4 +444,5 @@ export default function ProductsPage() {
     </div>
   );
 }
+
 
