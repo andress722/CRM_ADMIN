@@ -58,6 +58,7 @@ export const endpoints = {
     reportsOverviewEmail: `${API_URL}/admin/reports/overview/email`,
     // Settings
     settings: `${API_URL}/admin/settings`,
+    checkoutHealth: `${API_URL}/admin/debug/checkout-health`,
     // Integrations
     integrations: `${API_URL}/admin/integrations`,
     // Webhooks
@@ -106,3 +107,4 @@ export const getApiUrl = (
   }
   return url;
 };
+

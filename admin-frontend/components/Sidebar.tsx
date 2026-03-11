@@ -12,6 +12,7 @@ import {
   Menu,
   X,
   ChevronRight,
+  ShieldAlert,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -61,6 +62,12 @@ const menuItems = [
     description: 'Coupons & offers',
   },
   {
+    label: 'Checkout Health',
+    href: '/admin/checkout-health',
+    icon: ShieldAlert,
+    description: 'Payment/captcha diagnostics',
+  },
+  {
     label: 'Settings',
     href: '/admin/settings',
     icon: Settings,
@@ -97,7 +104,6 @@ export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
 
-  // Handle responsive sidebar
   useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
@@ -122,7 +128,6 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Mobile Toggle */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="fixed md:hidden bottom-6 right-6 z-50 p-3 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-lg hover:shadow-xl transition-shadow"
@@ -130,14 +135,12 @@ export default function Sidebar() {
         {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
       </button>
 
-      {/* Sidebar */}
       <aside
         className={`fixed md:static inset-y-0 left-0 z-40 w-64 bg-gradient-to-b from-slate-800 to-slate-900 border-r border-white/10 overflow-y-auto transition-transform duration-300 ${
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
         <div className="flex flex-col h-full">
-          {/* Logo Section */}
           <div className="px-6 py-6 border-b border-white/10">
             <Link href="/admin" className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-lg font-bold text-white">
@@ -150,7 +153,6 @@ export default function Sidebar() {
             </Link>
           </div>
 
-          {/* Navigation Menu */}
           <nav className="flex-1 px-3 py-6 space-y-1">
             {menuItems.map((item) => {
               const Icon = item.icon;
@@ -180,19 +182,14 @@ export default function Sidebar() {
                     >
                       {item.label}
                     </p>
-                    <p className="text-xs text-slate-500 truncate">
-                      {item.description}
-                    </p>
+                    <p className="text-xs text-slate-500 truncate">{item.description}</p>
                   </div>
-                  {active && (
-                    <ChevronRight className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
-                  )}
+                  {active && <ChevronRight className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />}
                 </Link>
               );
             })}
           </nav>
 
-          {/* Footer Info */}
           <div className="px-3 py-4 border-t border-white/10 mx-3">
             <div className="px-4 py-3 rounded-lg bg-white/5 border border-white/10">
               <p className="text-xs text-slate-400 mb-1">API Status</p>
@@ -205,12 +202,8 @@ export default function Sidebar() {
         </div>
       </aside>
 
-      {/* Mobile Overlay */}
       {isMobile && isOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-30"
-          onClick={() => setIsOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black/50 z-30" onClick={() => setIsOpen(false)} />
       )}
     </>
   );
