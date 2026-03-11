@@ -202,6 +202,11 @@ async function apiFetch<T>(
         }
       }
 
+      if (res.status === 401 && !isPublicAuthPath) {
+        clearTokens()
+        throw new ApiRequestError(401, "Session expired. Please sign in again.")
+      }
+
       throw new ApiRequestError(res.status, message)
     }
 
@@ -703,6 +708,7 @@ export async function trackEvent(data: {
     // Analytics failures are silent
   }
 }
+
 
 
 

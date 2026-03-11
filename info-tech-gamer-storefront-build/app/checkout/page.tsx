@@ -16,7 +16,7 @@ import { Separator } from "@/components/ui/separator"
 import { useCart } from "@/lib/cart-context"
 import { useAuth } from "@/lib/auth-context"
 import { useLocale } from "@/lib/locale-context"
-import { createOrderFromCart, createCheckout, createTransparentCheckout, validateCoupon } from "@/lib/api"
+import { clearTokens, createOrderFromCart, createCheckout, createTransparentCheckout, validateCoupon } from "@/lib/api"
 import type { CouponValidation } from "@/lib/types"
 import { toast } from "sonner"
 
@@ -181,27 +181,39 @@ export default function CheckoutPage() {
         const lastName = lastNameParts.join(" ").trim() || "Cliente"
         const method = values.payment === "pix" ? "pix" : "boleto"
 
-        const result = await createTransparentCheckout({
-          orderId: order.id,
-          method,
-          amount: order.totalAmount,
-          paymentMethodId: method === "pix" ? "pix" : "bolbradesco",
-          payer: {
-            email: user?.email || "buyer@example.com",
-            firstName: firstName || "Cliente",
-            lastName,
-            identificationType: "CPF",
-            identificationNumber: onlyDigits(values.cpf),
-            phoneAreaCode: onlyDigits(values.phoneAreaCode),
-            phoneNumber: onlyDigits(values.phoneNumber),
-          },
-        })
+        try {
+          const result = await createTransparentCheckout({
+            orderId: order.id,
+            method,
+            amount: order.totalAmount,
+            paymentMethodId: method === "pix" ? "pix" : "bolbradesco",
+            payer: {
+              email: user?.email || "buyer@example.com",
+              firstName: firstName || "Cliente",
+              lastName,
+              identificationType: "CPF",
+              identificationNumber: onlyDigits(values.cpf),
+              phoneAreaCode: onlyDigits(values.phoneAreaCode),
+              phoneNumber: onlyDigits(values.phoneNumber),
+            },
+          })
 
-        setTransparentResult({
-          method,
-          pixQrCode: result.pixQrCode,
-          boletoUrl: result.boletoUrl,
-        })
+          setTransparentResult({
+            method,
+            pixQrCode: result.pixQrCode,
+            boletoUrl: result.boletoUrl,
+          })
+        } catch (transparentError) {
+          const hostedCheckout = await createCheckout(order.id, user?.email)
+          const fallbackUrl = hostedCheckout.initPoint || hostedCheckout.sandboxInitPoint
+          if (fallbackUrl) {
+            toast.info(t("Transparent payment unavailable. Redirecting to checkout.", "Pagamento transparente indisponivel. Redirecionando para checkout."))
+            window.location.href = fallbackUrl
+            return
+          }
+
+          throw transparentError
+        }
       }
 
       clearCart()
@@ -209,6 +221,15 @@ export default function CheckoutPage() {
       toast.success(t("Order placed successfully!", "Pedido realizado com sucesso!"))
     } catch (error) {
       const message = getErrorMessage(error)
+      const normalized = message.toLowerCase()
+
+      if (normalized.includes("session expired") || normalized.includes("unauthorized") || normalized.includes("user not found") || normalized.includes("401")) {
+        clearTokens()
+        toast.error(t("Session expired. Please sign in again.", "Sessao expirada. Faca login novamente."))
+        router.push("/account?returnTo=/checkout")
+        return
+      }
+
       toast.error(`${t("Failed to place the order.", "Falha ao finalizar pedido.")} ${message}`)
       console.error("checkout_error", error)
     } finally {
@@ -370,4 +391,5 @@ export default function CheckoutPage() {
     </div>
   )
 }
+
 
