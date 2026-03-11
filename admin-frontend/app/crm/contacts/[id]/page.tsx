@@ -30,8 +30,27 @@ type Contact = {
   lifecycle: string;
   notes?: string;
 };
-type ActivityType = (typeof ACTIVITY_TYPES)[number];
 
+type ActivityType = (typeof ACTIVITY_TYPES)[number];
+type Activity = {
+  id: string;
+  subject: string;
+  owner: string;
+  contact: string;
+  type: string;
+  status: string;
+  dueDate?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+type Deal = {
+  id: string;
+  title: string;
+  company: string;
+  owner: string;
+  value: number;
+  stage: string;
+};
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -54,6 +73,17 @@ function validateContactForm(input: Contact): string | null {
   return null;
 }
 
+function formatDateLabel(value?: string | null): string {
+  if (!value) return 'Data nao informada';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('pt-BR');
+}
+
+function normalizeText(value?: string | null): string {
+  return (value || '').trim().toLowerCase();
+}
+
 export default function ContactDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -74,7 +104,37 @@ export default function ContactDetailPage() {
   const [activityType, setActivityType] = useState<ActivityType>('Call');
   const [activityDueDate, setActivityDueDate] = useState('');
   const [noteDraft, setNoteDraft] = useState('');
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [relatedDeals, setRelatedDeals] = useState<Deal[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  const loadRelatedData = async (currentContact: Contact) => {
+    const [activitiesRes, dealsRes] = await Promise.all([
+      authFetch(endpoints.admin.crmActivities, { headers: {} }),
+      authFetch(endpoints.admin.crmDeals, { headers: {} }),
+    ]);
+
+    const activitiesData = activitiesRes.ok ? await activitiesRes.json() : [];
+    const dealsData = dealsRes.ok ? await dealsRes.json() : [];
+
+    const currentName = normalizeText(currentContact.name);
+    const currentCompany = normalizeText(currentContact.company);
+
+    const mappedActivities: Activity[] = Array.isArray(activitiesData) ? activitiesData : [];
+    const mappedDeals: Deal[] = Array.isArray(dealsData) ? dealsData : [];
+
+    const filteredActivities = mappedActivities.filter((activity) => {
+      const activityContact = normalizeText(activity.contact);
+      return activityContact === currentName || activityContact === currentCompany;
+    });
+
+    const filteredDeals = mappedDeals.filter(
+      (deal) => normalizeText(deal.company) === currentCompany && normalizeText(deal.stage) !== 'archived'
+    );
+
+    setActivities(filteredActivities);
+    setRelatedDeals(filteredDeals);
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -88,9 +148,10 @@ export default function ContactDetailPage() {
       headers: {},
     })
       .then((res) => res.json())
-      .then((data) => {
+      .then(async (data) => {
         setContact(data);
         setForm(data);
+        await loadRelatedData(data);
         setLoading(false);
       })
       .catch(() => {
@@ -128,6 +189,7 @@ export default function ContactDetailPage() {
       const updated = await res.json();
       setContact(updated);
       setForm(updated);
+      await loadRelatedData(updated);
     } catch (err) {
       setError(getErrorMessage(err, 'Erro ao salvar contato.'));
     } finally {
@@ -192,6 +254,7 @@ export default function ContactDetailPage() {
       setActivityType('Call');
       setActivityDueDate('');
       setShowActivityForm(false);
+      await loadRelatedData(form);
     } catch {
       setError('Erro ao criar atividade.');
     } finally {
@@ -258,6 +321,7 @@ export default function ContactDetailPage() {
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error('Erro ao criar email');
+      await loadRelatedData(form);
     } catch {
       setError('Erro ao criar email.');
     } finally {
@@ -295,6 +359,7 @@ export default function ContactDetailPage() {
       setSendingSuggestions(false);
     }
   };
+
   const handleCreateTask = async () => {
     if (!form) return;
     setCreatingTask(true);
@@ -325,6 +390,7 @@ export default function ContactDetailPage() {
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error('Erro ao criar tarefa');
+      await loadRelatedData(form);
     } catch {
       setError('Erro ao criar tarefa.');
     } finally {
@@ -335,6 +401,19 @@ export default function ContactDetailPage() {
   if (loading) return <LoadingState message="Carregando contato..." />;
   if (error) return <ErrorState message={error} />;
   if (!form) return <div className="p-6">Contato não encontrado.</div>;
+
+  const timelineItems = [...activities].sort((a, b) => {
+    const aDate = new Date(a.updatedAt || a.dueDate || a.createdAt || 0).getTime();
+    const bDate = new Date(b.updatedAt || b.dueDate || b.createdAt || 0).getTime();
+    return bDate - aDate;
+  });
+
+  const activeDeals = relatedDeals.filter((deal) => {
+    const stage = normalizeText(deal.stage);
+    return stage !== 'won' && stage !== 'lost';
+  });
+
+  const recentActivities = timelineItems.slice(0, 5);
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
@@ -456,14 +535,18 @@ export default function ContactDetailPage() {
       <section className="bg-white border rounded-xl p-4 shadow">
         <h2 className="text-lg font-semibold mb-2">Timeline</h2>
         <ul className="space-y-3 text-sm">
-          <li className="border rounded p-3">
-            <div className="font-semibold">Última interação registrada</div>
-            <div className="text-slate-500">Email enviado • 2 dias atrás</div>
-          </li>
-          <li className="border rounded p-3">
-            <div className="font-semibold">Reunião concluída</div>
-            <div className="text-slate-500">Resumo salvo • semana passada</div>
-          </li>
+          {timelineItems.length === 0 ? (
+            <li className="border rounded p-3 text-slate-500">Sem atividades registradas para este contato.</li>
+          ) : (
+            timelineItems.slice(0, 8).map((activity) => (
+              <li key={activity.id} className="border rounded p-3">
+                <div className="font-semibold">{activity.subject}</div>
+                <div className="text-slate-500">
+                  {activity.type} • {activity.status} • {formatDateLabel(activity.dueDate || activity.updatedAt || activity.createdAt)}
+                </div>
+              </li>
+            ))
+          )}
         </ul>
       </section>
 
@@ -484,7 +567,8 @@ export default function ContactDetailPage() {
             className="border px-4 py-2 rounded text-sm font-medium disabled:opacity-60"
           >
             {sendingEmail ? 'Enviando...' : 'Enviar email'}
-          </button>          <button
+          </button>
+          <button
             type="button"
             onClick={handleSendViewedSuggestions}
             disabled={sendingSuggestions}
@@ -554,15 +638,29 @@ export default function ContactDetailPage() {
           <div className="border rounded p-3">
             <p className="text-xs text-slate-500">Negócios em aberto</p>
             <ul className="mt-2 space-y-1">
-              <li>Plano enterprise • Em negociação</li>
-              <li>Onboarding premium • Proposta</li>
+              {activeDeals.length === 0 ? (
+                <li className="text-slate-500">Nenhum negócio em aberto para esta empresa.</li>
+              ) : (
+                activeDeals.slice(0, 5).map((deal) => (
+                  <li key={deal.id}>
+                    {deal.title} • {deal.stage} • R$ {Number(deal.value || 0).toLocaleString('pt-BR')}
+                  </li>
+                ))
+              )}
             </ul>
           </div>
           <div className="border rounded p-3">
             <p className="text-xs text-slate-500">Atividades recentes</p>
             <ul className="mt-2 space-y-1">
-              <li>Reunião de follow-up • ontem</li>
-              <li>WhatsApp enviado • 3 dias atrás</li>
+              {recentActivities.length === 0 ? (
+                <li className="text-slate-500">Sem atividades recentes.</li>
+              ) : (
+                recentActivities.map((activity) => (
+                  <li key={activity.id}>
+                    {activity.subject} • {formatDateLabel(activity.dueDate || activity.updatedAt || activity.createdAt)}
+                  </li>
+                ))
+              )}
             </ul>
           </div>
         </div>
@@ -570,16 +668,3 @@ export default function ContactDetailPage() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-

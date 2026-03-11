@@ -21,8 +21,8 @@ const STAGE_STYLES: Record<(typeof STAGES)[number], string> = {
   Won: 'bg-green-100 text-green-700',
   Lost: 'bg-red-100 text-red-700',
 };
-type Stage = (typeof STAGES)[number];
 
+type Stage = (typeof STAGES)[number];
 type ActivityType = (typeof ACTIVITY_TYPES)[number];
 
 type Deal = {
@@ -36,6 +36,26 @@ type Deal = {
   expectedClose: string;
 };
 
+type Activity = {
+  id: string;
+  subject: string;
+  owner: string;
+  contact: string;
+  type: string;
+  status: string;
+  dueDate?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+type Contact = {
+  id: string;
+  name: string;
+  email: string;
+  company: string;
+  owner: string;
+  lifecycle: string;
+};
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (!error || typeof error !== 'object') return fallback;
@@ -59,6 +79,17 @@ function validateDealForm(input: Deal): string | null {
   return null;
 }
 
+function formatDateLabel(value?: string | null): string {
+  if (!value) return 'Data nao informada';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('pt-BR');
+}
+
+function normalizeText(value?: string | null): string {
+  return (value || '').trim().toLowerCase();
+}
+
 export default function DealDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -76,7 +107,36 @@ export default function DealDetailPage() {
   const [activitySubject, setActivitySubject] = useState('');
   const [activityType, setActivityType] = useState<ActivityType>('Call');
   const [activityDueDate, setActivityDueDate] = useState('');
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  const loadRelatedData = async (currentDeal: Deal) => {
+    const [activitiesRes, contactsRes] = await Promise.all([
+      authFetch(endpoints.admin.crmActivities, { headers: {} }),
+      authFetch(endpoints.admin.crmContacts, { headers: {} }),
+    ]);
+
+    const activitiesData = activitiesRes.ok ? await activitiesRes.json() : [];
+    const contactsData = contactsRes.ok ? await contactsRes.json() : [];
+
+    const company = normalizeText(currentDeal.company);
+    const title = normalizeText(currentDeal.title);
+
+    const mappedActivities: Activity[] = Array.isArray(activitiesData) ? activitiesData : [];
+    const mappedContacts: Contact[] = Array.isArray(contactsData) ? contactsData : [];
+
+    const filteredActivities = mappedActivities.filter((activity) => {
+      const activityContact = normalizeText(activity.contact);
+      const activitySubject = normalizeText(activity.subject);
+      return activityContact === company || activitySubject.includes(title) || activitySubject.includes(company);
+    });
+
+    const relatedContacts = mappedContacts.filter((contact) => normalizeText(contact.company) === company);
+
+    setActivities(filteredActivities);
+    setContacts(relatedContacts);
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -90,9 +150,10 @@ export default function DealDetailPage() {
       headers: {},
     })
       .then((res) => res.json())
-      .then((data) => {
+      .then(async (data) => {
         setDeal(data);
         setForm(data);
+        await loadRelatedData(data);
         setLoading(false);
       })
       .catch(() => {
@@ -130,6 +191,7 @@ export default function DealDetailPage() {
       const updated = await res.json();
       setDeal(updated);
       setForm(updated);
+      await loadRelatedData(updated);
     } catch (err) {
       setError(getErrorMessage(err, 'Erro ao salvar negócio.'));
     } finally {
@@ -194,6 +256,7 @@ export default function DealDetailPage() {
       setActivityType('Call');
       setActivityDueDate('');
       setShowActivityForm(false);
+      await loadRelatedData(form);
     } catch {
       setError('Erro ao criar atividade.');
     } finally {
@@ -229,6 +292,7 @@ export default function DealDetailPage() {
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error('Erro ao criar email');
+      await loadRelatedData(form);
     } catch {
       setError('Erro ao criar email.');
     } finally {
@@ -266,6 +330,7 @@ export default function DealDetailPage() {
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error('Erro ao criar tarefa');
+      await loadRelatedData(form);
     } catch {
       setError('Erro ao criar tarefa.');
     } finally {
@@ -276,6 +341,15 @@ export default function DealDetailPage() {
   if (loading) return <LoadingState message="Carregando negócio..." />;
   if (error) return <ErrorState message={error} />;
   if (!form) return <div className="p-6">Negócio não encontrado.</div>;
+
+  const timelineItems = [...activities].sort((a, b) => {
+    const aDate = new Date(a.updatedAt || a.dueDate || a.createdAt || 0).getTime();
+    const bDate = new Date(b.updatedAt || b.dueDate || b.createdAt || 0).getTime();
+    return bDate - aDate;
+  });
+
+  const recentActivities = timelineItems.slice(0, 5);
+  const primaryContact = contacts[0];
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
@@ -403,14 +477,18 @@ export default function DealDetailPage() {
       <section className="bg-white border rounded-xl p-4 shadow">
         <h2 className="text-lg font-semibold mb-2">Timeline</h2>
         <ul className="space-y-3 text-sm">
-          <li className="border rounded p-3">
-            <div className="font-semibold">Proposta enviada</div>
-            <div className="text-slate-500">PDF enviado • 3 dias atrás</div>
-          </li>
-          <li className="border rounded p-3">
-            <div className="font-semibold">Reunião agendada</div>
-            <div className="text-slate-500">Calendário • ontem</div>
-          </li>
+          {timelineItems.length === 0 ? (
+            <li className="border rounded p-3 text-slate-500">Sem atividades registradas para este negócio.</li>
+          ) : (
+            timelineItems.slice(0, 8).map((activity) => (
+              <li key={activity.id} className="border rounded p-3">
+                <div className="font-semibold">{activity.subject}</div>
+                <div className="text-slate-500">
+                  {activity.type} • {activity.status} • {formatDateLabel(activity.dueDate || activity.updatedAt || activity.createdAt)}
+                </div>
+              </li>
+            ))
+          )}
         </ul>
       </section>
 
@@ -419,14 +497,28 @@ export default function DealDetailPage() {
         <div className="grid md:grid-cols-2 gap-4 text-sm">
           <div className="border rounded p-3">
             <p className="text-xs text-slate-500">Contato principal</p>
-            <p className="font-semibold">{form.company}</p>
-            <p className="text-slate-500">Responsável: {form.owner}</p>
+            {primaryContact ? (
+              <>
+                <p className="font-semibold">{primaryContact.name}</p>
+                <p className="text-slate-500">{primaryContact.email}</p>
+                <p className="text-slate-500">Lifecycle: {primaryContact.lifecycle}</p>
+              </>
+            ) : (
+              <p className="text-slate-500">Nenhum contato cadastrado para esta empresa.</p>
+            )}
           </div>
           <div className="border rounded p-3">
             <p className="text-xs text-slate-500">Atividades recentes</p>
             <ul className="mt-2 space-y-1">
-              <li>Call de alinhamento • ontem</li>
-              <li>Email de proposta • 3 dias atrás</li>
+              {recentActivities.length === 0 ? (
+                <li className="text-slate-500">Sem atividades recentes.</li>
+              ) : (
+                recentActivities.map((activity) => (
+                  <li key={activity.id}>
+                    {activity.subject} • {formatDateLabel(activity.dueDate || activity.updatedAt || activity.createdAt)}
+                  </li>
+                ))
+              )}
             </ul>
           </div>
         </div>
@@ -493,18 +585,3 @@ export default function DealDetailPage() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
