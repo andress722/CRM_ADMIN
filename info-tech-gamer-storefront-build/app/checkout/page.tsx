@@ -137,7 +137,7 @@ export default function CheckoutPage() {
   }
 
   const applyCoupon = async () => {
-    const normalized = couponCode.trim()
+    const normalized = couponCode.trim().toUpperCase()
     if (!normalized) {
       toast.error(t("Enter a coupon code", "Digite um cupom"))
       return
@@ -146,6 +146,7 @@ export default function CheckoutPage() {
     setCouponLoading(true)
     try {
       const validated = await validateCoupon(normalized)
+      setCouponCode(normalized)
       setAppliedCoupon(validated)
       toast.success(t("Coupon applied", "Cupom aplicado"))
     } catch (error) {
@@ -351,12 +352,38 @@ export default function CheckoutPage() {
               <div className="space-y-2 rounded-lg border border-border p-3">
                 <Label htmlFor="coupon" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("Coupon", "Cupom")}</Label>
                 <div className="flex gap-2">
-                  <Input id="coupon" value={couponCode} onChange={(e) => setCouponCode(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void applyCoupon(); } }} className="border-border bg-secondary" />
+                  <Input
+                    id="coupon"
+                    value={couponCode}
+                    onChange={(e) => {
+                      const nextValue = e.target.value.toUpperCase()
+                      setCouponCode(nextValue)
+                      if (appliedCoupon && appliedCoupon.code !== nextValue.trim()) {
+                        setAppliedCoupon(null)
+                      }
+                    }}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void applyCoupon(); } }}
+                    className="border-border bg-secondary"
+                  />
                   <Button type="button" variant="outline" onClick={applyCoupon} disabled={couponLoading} className="border-border">
                     {couponLoading ? t("Applying...", "Aplicando...") : t("Apply", "Aplicar")}
                   </Button>
                 </div>
-                {appliedCoupon && <p className="text-xs text-emerald-400">{t("Discount", "Desconto")}: {appliedCoupon.discount}%</p>}
+                {appliedCoupon && (
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs text-emerald-400">{t("Discount", "Desconto")}: {appliedCoupon.discount}%</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAppliedCoupon(null)
+                        setCouponCode("")
+                      }}
+                      className="text-xs text-slate-400 underline hover:text-slate-200"
+                    >
+                      {t("Remove", "Remover")}
+                    </button>
+                  </div>
+                )}
               </div>
 
               <Separator className="bg-border" />
