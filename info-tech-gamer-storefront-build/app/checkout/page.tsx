@@ -272,12 +272,12 @@ export default function CheckoutPage() {
     setIsProcessing(true)
     setTransparentResult(null)
     try {
-      const order = await createOrderFromCart(appliedCoupon?.code)
       const [firstName, ...lastNameParts] = values.name.trim().split(" ")
       const lastName = lastNameParts.join(" ").trim() || "Cliente"
 
       if (values.payment === "credit_card") {
         const card = await tokenizeCard(values)
+        const order = await createOrderFromCart(appliedCoupon?.code)
         await createTransparentCheckout({
           orderId: order.id,
           method: "card",
@@ -299,6 +299,7 @@ export default function CheckoutPage() {
           },
         })
       } else {
+        const order = await createOrderFromCart(appliedCoupon?.code)
         const method = values.payment === "pix" ? "pix" : "boleto"
         const result = await createTransparentCheckout({
           orderId: order.id,
@@ -564,3 +565,4 @@ export default function CheckoutPage() {
     </div>
   )
 }
+
