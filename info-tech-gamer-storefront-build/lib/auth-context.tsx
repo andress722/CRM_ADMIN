@@ -22,14 +22,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null
-      if (!token) {
+      if (!api.hasAccessToken()) {
         setUser(null)
         return
       }
       const me = await api.getMe()
       setUser(me)
     } catch {
+      api.clearTokens()
       setUser(null)
     }
   }, [])

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -39,8 +39,13 @@ export default function AccountPage() {
   const { loginUser, registerUser, isAuthenticated } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push("/dashboard")
+    }
+  }, [isAuthenticated, router])
+
   if (isAuthenticated) {
-    router.push("/dashboard")
     return null
   }
 
@@ -222,3 +227,4 @@ function ForgotForm({ isLoading, setIsLoading }: { isLoading: boolean; setIsLoad
     </Card>
   )
 }
+

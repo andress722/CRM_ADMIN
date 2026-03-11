@@ -42,6 +42,10 @@ function getAccessToken(): string | null {
   return localStorage.getItem("accessToken")
 }
 
+export function hasAccessToken(): boolean {
+  return !!getAccessToken()
+}
+
 function getCsrfToken(): string | null {
   if (typeof document === "undefined") return null
   const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/)
@@ -162,6 +166,10 @@ async function apiFetch<T>(
     path === "/auth/verify-email" ||
     path === "/auth/resend-verification" ||
     path.startsWith("/auth/social/")
+
+  if (!token && path.startsWith("/users/me")) {
+    throw new ApiRequestError(401, "Not authenticated")
+  }
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -708,15 +716,4 @@ export async function trackEvent(data: {
     // Analytics failures are silent
   }
 }
-
-
-
-
-
-
-
-
-
-
-
 
