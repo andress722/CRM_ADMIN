@@ -102,12 +102,30 @@ public class OrderService
             throw new InvalidOperationException("Cart has no valid items");
         }
 
+        // Validate coupon before order creation to avoid side effects when coupon is invalid.
+        var discountPercent = await ResolveCouponDiscountAsync(couponCode);
+
         var order = await CreateOrderAsync(userId, validItems);
 
+        if (discountPercent <= 0)
+        {
+            return order;
+        }
+
+        var discountMultiplier = (100m - discountPercent) / 100m;
+        order.TotalAmount = Math.Round(order.TotalAmount * discountMultiplier, 2, MidpointRounding.AwayFromZero);
+        order.UpdatedAt = DateTime.UtcNow;
+        await _orderRepository.UpdateAsync(order);
+
+        return order;
+    }
+
+    private async Task<decimal> ResolveCouponDiscountAsync(string? couponCode)
+    {
         var normalizedCode = (couponCode ?? string.Empty).Trim().ToUpperInvariant();
         if (string.IsNullOrWhiteSpace(normalizedCode))
         {
-            return order;
+            return 0m;
         }
 
         var coupon = (await _couponRepository.GetAllAsync())
@@ -120,18 +138,7 @@ public class OrderService
             throw new InvalidOperationException("Invalid or inactive coupon");
         }
 
-        var discountPercent = Math.Clamp(coupon.Discount, 0m, 100m);
-        if (discountPercent <= 0)
-        {
-            return order;
-        }
-
-        var discountMultiplier = (100m - discountPercent) / 100m;
-        order.TotalAmount = Math.Round(order.TotalAmount * discountMultiplier, 2, MidpointRounding.AwayFromZero);
-        order.UpdatedAt = DateTime.UtcNow;
-        await _orderRepository.UpdateAsync(order);
-
-        return order;
+        return Math.Clamp(coupon.Discount, 0m, 100m);
     }
 
     public async Task<Order> UpdateOrderStatusAsync(Guid id, OrderStatus status)

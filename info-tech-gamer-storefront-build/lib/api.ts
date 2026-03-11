@@ -566,6 +566,50 @@ export async function createCheckout(orderId: string, payerEmail?: string): Prom
     sandboxInitPoint: data?.sandboxInitPoint ?? data?.SandboxInitPoint,
   }
 }
+export async function createTransparentCheckout(payload: {
+  orderId: string
+  method: "pix" | "boleto" | "card"
+  amount: number
+  payer: {
+    email: string
+    firstName: string
+    lastName: string
+    identificationType?: string
+    identificationNumber: string
+    phoneAreaCode: string
+    phoneNumber: string
+  }
+  paymentMethodId?: string
+}): Promise<{
+  paymentId: string
+  status: string
+  statusMessage?: string
+  gatewayStatus?: string
+  pixQrCode?: string
+  pixQrCodeBase64?: string
+  boletoUrl?: string
+}> {
+  const data = await apiFetch<any>("/payments/transparent", {
+    method: "POST",
+    body: JSON.stringify({
+      orderId: payload.orderId,
+      method: payload.method,
+      amount: payload.amount,
+      paymentMethodId: payload.paymentMethodId,
+      payer: payload.payer,
+    }),
+  })
+
+  return {
+    paymentId: String(data?.paymentId ?? data?.PaymentId ?? ""),
+    status: String(data?.status ?? data?.Status ?? ""),
+    statusMessage: data?.statusMessage ?? data?.StatusMessage,
+    gatewayStatus: data?.gatewayStatus ?? data?.GatewayStatus,
+    pixQrCode: data?.pixQrCode ?? data?.PixQrCode,
+    pixQrCodeBase64: data?.pixQrCodeBase64 ?? data?.PixQrCodeBase64,
+    boletoUrl: data?.boletoUrl ?? data?.BoletoUrl,
+  }
+}
 
 // --- Orders ---
 
@@ -633,6 +677,7 @@ export async function trackEvent(data: {
     // Analytics failures are silent
   }
 }
+
 
 
 

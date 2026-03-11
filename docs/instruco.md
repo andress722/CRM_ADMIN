@@ -37,3 +37,6 @@
 - [x] Rotas legadas redirecionadas para interfaces modernas (/admin/products, /admin/orders, /admin/promotions)
 - [x] Ajuste de estoque revisado (controle de quantidade, aplicar +/-, zerar estoque e inativação automática)
 
+
+- [x] Checkout reforçado (cupom validado antes da criação do pedido + fluxo PIX/Boleto transparente com CPF/telefone no storefront)
+

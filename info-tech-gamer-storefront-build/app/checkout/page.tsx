@@ -16,7 +16,7 @@ import { Separator } from "@/components/ui/separator"
 import { useCart } from "@/lib/cart-context"
 import { useAuth } from "@/lib/auth-context"
 import { useLocale } from "@/lib/locale-context"
-import { createOrderFromCart, createCheckout, validateCoupon } from "@/lib/api"
+import { createOrderFromCart, createCheckout, createTransparentCheckout, validateCoupon } from "@/lib/api"
 import type { CouponValidation } from "@/lib/types"
 import { toast } from "sonner"
 
@@ -26,16 +26,27 @@ const checkoutSchema = z.object({
   city: z.string().min(2, "City is required"),
   state: z.string().min(2, "State is required"),
   zip: z.string().min(5, "ZIP code is required"),
+  cpf: z.string().min(11, "CPF is required"),
+  phoneAreaCode: z.string().min(2, "Area code is required"),
+  phoneNumber: z.string().min(8, "Phone number is required"),
   payment: z.enum(["credit_card", "pix", "boleto"]),
 })
 
 type CheckoutFormValues = z.infer<typeof checkoutSchema>
+
+type TransparentResult = {
+  method: "pix" | "boleto"
+  pixQrCode?: string
+  boletoUrl?: string
+}
 
 const paymentMethods = [
   { value: "credit_card", key: "card", icon: CreditCard },
   { value: "pix", key: "pix", icon: QrCode },
   { value: "boleto", key: "boleto", icon: FileText },
 ] as const
+
+const onlyDigits = (value: string) => value.replace(/\D/g, "")
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -47,6 +58,7 @@ export default function CheckoutPage() {
   const [couponCode, setCouponCode] = useState("")
   const [couponLoading, setCouponLoading] = useState(false)
   const [appliedCoupon, setAppliedCoupon] = useState<CouponValidation | null>(null)
+  const [transparentResult, setTransparentResult] = useState<TransparentResult | null>(null)
 
   const {
     register,
@@ -85,6 +97,28 @@ export default function CheckoutPage() {
         </div>
         <h1 className="mt-6 text-xl font-black uppercase tracking-wider text-foreground">{t("Order Confirmed", "Pedido confirmado")}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{t("Your order has been placed.", "Seu pedido foi realizado.")}</p>
+
+        {transparentResult?.method === "pix" && transparentResult.pixQrCode && (
+          <div className="mt-6 rounded border border-emerald-600/30 bg-emerald-500/10 p-4 text-left">
+            <p className="text-xs font-bold uppercase tracking-wider text-emerald-300">PIX</p>
+            <p className="mt-2 break-all font-mono text-xs text-emerald-200">{transparentResult.pixQrCode}</p>
+          </div>
+        )}
+
+        {transparentResult?.method === "boleto" && transparentResult.boletoUrl && (
+          <div className="mt-6 rounded border border-amber-600/30 bg-amber-500/10 p-4 text-left">
+            <p className="text-xs font-bold uppercase tracking-wider text-amber-300">Boleto</p>
+            <a
+              href={transparentResult.boletoUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 inline-block text-xs font-semibold text-amber-200 underline"
+            >
+              {t("Open boleto", "Abrir boleto")}
+            </a>
+          </div>
+        )}
+
         <div className="mt-8 flex flex-col gap-3">
           <Button asChild className="bg-primary text-sm font-bold uppercase tracking-wider text-primary-foreground hover:bg-primary/90">
             <Link href="/track-order">{t("Track Your Order", "Rastrear pedido")}</Link>
@@ -117,7 +151,7 @@ export default function CheckoutPage() {
     }
   }
 
-  async function onSubmit(_values: CheckoutFormValues) {
+  async function onSubmit(values: CheckoutFormValues) {
     if (!isAuthenticated) {
       toast.error(t("Please sign in before checkout.", "Faça login antes de finalizar."))
       router.push("/account?returnTo=/checkout")
@@ -127,12 +161,42 @@ export default function CheckoutPage() {
     setIsProcessing(true)
     try {
       const order = await createOrderFromCart(appliedCoupon?.code)
-      const checkout = await createCheckout(order.id, user?.email)
-      const redirectUrl = checkout.initPoint || checkout.sandboxInitPoint
-      if (redirectUrl) {
-        window.location.href = redirectUrl
-        return
+
+      if (selectedPayment === "credit_card") {
+        const checkout = await createCheckout(order.id, user?.email)
+        const redirectUrl = checkout.initPoint || checkout.sandboxInitPoint
+        if (redirectUrl) {
+          window.location.href = redirectUrl
+          return
+        }
+      } else {
+        const [firstName, ...lastNameParts] = values.name.trim().split(" ")
+        const lastName = lastNameParts.join(" ").trim() || "Cliente"
+        const method = selectedPayment === "pix" ? "pix" : "boleto"
+
+        const result = await createTransparentCheckout({
+          orderId: order.id,
+          method,
+          amount: order.totalAmount,
+          paymentMethodId: method === "pix" ? "pix" : "bolbradesco",
+          payer: {
+            email: user?.email || "buyer@example.com",
+            firstName: firstName || "Cliente",
+            lastName,
+            identificationType: "CPF",
+            identificationNumber: onlyDigits(values.cpf),
+            phoneAreaCode: onlyDigits(values.phoneAreaCode),
+            phoneNumber: onlyDigits(values.phoneNumber),
+          },
+        })
+
+        setTransparentResult({
+          method,
+          pixQrCode: result.pixQrCode,
+          boletoUrl: result.boletoUrl,
+        })
       }
+
       clearCart()
       setSubmitted(true)
       toast.success(t("Order placed successfully!", "Pedido realizado com sucesso!"))
@@ -184,6 +248,24 @@ export default function CheckoutPage() {
                     <Label htmlFor="zip" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("ZIP Code", "CEP")}</Label>
                     <Input id="zip" {...register("zip")} className="mt-1 border-border bg-secondary" />
                     {errors.zip && <p className="mt-1 text-xs text-destructive">{errors.zip.message}</p>}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div>
+                    <Label htmlFor="cpf" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">CPF</Label>
+                    <Input id="cpf" {...register("cpf")} className="mt-1 border-border bg-secondary" />
+                    {errors.cpf && <p className="mt-1 text-xs text-destructive">{errors.cpf.message}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="phoneAreaCode" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">DDD</Label>
+                    <Input id="phoneAreaCode" {...register("phoneAreaCode")} className="mt-1 border-border bg-secondary" />
+                    {errors.phoneAreaCode && <p className="mt-1 text-xs text-destructive">{errors.phoneAreaCode.message}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="phoneNumber" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("Phone", "Telefone")}</Label>
+                    <Input id="phoneNumber" {...register("phoneNumber")} className="mt-1 border-border bg-secondary" />
+                    {errors.phoneNumber && <p className="mt-1 text-xs text-destructive">{errors.phoneNumber.message}</p>}
                   </div>
                 </div>
               </CardContent>
