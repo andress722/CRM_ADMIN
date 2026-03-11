@@ -38,6 +38,31 @@ public class OrderService
         if (!items.Any())
             throw new InvalidOperationException("Order must have at least one item");
 
+        var groupedItems = items
+            .Where(item => item.ProductId != Guid.Empty && item.Quantity > 0)
+            .GroupBy(item => item.ProductId)
+            .Select(group => (ProductId: group.Key, Quantity: group.Sum(item => item.Quantity)))
+            .ToList();
+
+        if (!groupedItems.Any())
+            throw new InvalidOperationException("Order has no valid items");
+
+        var productsById = new Dictionary<Guid, Product>();
+        foreach (var item in groupedItems)
+        {
+            var product = await _productRepository.GetByIdAsync(item.ProductId);
+            if (product == null)
+                throw new KeyNotFoundException($"Product with ID {item.ProductId} not found");
+
+            if (!product.IsActive)
+                throw new InvalidOperationException($"Product {product.Name} is inactive");
+
+            if (product.Stock < item.Quantity)
+                throw new InvalidOperationException($"Insufficient stock for product {product.Name}");
+
+            productsById[item.ProductId] = product;
+        }
+
         var order = new Order
         {
             Id = Guid.NewGuid(),
@@ -49,18 +74,9 @@ public class OrderService
 
         decimal totalAmount = 0;
 
-        foreach (var item in items)
+        foreach (var item in groupedItems)
         {
-            var product = await _productRepository.GetByIdAsync(item.ProductId);
-            if (product == null)
-                throw new KeyNotFoundException($"Product with ID {item.ProductId} not found");
-
-            if (item.Quantity <= 0)
-                throw new InvalidOperationException($"Invalid quantity for product {product.Name}");
-
-            if (product.Stock < item.Quantity)
-                throw new InvalidOperationException($"Insufficient stock for product {product.Name}");
-
+            var product = productsById[item.ProductId];
             var orderItem = new OrderItem
             {
                 Id = Guid.NewGuid(),
@@ -73,6 +89,11 @@ public class OrderService
 
             order.Items.Add(orderItem);
             totalAmount += orderItem.Subtotal;
+        }
+
+        foreach (var item in groupedItems)
+        {
+            var product = productsById[item.ProductId];
             product.Stock -= item.Quantity;
             await _productRepository.UpdateAsync(product);
         }
@@ -102,9 +123,7 @@ public class OrderService
             throw new InvalidOperationException("Cart has no valid items");
         }
 
-        // Validate coupon before order creation to avoid side effects when coupon is invalid.
         var discountPercent = await ResolveCouponDiscountAsync(couponCode);
-
         var order = await CreateOrderAsync(userId, validItems);
 
         if (discountPercent <= 0)
