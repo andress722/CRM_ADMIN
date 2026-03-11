@@ -358,7 +358,7 @@ public class EcommerceDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.EventType).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.Payload).IsRequired();
+            entity.Property(e => e.Payload).IsRequired().HasColumnType("jsonb");
             entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
             entity.HasIndex(e => e.Status);
             entity.HasIndex(e => e.NextRetryAt);
@@ -422,7 +422,7 @@ public class EcommerceDbContext : DbContext
         modelBuilder.Entity<ChargebackDispute>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.Payload).IsRequired();
+            entity.Property(e => e.Payload).IsRequired().HasColumnType("jsonb");
             entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
             entity.HasIndex(e => e.ChargebackId);
             entity.HasIndex(e => e.CreatedAt);
@@ -591,11 +591,12 @@ public class EcommerceDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.EventType).IsRequired().HasMaxLength(200);
-            entity.Property(e => e.Payload).IsRequired();
+            entity.Property(e => e.Payload).IsRequired().HasColumnType("jsonb");
             entity.Property(e => e.Status).IsRequired().HasMaxLength(50).HasDefaultValue("pending");
             entity.HasIndex(e => e.Status);
             entity.HasIndex(e => e.CreatedAt);
         });
     }
 }
+
 
