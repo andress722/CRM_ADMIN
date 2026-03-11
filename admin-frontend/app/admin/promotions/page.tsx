@@ -58,6 +58,15 @@ function getBannerValidationError(banner: BannerItem): string | null {
   return null;
 }
 
+function isValidCouponDiscount(value: number): boolean {
+  return Number.isFinite(value) && value > 0 && value <= 100;
+}
+
+function toDateTimeLocal(date: Date): string {
+  const pad = (v: number) => String(v).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 export default function PromotionsPage() {
   const { addToast } = useToast();
   const queryClient = useQueryClient();
@@ -92,6 +101,16 @@ export default function PromotionsPage() {
   const [editingBannerId, setEditingBannerId] = useState<string | null>(null);
   const [bannerDraft, setBannerDraft] = useState<BannerItem | null>(null);
 
+  const applyBannerWindow = (hours: number) => {
+    const now = new Date();
+    const end = new Date(now.getTime() + hours * 60 * 60 * 1000);
+    setNewBanner((b) => ({ ...b, startDate: toDateTimeLocal(now), endDate: toDateTimeLocal(end) }));
+  };
+
+  const clearBannerWindow = () => {
+    setNewBanner((b) => ({ ...b, startDate: '', endDate: '' }));
+  };
+
   const refreshCoupons = () => queryClient.invalidateQueries({ queryKey: ['admin-coupons'] });
   const refreshBanners = () => queryClient.invalidateQueries({ queryKey: ['admin-banners'] });
 
@@ -106,8 +125,8 @@ export default function PromotionsPage() {
   };
 
   const createCoupon = async () => {
-    if (!newCoupon.code.trim() || newCoupon.discount <= 0) {
-      addToast('❌ Informe um codigo e desconto maior que zero', 'error');
+    if (!newCoupon.code.trim() || !isValidCouponDiscount(newCoupon.discount)) {
+      addToast('❌ Informe codigo e desconto entre 0.01% e 100%', 'error');
       return;
     }
 
@@ -127,8 +146,8 @@ export default function PromotionsPage() {
   const saveCoupon = async () => {
     if (!editingCouponId || !couponDraft) return;
 
-    if (!couponDraft.code.trim() || couponDraft.discount <= 0) {
-      addToast('❌ Informe um codigo e desconto maior que zero', 'error');
+    if (!couponDraft.code.trim() || !isValidCouponDiscount(couponDraft.discount)) {
+      addToast('❌ Informe codigo e desconto entre 0.01% e 100%', 'error');
       return;
     }
 
@@ -248,7 +267,8 @@ export default function PromotionsPage() {
               />
               <input
                 type="number"
-                min="0"
+                min="0.01"
+                max="100"
                 step="0.01"
                 placeholder="Desconto (%)"
                 value={newCoupon.discount}
@@ -284,6 +304,7 @@ export default function PromotionsPage() {
                 </button>
               ))}
             </div>
+            <p className="text-xs text-slate-400">Desconto aceito: 0.01% ate 100%.</p>
 
             <div className="border border-slate-700 rounded-lg overflow-hidden">
               <table className="w-full">
@@ -319,7 +340,8 @@ export default function PromotionsPage() {
                           <input
                             disabled={!isEditing}
                             type="number"
-                            min="0"
+                            min="0.01"
+                            max="100"
                             step="0.01"
                             value={item.discount}
                             onChange={(e) => setCouponDraft((d) => (d ? { ...d, discount: Number(e.target.value) } : d))}
@@ -444,6 +466,18 @@ export default function PromotionsPage() {
                 Adicionar banner
               </button>
             </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => applyBannerWindow(24)} className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-300 hover:border-blue-500">24h</button>
+              <button type="button" onClick={() => applyBannerWindow(24 * 7)} className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-300 hover:border-blue-500">7 dias</button>
+              <button type="button" onClick={() => applyBannerWindow(24 * 30)} className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-300 hover:border-blue-500">30 dias</button>
+              <button type="button" onClick={clearBannerWindow} className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:border-slate-500">Sem periodo</button>
+            </div>
+            {!!newBanner.link.trim() && (
+              <p className="text-xs text-slate-400">
+                Link final: <span className="text-slate-200">{normalizeBannerLink(newBanner.link)}</span>
+              </p>
+            )}
 
             {newBanner.image && (
               <div className="rounded border border-slate-700 p-2 w-fit bg-slate-900/70">
@@ -604,3 +638,4 @@ export default function PromotionsPage() {
     </div>
   );
 }
+
