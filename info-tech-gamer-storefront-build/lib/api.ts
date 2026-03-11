@@ -17,6 +17,7 @@ const RAW_BASE_URL =
   (process.env.NODE_ENV === "development" ? "http://localhost:5071" : "")
 const API_BASE = RAW_BASE_URL.replace(/\/+$/, "")
 const API = API_BASE.endsWith("/api/v1") ? API_BASE : `${API_BASE}/api/v1`
+const API_ORIGIN = API_BASE.endsWith("/api/v1") ? API_BASE.slice(0, -7) : API_BASE
 const ORDER_STATUS_LABELS: Record<number, string> = {
   0: "Pending",
   1: "Confirmed",
@@ -83,12 +84,22 @@ function normalizeStatus(value: unknown): string {
   return "Processing"
 }
 
+
+function resolveMediaUrl(value: unknown): string | undefined {
+  const url = String(value ?? "").trim()
+  if (!url) return undefined
+  if (url.startsWith("data:") || url.startsWith("blob:")) return url
+  if (/^https?:\/\//i.test(url)) return url
+  if (url.startsWith("//")) return `https:${url}`
+  if (url.startsWith("/")) return API_ORIGIN ? `${API_ORIGIN}${url}` : url
+  return API_ORIGIN ? `${API_ORIGIN}/${url.replace(/^\/+/, "")}` : url
+}
 function normalizeProduct(raw: any): Product {
   return {
     id: String(raw?.id ?? raw?.Id ?? ""),
     name: String(raw?.name ?? raw?.Name ?? ""),
     price: Number(raw?.price ?? raw?.Price ?? 0),
-    imageUrl: raw?.imageUrl ?? raw?.ImageUrl,
+    imageUrl: resolveMediaUrl(raw?.imageUrl ?? raw?.ImageUrl),
     category: raw?.category ?? raw?.Category,
     rating: raw?.rating ?? raw?.Rating,
     description: raw?.description ?? raw?.Description,
@@ -341,7 +352,7 @@ export async function getRecommendations(): Promise<ProductSummary[]> {
     id: String(item?.id ?? item?.Id ?? ""),
     name: String(item?.name ?? item?.Name ?? ""),
     price: Number(item?.price ?? item?.Price ?? 0),
-    imageUrl: item?.imageUrl ?? item?.ImageUrl,
+    imageUrl: resolveMediaUrl(item?.imageUrl ?? item?.ImageUrl),
   }))
 }
 
@@ -561,7 +572,7 @@ export async function getActiveBanners(): Promise<Banner[]> {
   return (data || []).map((item) => ({
     id: String(item?.id ?? item?.Id ?? ""),
     title: String(item?.title ?? item?.Title ?? ""),
-    image: String(item?.image ?? item?.Image ?? ""),
+    image: String(resolveMediaUrl(item?.image ?? item?.Image) ?? ""),
     link: item?.link ?? item?.Link,
     startDate: item?.startDate ?? item?.StartDate,
     endDate: item?.endDate ?? item?.EndDate,
@@ -716,4 +727,6 @@ export async function trackEvent(data: {
     // Analytics failures are silent
   }
 }
+
+
 
