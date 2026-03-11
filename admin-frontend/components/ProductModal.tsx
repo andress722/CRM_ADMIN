@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Product } from '@/lib/types';
 import { X, Save } from 'lucide-react';
 
@@ -43,6 +43,18 @@ type ProductModalContentProps = Omit<ProductModalProps, 'isOpen'>;
 function ProductModalContent({ product, onClose, onSubmit, initialData, isLoading }: ProductModalContentProps) {
   const [formData, setFormData] = useState(() => buildFormData(product, initialData));
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string>('');
+
+  useEffect(() => {
+    if (!imageFile) {
+      setImagePreviewUrl('');
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(imageFile);
+    setImagePreviewUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [imageFile]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,6 +181,12 @@ function ProductModalContent({ product, onClose, onSubmit, initialData, isLoadin
               className="w-full px-4 py-2 bg-slate-700/30 border border-slate-600 rounded-lg text-slate-200 file:mr-3 file:border-0 file:rounded file:px-3 file:py-1.5 file:bg-blue-600 file:text-white"
             />
             <p className="text-xs text-slate-400 mt-1">A imagem é enviada junto após salvar o produto.</p>
+            {imagePreviewUrl && (
+              <div className="mt-3 rounded-lg border border-slate-600 bg-slate-800/40 p-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={imagePreviewUrl} alt="Preview da imagem" className="h-28 w-full rounded object-contain bg-slate-900" />
+              </div>
+            )}
           </div>
 
           <div className="flex space-x-3 pt-6 border-t border-slate-600">
@@ -210,4 +228,5 @@ export function ProductModal({ isOpen, product, onClose, onSubmit, initialData, 
     />
   );
 }
+
 
