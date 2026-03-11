@@ -15,9 +15,24 @@ import { Separator } from "@/components/ui/separator"
 import { useCart } from "@/lib/cart-context"
 import { useAuth } from "@/lib/auth-context"
 import { useLocale } from "@/lib/locale-context"
-import { clearTokens, createOrderFromCart, createCheckout, createTransparentCheckout, validateCoupon } from "@/lib/api"
+import { clearTokens, createOrderFromCart, createTransparentCheckout, validateCoupon } from "@/lib/api"
 import type { CouponValidation } from "@/lib/types"
 import { toast } from "sonner"
+
+type MercadoPagoWindow = Window & {
+  MercadoPago?: new (publicKey: string, options?: { locale?: string }) => {
+    getPaymentMethods: (params: { bin: string }) => Promise<{ results?: Array<{ id?: string }> }>
+    createCardToken: (params: {
+      cardNumber: string
+      cardholderName: string
+      cardExpirationMonth: string
+      cardExpirationYear: string
+      securityCode: string
+      identificationType: string
+      identificationNumber: string
+    }) => Promise<{ id?: string; payment_method_id?: string }>
+  }
+}
 
 const checkoutSchema = z.object({
   name: z.string().min(2, "Name is required"),
@@ -29,6 +44,12 @@ const checkoutSchema = z.object({
   phoneAreaCode: z.string().min(2, "Area code is required"),
   phoneNumber: z.string().min(8, "Phone number is required"),
   payment: z.enum(["credit_card", "pix", "boleto"]),
+  cardHolderName: z.string().optional(),
+  cardNumber: z.string().optional(),
+  cardExpMonth: z.string().optional(),
+  cardExpYear: z.string().optional(),
+  cardCvv: z.string().optional(),
+  cardInstallments: z.string().optional(),
 })
 
 type CheckoutFormValues = z.infer<typeof checkoutSchema>
@@ -46,6 +67,90 @@ const paymentMethods = [
 ] as const
 
 const onlyDigits = (value: string) => value.replace(/\D/g, "")
+const MP_SDK_URL = "https://sdk.mercadopago.com/js/v2"
+const MP_PUBLIC_KEY = process.env.NEXT_PUBLIC_MP_PUBLIC_KEY || process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY || ""
+
+let mpSdkPromise: Promise<void> | null = null
+
+function ensureMercadoPagoSdkLoaded(): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve()
+  if ((window as MercadoPagoWindow).MercadoPago) return Promise.resolve()
+  if (mpSdkPromise) return mpSdkPromise
+
+  mpSdkPromise = new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[src=\"${MP_SDK_URL}\"]`)
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true })
+      existing.addEventListener("error", () => reject(new Error("Failed to load Mercado Pago SDK")), { once: true })
+      return
+    }
+
+    const script = document.createElement("script")
+    script.src = MP_SDK_URL
+    script.async = true
+    script.onload = () => resolve()
+    script.onerror = () => reject(new Error("Failed to load Mercado Pago SDK"))
+    document.head.appendChild(script)
+  })
+
+  return mpSdkPromise
+}
+
+async function tokenizeCard(values: CheckoutFormValues): Promise<{ token: string; paymentMethodId: string; installments: number }> {
+  if (!MP_PUBLIC_KEY) {
+    throw new Error("Missing NEXT_PUBLIC_MP_PUBLIC_KEY")
+  }
+
+  await ensureMercadoPagoSdkLoaded()
+
+  const mpCtor = (window as MercadoPagoWindow).MercadoPago
+  if (!mpCtor) {
+    throw new Error("Mercado Pago SDK unavailable")
+  }
+
+  const cardNumber = onlyDigits(values.cardNumber ?? "")
+  const cardholderName = (values.cardHolderName ?? "").trim()
+  const cardExpirationMonth = onlyDigits(values.cardExpMonth ?? "")
+  const cardExpirationYear = onlyDigits(values.cardExpYear ?? "")
+  const securityCode = onlyDigits(values.cardCvv ?? "")
+  const cpf = onlyDigits(values.cpf)
+
+  if (cardNumber.length < 13 || cardNumber.length > 19) throw new Error("Invalid card number")
+  if (!cardholderName) throw new Error("Card holder name is required")
+  if (cardExpirationMonth.length !== 2) throw new Error("Invalid expiration month")
+  if (cardExpirationYear.length !== 4) throw new Error("Invalid expiration year")
+  if (securityCode.length < 3 || securityCode.length > 4) throw new Error("Invalid CVV")
+
+  const mp = new mpCtor(MP_PUBLIC_KEY, { locale: "pt-BR" })
+
+  const bin = cardNumber.slice(0, 6)
+  const methods = await mp.getPaymentMethods({ bin })
+  let paymentMethodId = methods?.results?.[0]?.id || ""
+
+  const tokenResponse = await mp.createCardToken({
+    cardNumber,
+    cardholderName,
+    cardExpirationMonth,
+    cardExpirationYear,
+    securityCode,
+    identificationType: "CPF",
+    identificationNumber: cpf,
+  })
+
+  const token = tokenResponse?.id || ""
+  if (!token) throw new Error("Failed to tokenize card")
+
+  if (!paymentMethodId) {
+    paymentMethodId = tokenResponse?.payment_method_id || ""
+  }
+
+  if (!paymentMethodId) {
+    throw new Error("Unable to resolve card payment method")
+  }
+
+  const installments = Math.max(1, Number(values.cardInstallments || "1") || 1)
+  return { token, paymentMethodId, installments }
+}
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -67,7 +172,7 @@ export default function CheckoutPage() {
     formState: { errors },
   } = useForm<CheckoutFormValues>({
     resolver: zodResolver(checkoutSchema),
-    defaultValues: { payment: "credit_card" },
+    defaultValues: { payment: "credit_card", cardInstallments: "1" },
   })
 
   const selectedPayment = watch("payment")
@@ -168,52 +273,54 @@ export default function CheckoutPage() {
     setTransparentResult(null)
     try {
       const order = await createOrderFromCart(appliedCoupon?.code)
+      const [firstName, ...lastNameParts] = values.name.trim().split(" ")
+      const lastName = lastNameParts.join(" ").trim() || "Cliente"
 
       if (values.payment === "credit_card") {
-        const checkout = await createCheckout(order.id, user?.email)
-        const redirectUrl = checkout.initPoint || checkout.sandboxInitPoint
-        if (redirectUrl) {
-          window.location.href = redirectUrl
-          return
-        }
+        const card = await tokenizeCard(values)
+        await createTransparentCheckout({
+          orderId: order.id,
+          method: "card",
+          amount: order.totalAmount,
+          paymentMethodId: card.paymentMethodId,
+          payer: {
+            email: user?.email || "buyer@example.com",
+            firstName: firstName || "Cliente",
+            lastName,
+            identificationType: "CPF",
+            identificationNumber: onlyDigits(values.cpf),
+            phoneAreaCode: onlyDigits(values.phoneAreaCode),
+            phoneNumber: onlyDigits(values.phoneNumber),
+          },
+          card: {
+            token: card.token,
+            installments: card.installments,
+            paymentMethodId: card.paymentMethodId,
+          },
+        })
       } else {
-        const [firstName, ...lastNameParts] = values.name.trim().split(" ")
-        const lastName = lastNameParts.join(" ").trim() || "Cliente"
         const method = values.payment === "pix" ? "pix" : "boleto"
+        const result = await createTransparentCheckout({
+          orderId: order.id,
+          method,
+          amount: order.totalAmount,
+          paymentMethodId: method === "pix" ? "pix" : "bolbradesco",
+          payer: {
+            email: user?.email || "buyer@example.com",
+            firstName: firstName || "Cliente",
+            lastName,
+            identificationType: "CPF",
+            identificationNumber: onlyDigits(values.cpf),
+            phoneAreaCode: onlyDigits(values.phoneAreaCode),
+            phoneNumber: onlyDigits(values.phoneNumber),
+          },
+        })
 
-        try {
-          const result = await createTransparentCheckout({
-            orderId: order.id,
-            method,
-            amount: order.totalAmount,
-            paymentMethodId: method === "pix" ? "pix" : "bolbradesco",
-            payer: {
-              email: user?.email || "buyer@example.com",
-              firstName: firstName || "Cliente",
-              lastName,
-              identificationType: "CPF",
-              identificationNumber: onlyDigits(values.cpf),
-              phoneAreaCode: onlyDigits(values.phoneAreaCode),
-              phoneNumber: onlyDigits(values.phoneNumber),
-            },
-          })
-
-          setTransparentResult({
-            method,
-            pixQrCode: result.pixQrCode,
-            boletoUrl: result.boletoUrl,
-          })
-        } catch (transparentError) {
-          const hostedCheckout = await createCheckout(order.id, user?.email)
-          const fallbackUrl = hostedCheckout.initPoint || hostedCheckout.sandboxInitPoint
-          if (fallbackUrl) {
-            toast.info(t("Transparent payment unavailable. Redirecting to checkout.", "Pagamento transparente indisponivel. Redirecionando para checkout."))
-            window.location.href = fallbackUrl
-            return
-          }
-
-          throw transparentError
-        }
+        setTransparentResult({
+          method,
+          pixQrCode: result.pixQrCode,
+          boletoUrl: result.boletoUrl,
+        })
       }
 
       clearCart()
@@ -333,6 +440,44 @@ export default function CheckoutPage() {
                     )
                   })}
                 </div>
+
+                {selectedPayment === "credit_card" && (
+                  <div className="mt-4 grid gap-4 rounded-lg border border-border p-4">
+                    <div>
+                      <Label htmlFor="cardHolderName" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("Card Holder", "Nome no cartão")}</Label>
+                      <Input id="cardHolderName" {...register("cardHolderName")} className="mt-1 border-border bg-secondary" />
+                    </div>
+                    <div>
+                      <Label htmlFor="cardNumber" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("Card Number", "Número do cartão")}</Label>
+                      <Input id="cardNumber" {...register("cardNumber")} className="mt-1 border-border bg-secondary" />
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <Label htmlFor="cardExpMonth" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("Month", "Mês")}</Label>
+                        <Input id="cardExpMonth" placeholder="MM" {...register("cardExpMonth")} className="mt-1 border-border bg-secondary" />
+                      </div>
+                      <div>
+                        <Label htmlFor="cardExpYear" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("Year", "Ano")}</Label>
+                        <Input id="cardExpYear" placeholder="YYYY" {...register("cardExpYear")} className="mt-1 border-border bg-secondary" />
+                      </div>
+                      <div>
+                        <Label htmlFor="cardCvv" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">CVV</Label>
+                        <Input id="cardCvv" {...register("cardCvv")} className="mt-1 border-border bg-secondary" />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="cardInstallments" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("Installments", "Parcelas")}</Label>
+                      <select id="cardInstallments" {...register("cardInstallments")} className="mt-1 w-full border border-border bg-secondary p-2 text-sm text-foreground">
+                        <option value="1">1x</option>
+                        <option value="2">2x</option>
+                        <option value="3">3x</option>
+                        <option value="6">6x</option>
+                        <option value="12">12x</option>
+                      </select>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">{t("Payment is processed transparently without leaving this page.", "Pagamento processado de forma transparente sem sair desta página.")}</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -419,4 +564,3 @@ export default function CheckoutPage() {
     </div>
   )
 }
-

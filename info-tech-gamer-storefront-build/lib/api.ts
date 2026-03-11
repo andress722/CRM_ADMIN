@@ -630,6 +630,12 @@ export async function createTransparentCheckout(payload: {
     phoneNumber: string
   }
   paymentMethodId?: string
+  card?: {
+    token: string
+    installments: number
+    paymentMethodId: string
+    issuerId?: string
+  }
 }): Promise<{
   paymentId: string
   status: string
@@ -647,6 +653,7 @@ export async function createTransparentCheckout(payload: {
       amount: payload.amount,
       paymentMethodId: payload.paymentMethodId,
       payer: payload.payer,
+      card: payload.card,
     }),
   })
 
@@ -660,7 +667,6 @@ export async function createTransparentCheckout(payload: {
     boletoUrl: data?.boletoUrl ?? data?.BoletoUrl,
   }
 }
-
 // --- Orders ---
 
 export async function getOrder(id: string): Promise<OrderWithHistory | null> {
