@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Separator } from "@/components/ui/separator"
 import { useCart } from "@/lib/cart-context"
 import { useAuth } from "@/lib/auth-context"
@@ -306,31 +305,33 @@ export default function CheckoutPage() {
               </CardHeader>
               <CardContent>
                 <input type="hidden" {...register("payment")} />
-                <RadioGroup
-                  value={selectedPayment}
-                  onValueChange={(v) => setValue("payment", v as CheckoutFormValues["payment"], { shouldDirty: true, shouldValidate: true })}
-                  className="space-y-3"
-                >
+                <div className="space-y-3">
                   {paymentMethods.map((method) => {
                     const label = method.key === "card" ? t("Credit Card", "Cartão") : method.key === "pix" ? "PIX" : "Boleto"
+                    const isSelected = selectedPayment === method.value
                     return (
                       <button
                         type="button"
                         key={method.value}
+                        aria-pressed={isSelected}
                         className={`flex w-full items-center gap-3 border p-4 text-left transition-colors ${
-                          selectedPayment === method.value ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
+                          isSelected ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
                         }`}
                         onClick={() => setValue("payment", method.value, { shouldDirty: true, shouldValidate: true })}
                       >
-                        <RadioGroupItem value={method.value} id={method.value} />
+                        <div
+                          className={`h-4 w-4 rounded-full border ${
+                            isSelected ? "border-primary" : "border-muted-foreground/40"
+                          }`}
+                        >
+                          <div className={`m-[3px] h-2 w-2 rounded-full ${isSelected ? "bg-primary" : "bg-transparent"}`} />
+                        </div>
                         <method.icon className="h-5 w-5 text-muted-foreground" />
-                        <Label htmlFor={method.value} className="cursor-pointer text-sm font-bold uppercase tracking-wider text-foreground">
-                          {label}
-                        </Label>
+                        <span className="text-sm font-bold uppercase tracking-wider text-foreground">{label}</span>
                       </button>
                     )
                   })}
-                </RadioGroup>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -391,5 +392,4 @@ export default function CheckoutPage() {
     </div>
   )
 }
-
 
