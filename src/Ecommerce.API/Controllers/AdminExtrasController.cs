@@ -25,6 +25,7 @@ public class AdminExtrasController : ControllerBase
     private readonly EcommerceDbContext _db;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<AdminExtrasController> _logger;
+    private readonly IConfiguration _configuration;
 
     public AdminExtrasController(
         IWebhookRepository webhooks,
@@ -34,6 +35,7 @@ public class AdminExtrasController : ControllerBase
         IBannerRepository bannerRepository,
         EcommerceDbContext db,
         IHttpClientFactory httpClientFactory,
+        IConfiguration configuration,
         ILogger<AdminExtrasController> logger)
     {
         _webhooks = webhooks;
@@ -43,6 +45,7 @@ public class AdminExtrasController : ControllerBase
         _bannerRepository = bannerRepository;
         _db = db;
         _httpClientFactory = httpClientFactory;
+        _configuration = configuration;
         _logger = logger;
     }
 
@@ -313,6 +316,117 @@ public class AdminExtrasController : ControllerBase
         });
     }
 
+    [HttpGet("debug/checkout-health")]
+    public async Task<IActionResult> GetCheckoutHealth()
+    {
+        var correlationId = HttpContext.Response.Headers["X-Correlation-Id"].FirstOrDefault()
+            ?? HttpContext.TraceIdentifier;
+
+        var environmentName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")
+            ?? "Production";
+
+        var provider = _configuration["Payments:Provider"] ?? string.Empty;
+        var allowStubOutsideDevelopment = _configuration.GetValue("Payments:AllowStubOutsideDevelopment", false);
+        var mercadoPagoToken = _configuration["Payments:MercadoPago:AccessToken"];
+        var mercadoPagoWebhookUrl = _configuration["Payments:MercadoPago:WebhookUrl"];
+
+        var captchaEnabled = _configuration.GetValue("Security:Captcha:Enabled", false);
+        var captchaSecretConfigured = !string.IsNullOrWhiteSpace(_configuration["Security:Captcha:SecretKey"]);
+
+        var currentUserId = GetCurrentUserId();
+        var authenticated = currentUserId != Guid.Empty;
+        var userExists = false;
+        if (authenticated)
+        {
+            var user = await _users.GetByIdAsync(currentUserId);
+            userExists = user != null;
+        }
+
+        var warnings = new List<string>();
+
+        if (string.IsNullOrWhiteSpace(provider))
+        {
+            warnings.Add("Payments:Provider is not configured.");
+        }
+
+        if (provider.Equals("MercadoPago", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(mercadoPagoToken))
+        {
+            warnings.Add("MercadoPago provider is selected but access token is missing.");
+        }
+
+        if (provider.Equals("Stub", StringComparison.OrdinalIgnoreCase)
+            && !environmentName.Equals("Development", StringComparison.OrdinalIgnoreCase)
+            && !allowStubOutsideDevelopment)
+        {
+            warnings.Add("Stub payments are blocked outside Development unless Payments:AllowStubOutsideDevelopment=true.");
+        }
+
+        if (captchaEnabled && !captchaSecretConfigured)
+        {
+            warnings.Add("Captcha is enabled but Security:Captcha:SecretKey is missing.");
+        }
+
+        if (!authenticated)
+        {
+            warnings.Add("No authenticated user context found in token.");
+        }
+        else if (!userExists)
+        {
+            warnings.Add("Authenticated token user was not found in database.");
+        }
+
+        return Ok(new
+        {
+            correlationId,
+            environment = environmentName,
+            auth = new
+            {
+                authenticated,
+                userId = authenticated ? currentUserId.ToString() : null,
+                userExists
+            },
+            checkout = new
+            {
+                paymentProvider = string.IsNullOrWhiteSpace(provider) ? "(unset)" : provider,
+                allowStubOutsideDevelopment,
+                mercadoPagoTokenConfigured = !string.IsNullOrWhiteSpace(mercadoPagoToken),
+                mercadoPagoTokenPreview = MaskSecret(mercadoPagoToken),
+                mercadoPagoWebhookUrlConfigured = !string.IsNullOrWhiteSpace(mercadoPagoWebhookUrl)
+            },
+            captcha = new
+            {
+                enabled = captchaEnabled,
+                secretConfigured = captchaSecretConfigured
+            },
+            warnings,
+            healthy = warnings.Count == 0
+        });
+    }
+
+    private Guid GetCurrentUserId()
+    {
+        var sub = User?.Claims.FirstOrDefault(c => c.Type == System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value
+            ?? User?.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? User?.Claims.FirstOrDefault(c => c.Type == "sub")?.Value;
+
+        return Guid.TryParse(sub, out var userId) ? userId : Guid.Empty;
+    }
+
+    private static string MaskSecret(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "(not configured)";
+        }
+
+        var trimmed = value.Trim();
+        if (trimmed.Length <= 4)
+        {
+            return "****";
+        }
+
+        return $"****{trimmed[^4..]}";
+    }
     private async Task<AdminSetting> GetOrCreateSettingsAsync()
     {
         var settings = await _db.AdminSettings.AsNoTracking().OrderByDescending(x => x.UpdatedAt).FirstOrDefaultAsync();
@@ -1103,4 +1217,6 @@ public record ProfileDto
     public string Avatar { get; init; } = string.Empty;
     public Dictionary<string, object> Preferences { get; init; } = new();
 }
+
+
 
