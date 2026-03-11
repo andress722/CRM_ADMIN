@@ -1,14 +1,19 @@
+"use client"
+
 import Link from "next/link"
 import { Zap } from "lucide-react"
+import { useLocale } from "@/lib/locale-context"
 
 const footerLinks = [
-  { href: "/subscriptions", label: "Plans" },
-  { href: "/support", label: "Support" },
-  { href: "/privacy", label: "Privacy" },
-  { href: "/track-order", label: "Track Order" },
-]
+  { href: "/subscriptions", en: "Plans", pt: "Planos" },
+  { href: "/support", en: "Support", pt: "Suporte" },
+  { href: "/privacy", en: "Privacy", pt: "Privacidade" },
+  { href: "/track-order", en: "Track Order", pt: "Rastrear Pedido" },
+] as const
 
 export function Footer() {
+  const { t } = useLocale()
+
   return (
     <footer className="border-t border-border bg-background">
       <div className="mx-auto flex max-w-[1200px] flex-col items-center gap-6 px-6 py-8 md:flex-row md:justify-between">
@@ -28,7 +33,7 @@ export function Footer() {
               href={link.href}
               className="text-xs font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:text-primary"
             >
-              {link.label}
+              {t(link.en, link.pt)}
             </Link>
           ))}
         </nav>

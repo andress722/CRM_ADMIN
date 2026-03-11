@@ -120,7 +120,7 @@ export function Header() {
                   {wishlistItems.length}
                 </Badge>
               )}
-              <span className="sr-only">Wishlist</span>
+              <span className="sr-only">{t("Wishlist", "Favoritos")}</span>
             </Link>
           </Button>
 
@@ -132,7 +132,7 @@ export function Header() {
                   {itemCount}
                 </Badge>
               )}
-              <span className="sr-only">Cart</span>
+              <span className="sr-only">{t("Cart", "Carrinho")}</span>
             </Link>
           </Button>
 
@@ -141,7 +141,7 @@ export function Header() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary">
                   <User className="h-5 w-5" />
-                  <span className="sr-only">Account menu</span>
+                  <span className="sr-only">{t("Account menu", "Menu da conta")}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48 border-border bg-card">
@@ -182,7 +182,7 @@ export function Header() {
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="text-muted-foreground md:hidden hover:text-primary">
                 <Menu className="h-5 w-5" />
-                <span className="sr-only">Menu</span>
+                <span className="sr-only">{t("Menu", "Menu")}</span>
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="w-72 border-border bg-card">
@@ -223,3 +223,5 @@ export function Header() {
     </header>
   )
 }
+
+

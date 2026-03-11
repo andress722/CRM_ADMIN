@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -11,17 +11,25 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { createSupportTicket } from "@/lib/api"
+import { useLocale } from "@/lib/locale-context"
 import { toast } from "sonner"
 
-const supportSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  subject: z.string().min(3, "Subject must be at least 3 characters"),
-  message: z.string().min(10, "Message must be at least 10 characters"),
-})
+const buildSupportSchema = (t: (en: string, pt: string) => string) =>
+  z.object({
+    email: z.string().email(t("Invalid email address", "Email invalido")),
+    subject: z.string().min(3, t("Subject must be at least 3 characters", "O assunto deve ter pelo menos 3 caracteres")),
+    message: z.string().min(10, t("Message must be at least 10 characters", "A mensagem deve ter pelo menos 10 caracteres")),
+  })
 
-type SupportValues = z.infer<typeof supportSchema>
+type SupportValues = {
+  email: string
+  subject: string
+  message: string
+}
 
 export default function SupportPage() {
+  const { t } = useLocale()
+  const supportSchema = useMemo(() => buildSupportSchema(t), [t])
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
 
@@ -36,9 +44,9 @@ export default function SupportPage() {
     try {
       await createSupportTicket(data)
       setSubmitted(true)
-      toast.success("Support ticket created.")
+      toast.success(t("Support ticket created.", "Chamado de suporte criado."))
     } catch {
-      toast.error("Failed to submit ticket. Please try again.")
+      toast.error(t("Failed to submit ticket. Please try again.", "Falha ao enviar chamado. Tente novamente."))
     } finally {
       setLoading(false)
     }
@@ -50,9 +58,9 @@ export default function SupportPage() {
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
           <CheckCircle className="h-8 w-8 text-primary" />
         </div>
-        <h1 className="mt-6 font-serif text-2xl font-bold text-foreground">Ticket Submitted</h1>
+        <h1 className="mt-6 font-serif text-2xl font-bold text-foreground">{t("Ticket Submitted", "Chamado Enviado")}</h1>
         <p className="mt-2 text-muted-foreground">
-          We have received your support request and will respond within 24 hours.
+          {t("We have received your support request and will respond within 24 hours.", "Recebemos sua solicitacao e responderemos em ate 24 horas.")}
         </p>
       </div>
     )
@@ -64,31 +72,31 @@ export default function SupportPage() {
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
           <Headphones className="h-7 w-7 text-primary" />
         </div>
-        <h1 className="font-serif text-3xl font-bold text-foreground">Contact Support</h1>
+        <h1 className="font-serif text-3xl font-bold text-foreground">{t("Contact Support", "Contatar Suporte")}</h1>
         <p className="mt-2 text-muted-foreground">
-          Have a question or issue? We are here to help.
+          {t("Have a question or issue? We are here to help.", "Tem alguma duvida ou problema? Estamos aqui para ajudar.")}
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="font-serif text-lg">Submit a Ticket</CardTitle>
-          <CardDescription>Fill out the form below and our team will get back to you.</CardDescription>
+          <CardTitle className="font-serif text-lg">{t("Submit a Ticket", "Enviar Chamado")}</CardTitle>
+          <CardDescription>{t("Fill out the form below and our team will get back to you.", "Preencha o formulario abaixo e nossa equipe retornara para voce.")}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
-              <Label htmlFor="support-email">Email</Label>
+              <Label htmlFor="support-email">{t("Email", "Email")}</Label>
               <Input id="support-email" type="email" {...register("email")} className="mt-1" />
               {errors.email && <p className="mt-1 text-sm text-destructive">{errors.email.message}</p>}
             </div>
             <div>
-              <Label htmlFor="support-subject">Subject</Label>
+              <Label htmlFor="support-subject">{t("Subject", "Assunto")}</Label>
               <Input id="support-subject" {...register("subject")} className="mt-1" />
               {errors.subject && <p className="mt-1 text-sm text-destructive">{errors.subject.message}</p>}
             </div>
             <div>
-              <Label htmlFor="support-message">Message</Label>
+              <Label htmlFor="support-message">{t("Message", "Mensagem")}</Label>
               <Textarea
                 id="support-message"
                 rows={5}
@@ -98,7 +106,7 @@ export default function SupportPage() {
               {errors.message && <p className="mt-1 text-sm text-destructive">{errors.message.message}</p>}
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Submitting..." : "Submit Ticket"}
+              {loading ? t("Submitting...", "Enviando...") : t("Submit Ticket", "Enviar Chamado")}
             </Button>
           </form>
         </CardContent>

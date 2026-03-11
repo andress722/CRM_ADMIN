@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { WishlistButton } from "@/components/wishlist-button"
 import { useCart } from "@/lib/cart-context"
+import { useLocale } from "@/lib/locale-context"
 import type { Product } from "@/lib/types"
 import { toast } from "sonner"
 
@@ -15,6 +16,7 @@ interface ProductCardProps {
 
 export function ProductCard({ product }: ProductCardProps) {
   const { addItem } = useCart()
+  const { t } = useLocale()
 
   return (
     <Card className="group overflow-hidden border-border bg-card transition-all hover:border-primary/30 hover:glow-cyan-sm">
@@ -80,14 +82,13 @@ export function ProductCard({ product }: ProductCardProps) {
             className="bg-primary text-[10px] font-bold uppercase tracking-wider text-primary-foreground hover:bg-primary/90"
             onClick={() => {
               addItem(product)
-              toast.success(`${product.name} added to cart`)
+              toast.success(t(`${product.name} added to cart`, `${product.name} adicionado ao carrinho`))
             }}
           >
-            Add to Cart
+            {t("Add to Cart", "Adicionar")}
           </Button>
         </div>
       </CardContent>
     </Card>
   )
 }
-
