@@ -104,6 +104,10 @@ function normalizeMercadoPagoPublicKey(raw: string): string {
 const MP_PUBLIC_KEY = normalizeMercadoPagoPublicKey(MP_PUBLIC_KEY_RAW)
 let mpSdkPromise: Promise<void> | null = null
 
+function isLocalHostname(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1"
+}
+
 function ensureMercadoPagoSdkLoaded(): Promise<void> {
   if (typeof window === "undefined") return Promise.resolve()
   if ((window as MercadoPagoWindow).MercadoPago) return Promise.resolve()
@@ -135,6 +139,14 @@ async function tokenizeCard(values: CheckoutFormValues): Promise<{ token: string
 
   if (!/^TEST-|^APP_USR-/.test(MP_PUBLIC_KEY)) {
     throw new Error("Invalid Mercado Pago public key format")
+  }
+
+  if (
+    typeof window !== "undefined" &&
+    !isLocalHostname(window.location.hostname) &&
+    MP_PUBLIC_KEY.startsWith("TEST-")
+  ) {
+    throw new Error("Mercado Pago sandbox key (TEST-...) cannot be used on public environments. Configure NEXT_PUBLIC_MP_PUBLIC_KEY with an APP_USR- key.")
   }
 
   await ensureMercadoPagoSdkLoaded()
@@ -601,6 +613,3 @@ export default function CheckoutPage() {
     </div>
   )
 }
-
-
-
