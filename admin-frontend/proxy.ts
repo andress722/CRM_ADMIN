@@ -61,7 +61,7 @@ function buildCsp(nonce: string, isDev: boolean): string {
     isDev ? "style-src 'self' 'unsafe-inline'" : `style-src 'self' 'nonce-${nonce}'`,
     isDev
       ? `script-src ${scriptSrc.join(' ')} 'unsafe-inline' 'unsafe-eval'`
-      : `script-src ${scriptSrc.join(' ')} 'nonce-${nonce}' 'strict-dynamic'`,
+      : `script-src ${scriptSrc.join(' ')} 'unsafe-inline'`,
     `connect-src ${connectSrc.join(' ')}`,
     `frame-src ${frameSrc.join(' ')}`,
     "worker-src 'self' blob:",
@@ -93,5 +93,6 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: ['/((?!api|_next|favicon.ico).*)'],
 };
+
 
 
