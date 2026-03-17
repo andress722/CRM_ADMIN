@@ -58,7 +58,7 @@ function buildCsp(nonce: string, isDev: boolean): string {
     "form-action 'self'",
     `img-src ${imgSrc.join(' ')}`,
     "font-src 'self' data:",
-    style-src 'self' 'unsafe-inline',
+    "style-src 'self' 'unsafe-inline'",
     isDev
       ? `script-src ${scriptSrc.join(' ')} 'unsafe-inline' 'unsafe-eval'`
       : `script-src ${scriptSrc.join(' ')} 'unsafe-inline'`,
