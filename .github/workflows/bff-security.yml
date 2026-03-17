@@ -1,0 +1,96 @@
+name: BFF Security
+
+"on":
+  pull_request:
+    paths:
+      - "admin-frontend/**"
+      - "info-tech-gamer-storefront-build/**"
+      - ".github/workflows/bff-security.yml"
+  push:
+    branches: [ main, master ]
+    paths:
+      - "admin-frontend/**"
+      - "info-tech-gamer-storefront-build/**"
+      - ".github/workflows/bff-security.yml"
+
+jobs:
+  admin-bff-security:
+    name: Admin BFF Security
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin-frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: admin-frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run BFF security tests
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          PLAYWRIGHT_HTML_REPORT: playwright-report-bff-security
+        run: npx playwright test tests/bff-security.spec.ts --project=chromium --workers=1 --reporter=html --output=test-results-bff-security
+
+      - name: Upload admin BFF security artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-bff-security-artifacts
+          if-no-files-found: warn
+          path: |
+            admin-frontend/playwright-report-bff-security
+            admin-frontend/test-results-bff-security
+
+  storefront-bff-security:
+    name: Storefront BFF Security
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: info-tech-gamer-storefront-build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: info-tech-gamer-storefront-build/pnpm-lock.yaml
+
+      - name: Enable pnpm via corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run BFF security tests
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          PLAYWRIGHT_HTML_REPORT: playwright-report-bff-security
+        run: npx playwright test tests/bff-security.spec.ts --project=chromium --workers=1 --reporter=html --output=test-results-bff-security
+
+      - name: Upload storefront BFF security artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: storefront-bff-security-artifacts
+          if-no-files-found: warn
+          path: |
+            info-tech-gamer-storefront-build/playwright-report-bff-security
+            info-tech-gamer-storefront-build/test-results-bff-security

@@ -1,6 +1,5 @@
 "use client";
 
-import { AuthService } from "@/services/auth";
 import { endpoints } from "@/services/endpoints";
 import { Chart, registerables } from "chart.js";
 import ExcelJS from "exceljs";
@@ -17,22 +16,16 @@ type ReportItem = {
   downloadUrl?: string;
 };
 
-export default function ReportsPage() {
-  const token = AuthService.getToken();
-  const [reports, setReports] = useState<ReportItem[]>([]);
-  const [loading, setLoading] = useState(() => Boolean(token));
-  const [error, setError] = useState<string | null>(() =>
-    token ? null : "Usuário não autenticado.",
-  );
+export default function ReportsPage() {  const [reports, setReports] = useState<ReportItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [period, setPeriod] = useState({ start: "", end: "" });
   const chartRef = useRef<HTMLCanvasElement>(null);
   const pieRef = useRef<HTMLCanvasElement>(null);
 
-  useEffect(() => {
-    if (!token) return;
-    let url = endpoints.admin.reports;
+  useEffect(() => {    let url = endpoints.admin.reports;
     const params = [];
     if (filter) params.push(`filter=${encodeURIComponent(filter)}`);
     if (typeFilter) params.push(`type=${encodeURIComponent(typeFilter)}`);
@@ -40,7 +33,7 @@ export default function ReportsPage() {
     if (period.end) params.push(`end=${encodeURIComponent(period.end)}`);
     if (params.length) url += "?" + params.join("&");
     fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
+      
     })
       .then((res) => res.json())
       .then((data) => {
@@ -51,7 +44,7 @@ export default function ReportsPage() {
         setError("Erro ao carregar relatórios.");
         setLoading(false);
       });
-  }, [filter, period.end, period.start, token, typeFilter]);
+  }, [filter, period.end, period.start, typeFilter]);
 
   useEffect(() => {
     if (!reports.length || !pieRef.current) return;
@@ -260,3 +253,5 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+

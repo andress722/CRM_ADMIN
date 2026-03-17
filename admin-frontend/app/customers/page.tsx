@@ -1,5 +1,4 @@
 "use client";
-import { AuthService } from "@/services/auth";
 import { endpoints } from "@/services/endpoints";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -11,20 +10,14 @@ type CustomerSummary = {
   blocked?: boolean;
 };
 
-export default function CustomersPage() {
-  const token = AuthService.getToken();
-  const [customers, setCustomers] = useState<CustomerSummary[]>([]);
-  const [loading, setLoading] = useState(() => Boolean(token));
-  const [error, setError] = useState<string | null>(() =>
-    token ? null : "Usuario nao autenticado.",
-  );
+export default function CustomersPage() {  const [customers, setCustomers] = useState<CustomerSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const loadCustomers = useCallback(() => {
-    if (!token) return;
-
+  const loadCustomers = useCallback(() => {
     setLoading(true);
     fetch(endpoints.admin.customers, {
-      headers: { Authorization: `Bearer ${token}` },
+      
     })
       .then(async (res) => {
         if (!res.ok) {
@@ -38,22 +31,20 @@ export default function CustomersPage() {
         setError("Erro ao carregar clientes.");
       })
       .finally(() => setLoading(false));
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     loadCustomers();
   }, [loadCustomers]);
 
-  const toggleBlock = async (customer: CustomerSummary) => {
-    if (!token) return;
-
+  const toggleBlock = async (customer: CustomerSummary) => {
     try {
       const nextBlocked = !Boolean(customer.blocked);
       const res = await fetch(endpoints.admin.customerDetail(customer.id), {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+
         },
         body: JSON.stringify({
           name: customer.name,
@@ -119,3 +110,5 @@ export default function CustomersPage() {
     </div>
   );
 }
+
+

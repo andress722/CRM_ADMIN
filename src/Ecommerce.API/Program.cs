@@ -36,6 +36,11 @@ Log.Logger = new LoggerConfiguration()
     .CreateLogger();
 builder.Host.UseSerilog();
 
+var rateLimitFileConfiguration = new ConfigurationBuilder()
+    .SetBasePath(builder.Environment.ContentRootPath)
+    .AddJsonFile("rate-limits.json", optional: false, reloadOnChange: true)
+    .Build();
+
 var sentryDsn = builder.Configuration["Sentry:Dsn"];
 if (!string.IsNullOrWhiteSpace(sentryDsn))
 {
@@ -430,6 +435,7 @@ builder.Services.AddScoped<ICrmActivityRepository, CrmActivityRepository>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<UserAddressService>();
 builder.Services.AddScoped<ProductService>();
+builder.Services.AddScoped<ProductSearchService>();
 builder.Services.AddScoped<OrderService>();
 builder.Services.AddScoped<CartService>();
 builder.Services.AddScoped<PaymentService>();
@@ -448,6 +454,7 @@ builder.Services.AddScoped<SubscriptionService>();
 builder.Services.AddScoped<AffiliateService>();
 builder.Services.AddScoped<SocialAuthService>();
 builder.Services.AddScoped<PushDeviceService>();
+builder.Services.AddScoped<PushNotificationService>();
 builder.Services.AddScoped<CrmService>();
 builder.Services.AddScoped<AdminReportService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
@@ -615,9 +622,9 @@ builder.Services.AddAuthorization(options =>
 // Register authorization handler
 builder.Services.AddSingleton<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, Ecommerce.API.Authorization.OwnerOrAdminHandler>();
 
-// Rate limiting
-builder.Services.Configure<IpRateLimitOptions>(builder.Configuration.GetSection("IpRateLimiting"));
-builder.Services.Configure<IpRateLimitPolicies>(builder.Configuration.GetSection("IpRateLimitPolicies"));
+// Rate limiting (loaded from versioned file, not environment overrides)
+builder.Services.Configure<IpRateLimitOptions>(rateLimitFileConfiguration.GetSection("IpRateLimiting"));
+builder.Services.Configure<IpRateLimitPolicies>(rateLimitFileConfiguration.GetSection("IpRateLimitPolicies"));
 builder.Services.AddInMemoryRateLimiting();
 builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
 
@@ -697,6 +704,12 @@ app.Use(async (context, next) =>
         context.Response.Headers["X-Frame-Options"] = "DENY";
         context.Response.Headers["Referrer-Policy"] = "no-referrer";
         context.Response.Headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()";
+        if (context.Request.Path.StartsWithSegments("/api/v1/auth", StringComparison.OrdinalIgnoreCase))
+        {
+            context.Response.Headers["Cache-Control"] = "no-store, no-cache, max-age=0";
+            context.Response.Headers["Pragma"] = "no-cache";
+            context.Response.Headers["Expires"] = "0";
+        }
         if (!app.Environment.IsDevelopment() || !context.Request.Path.StartsWithSegments("/swagger"))
         {
             context.Response.Headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'";
@@ -733,7 +746,9 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseWebSockets();
 app.UseCors("AllowFrontend");
+app.UseMiddleware<RequestBodySizeLimitMiddleware>();
 app.UseIpRateLimiting();
+app.UseMiddleware<CsrfProtectionMiddleware>();
 app.UseAuthentication();
 app.Use(async (context, next) =>
 {
@@ -1164,4 +1179,10 @@ catch (Exception ex)
 app.Run();
 
 public partial class Program { }
+
+
+
+
+
+
 

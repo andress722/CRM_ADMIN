@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { endpoints } from '@/services/endpoints';
 import Link from 'next/link';
-import { AuthService } from '@/services/auth';
 import { authFetch } from '@/services/auth-fetch';
 import BulkActionsBar from '@/components/BulkActionsBar';
 import BackButton from '@/components/BackButton';
@@ -82,14 +81,7 @@ export default function LeadsPage() {
     source: 'Website',
   });
 
-  useEffect(() => {
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setLoading(false);
-      return;
-    }
-    authFetch(endpoints.admin.crmLeads, {
+  useEffect(() => {    authFetch(endpoints.admin.crmLeads, {
       headers: {},
     })
       .then((res) => res.json())
@@ -127,12 +119,6 @@ export default function LeadsPage() {
       return;
     }
 
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      return;
-    }
-
     const payload = {
       name: form.name.trim(),
       email: form.email.trim(),
@@ -162,10 +148,7 @@ export default function LeadsPage() {
   };
 
   const updateStatus = async (id: string, status: LeadStatus) => {
-    setLeads((prev) => prev.map((lead) => (lead.id === id ? { ...lead, status } : lead)));
-    const token = AuthService.getToken();
-    if (!token) return;
-    try {
+    setLeads((prev) => prev.map((lead) => (lead.id === id ? { ...lead, status } : lead)));    try {
       await authFetch(endpoints.admin.crmLeadDetail(id), {
         method: 'PATCH',
         headers: {
@@ -203,13 +186,7 @@ export default function LeadsPage() {
   };
 
   const handleBulkAction = async (type: 'Email' | 'Task') => {
-    if (selectedIds.size === 0) return;
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      return;
-    }
-    if (type === 'Email') {
+    if (selectedIds.size === 0) return;    if (type === 'Email') {
       setBulkEmailing(true);
     } else {
       setBulkTasking(true);
@@ -231,7 +208,7 @@ export default function LeadsPage() {
           notes: [lead.email, lead.company].filter(Boolean).join(' • '),
         },
       }));
-      await runBulkRequests(requests, token);
+      await runBulkRequests(requests);
       setSelectedIds(new Set());
       setBulkTaskDueDate('');
     } catch {
@@ -243,13 +220,7 @@ export default function LeadsPage() {
   };
 
   const handleBulkOwner = async () => {
-    if (selectedIds.size === 0 || !bulkOwner.trim()) return;
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      return;
-    }
-    setBulkReassigning(true);
+    if (selectedIds.size === 0 || !bulkOwner.trim()) return;    setBulkReassigning(true);
     setError(null);
     setLeads((prev) =>
       prev.map((lead) => (selectedIds.has(lead.id) ? { ...lead, owner: bulkOwner.trim() } : lead))
@@ -261,7 +232,7 @@ export default function LeadsPage() {
         method: 'PATCH' as const,
         body: { owner: bulkOwner.trim() },
       }));
-      await runBulkRequests(requests, token);
+      await runBulkRequests(requests);
       setSelectedIds(new Set());
       setBulkOwner('');
     } catch {
@@ -272,13 +243,7 @@ export default function LeadsPage() {
   };
 
   const handleBulkStatus = async () => {
-    if (selectedIds.size === 0 || !bulkStatus) return;
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      return;
-    }
-    setBulkStatusUpdating(true);
+    if (selectedIds.size === 0 || !bulkStatus) return;    setBulkStatusUpdating(true);
     setError(null);
     setLeads((prev) =>
       prev.map((lead) => (selectedIds.has(lead.id) ? { ...lead, status: bulkStatus } : lead))
@@ -290,7 +255,7 @@ export default function LeadsPage() {
         method: 'PATCH' as const,
         body: { status: bulkStatus },
       }));
-      await runBulkRequests(requests, token);
+      await runBulkRequests(requests);
       setSelectedIds(new Set());
       setBulkStatus('');
     } catch {
@@ -498,6 +463,7 @@ export default function LeadsPage() {
     </div>
   );
 }
+
 
 
 

@@ -5,8 +5,8 @@
 import { useMemo, useState } from 'react';
 import { useApiMutation, useApiQuery } from '@/hooks/useApi';
 import { endpoints } from '@/services/endpoints';
-import { DashboardStats, PeriodReport, ReportsOverview } from '@/types/api';
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { AdminOpsOverview, DashboardStats, PeriodReport, ReportsOverview } from '@/types/api';
+import { TrendingDown, TrendingUp } from 'lucide-react';
 
 type PeriodKey = 'daily' | 'weekly' | 'monthly';
 
@@ -16,7 +16,7 @@ export default function AdminOverviewPage() {
 
   const { data: stats, isLoading, error } = useApiQuery<DashboardStats>(
     ['dashboard', 'stats'],
-    endpoints.admin.overview
+    endpoints.admin.overview,
   );
 
   const {
@@ -26,10 +26,23 @@ export default function AdminOverviewPage() {
     refetch: refetchReports,
   } = useApiQuery<ReportsOverview>(
     ['dashboard', 'reports-overview'],
-    endpoints.admin.reportsOverview
+    endpoints.admin.reportsOverview,
   );
 
-  const sendReportMutation = useApiMutation<{ message: string; to: string; subject: string }, { to: string; subject?: string }>('post');
+  const {
+    data: ops,
+    isLoading: isOpsLoading,
+    error: opsError,
+    refetch: refetchOps,
+  } = useApiQuery<AdminOpsOverview>(
+    ['dashboard', 'ops-overview'],
+    endpoints.admin.opsOverview,
+  );
+
+  const sendReportMutation = useApiMutation<
+    { message: string; to: string; subject: string },
+    { to: string; subject?: string }
+  >('post');
 
   const selectedReport: PeriodReport | null = useMemo(() => {
     if (!reports) return null;
@@ -42,7 +55,7 @@ export default function AdminOverviewPage() {
         {[1, 2, 3, 4].map((i) => (
           <div
             key={i}
-            className="h-24 bg-gradient-to-br from-slate-800 to-slate-700 rounded-lg animate-pulse"
+            className="h-24 animate-pulse rounded-lg bg-gradient-to-br from-slate-800 to-slate-700"
           />
         ))}
       </div>
@@ -51,9 +64,9 @@ export default function AdminOverviewPage() {
 
   if (error) {
     return (
-      <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-6">
+      <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-6">
         <p className="text-red-400">Failed to load dashboard statistics</p>
-        <p className="text-sm text-red-400/80 mt-2">{error.message}</p>
+        <p className="mt-2 text-sm text-red-400/80">{error.message}</p>
       </div>
     );
   }
@@ -92,17 +105,17 @@ export default function AdminOverviewPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold text-white mb-2">Dashboard Overview</h1>
+        <h1 className="mb-2 text-3xl font-bold text-white">Dashboard Overview</h1>
         <p className="text-slate-400">Welcome back! Here is your business performance.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
         {kpis.map((kpi, index) => (
           <div
             key={index}
-            className="group relative rounded-lg border border-white/10 bg-gradient-to-br from-slate-800/50 to-slate-700/30 p-6 hover:border-blue-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/10"
+            className="group relative rounded-lg border border-white/10 bg-gradient-to-br from-slate-800/50 to-slate-700/30 p-6 transition-all duration-300 hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/10"
           >
-            <div className="flex items-start justify-between mb-4">
+            <div className="mb-4 flex items-start justify-between">
               <span className="text-3xl">{kpi.icon}</span>
               {kpi.change !== 0 && (
                 <div
@@ -111,30 +124,32 @@ export default function AdminOverviewPage() {
                   }`}
                 >
                   {kpi.change > 0 ? (
-                    <TrendingUp className="w-4 h-4" />
+                    <TrendingUp className="h-4 w-4" />
                   ) : (
-                    <TrendingDown className="w-4 h-4" />
+                    <TrendingDown className="h-4 w-4" />
                   )}
                   {Math.abs(kpi.change)}%
                 </div>
               )}
             </div>
-            <p className="text-slate-400 text-sm mb-1">{kpi.label}</p>
+            <p className="mb-1 text-sm text-slate-400">{kpi.label}</p>
             <p className="text-2xl font-bold text-white">{kpi.value}</p>
-            <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-blue-500/0 to-cyan-500/0 group-hover:from-blue-500/5 group-hover:to-cyan-500/5 transition-all duration-300" />
+            <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-blue-500/0 to-cyan-500/0 transition-all duration-300 group-hover:from-blue-500/5 group-hover:to-cyan-500/5" />
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-lg border border-white/10 bg-gradient-to-br from-slate-800/50 to-slate-700/30 p-6">
-          <h2 className="text-lg font-bold text-white mb-4">Recent Orders</h2>
+          <h2 className="mb-4 text-lg font-bold text-white">Recent Orders</h2>
           <div className="space-y-3">
             {stats.recentOrders?.slice(0, 5).map((order, index) => (
               <button
                 key={index}
-                className="w-full flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-blue-900/20 transition-colors text-left"
-                onClick={() => window.location.href = `/admin/orders?orderId=${order.id}`}
+                className="flex w-full items-center justify-between rounded-lg bg-white/5 p-3 text-left transition-colors hover:bg-blue-900/20"
+                onClick={() => {
+                  window.location.href = `/admin/orders?orderId=${order.id}`;
+                }}
                 title="Abrir detalhes do pedido"
               >
                 <div>
@@ -161,21 +176,21 @@ export default function AdminOverviewPage() {
         </div>
 
         <div className="rounded-lg border border-white/10 bg-gradient-to-br from-slate-800/50 to-slate-700/30 p-6">
-          <h2 className="text-lg font-bold text-white mb-4">Top Products</h2>
+          <h2 className="mb-4 text-lg font-bold text-white">Top Products</h2>
           <div className="space-y-3">
             {stats.topProducts?.slice(0, 5).map((product, index) => (
               <div
                 key={index}
-                className="flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+                className="flex items-center justify-between rounded-lg bg-white/5 p-3 transition-colors hover:bg-white/10"
               >
                 <div className="flex-1">
                   <p className="text-sm font-medium text-white">{product.name}</p>
                   <p className="text-xs text-slate-400">{product.sales} sales</p>
                 </div>
-                <div className="w-24 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                <div className="h-1.5 w-24 overflow-hidden rounded-full bg-slate-700">
                   <div
                     className="h-full bg-gradient-to-r from-blue-500 to-cyan-500"
-                    style={{ width: `${(product.sales / 100) * 100}%` }}
+                    style={{ width: `${Math.min(product.sales, 100)}%` }}
                   />
                 </div>
               </div>
@@ -184,8 +199,117 @@ export default function AdminOverviewPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-white/10 bg-gradient-to-br from-slate-800/50 to-slate-700/30 p-6 space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+      <section className="space-y-4 rounded-lg border border-white/10 bg-gradient-to-br from-slate-900/70 to-slate-800/40 p-6">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-white">Operational Health</h2>
+            <p className="text-sm text-slate-400">Erros, latencia, backlog de jobs e entrega de webhooks em uma visao unica.</p>
+          </div>
+          <button
+            className="rounded border border-white/10 bg-white/5 px-4 py-2 text-sm text-white hover:bg-white/10"
+            onClick={() => refetchOps()}
+          >
+            Atualizar saude operacional
+          </button>
+        </div>
+
+        {isOpsLoading && <p className="text-sm text-slate-400">Carregando operacao...</p>}
+        {opsError && <p className="text-sm text-red-400">Falha ao carregar operacao: {opsError.message}</p>}
+
+        {ops && (
+          <>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <OpsMetricCard
+                label="API 5xx"
+                value={ops.slo.total5xx}
+                tone={ops.slo.total5xx > 0 ? 'danger' : 'ok'}
+                detail={`${(ops.slo.errorRate * 100).toFixed(2)}% de erro servidor`}
+              />
+              <OpsMetricCard
+                label="Latencia P95"
+                value={`${ops.slo.p95LatencyMs.toFixed(0)} ms`}
+                tone={ops.slo.p95LatencyMs >= 1200 ? 'danger' : ops.slo.p95LatencyMs >= 800 ? 'warn' : 'ok'}
+                detail={`media ${ops.slo.avgLatencyMs.toFixed(0)} ms em ${ops.slo.totalResponses} respostas`}
+              />
+              <OpsMetricCard
+                label="Fila de webhooks"
+                value={ops.webhooks.pendingDeliveries}
+                tone={ops.webhooks.pendingDeliveries > 0 ? 'warn' : 'ok'}
+                detail={`${ops.webhooks.failedDeliveriesLast24h} falhas nas ultimas 24h`}
+              />
+              <OpsMetricCard
+                label="Backups"
+                value={ops.backup.healthy ? 'OK' : 'Falha'}
+                tone={ops.backup.healthy ? 'ok' : 'danger'}
+                detail={ops.backup.message}
+              />
+            </div>
+
+            <div className="rounded border border-white/10 bg-white/5 p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-white">Alertas operacionais</p>
+                <span className="text-xs text-slate-400">Deploy failure segue dependente do CI</span>
+              </div>
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-5">
+                <AlertRow title="5xx" alert={ops.alerts.api5xx} />
+                <AlertRow title="P95" alert={ops.alerts.apiP95Latency} />
+                <AlertRow title="Webhooks" alert={ops.alerts.webhookBacklog} />
+                <AlertRow title="Backup" alert={ops.alerts.backupHealth} />
+                <AlertRow title="Deploy" alert={ops.alerts.deployFailure} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <div className="rounded border border-white/10 bg-white/5 p-4">
+                <p className="mb-3 text-sm font-semibold text-white">Top endpoints observados</p>
+                <div className="space-y-3">
+                  {ops.slo.topEndpoints.length === 0 && (
+                    <p className="text-sm text-slate-400">Sem trafego suficiente para destacar endpoints.</p>
+                  )}
+                  {ops.slo.topEndpoints.map((endpoint) => (
+                    <div key={`${endpoint.method}-${endpoint.path}`} className="rounded border border-white/10 bg-slate-950/40 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="truncate text-sm font-medium text-white">{endpoint.method} {endpoint.path}</p>
+                        <span className="text-xs text-slate-400">{endpoint.requestCount} req</span>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
+                        <span>avg {endpoint.avgLatencyMs.toFixed(0)} ms | p95 {endpoint.p95LatencyMs.toFixed(0)} ms</span>
+                        <span>{(endpoint.errorRate * 100).toFixed(1)}% erro</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded border border-white/10 bg-white/5 p-4">
+                <p className="mb-3 text-sm font-semibold text-white">Backlog de jobs</p>
+                <div className="space-y-2 text-sm text-slate-300">
+                  <JobRow label="Assinaturas vencidas para cobranca" value={ops.jobs.dueSubscriptions} />
+                  <JobRow label="Assinaturas em retentativa" value={ops.jobs.retryingSubscriptions} />
+                  <JobRow label="Carrinhos abandonados" value={ops.jobs.staleCartUsers} />
+                  <JobRow label="E-mails falhos 24h" value={ops.jobs.failedEmailsLast24h} />
+                </div>
+              </div>
+
+              <div className="rounded border border-white/10 bg-white/5 p-4">
+                <p className="mb-3 text-sm font-semibold text-white">Entrega de webhooks</p>
+                <div className="space-y-2 text-sm text-slate-300">
+                  <JobRow label="Endpoints ativos" value={ops.webhooks.activeEndpoints} />
+                  <JobRow label="Pendentes" value={ops.webhooks.pendingDeliveries} />
+                  <JobRow label="Sucesso 24h" value={ops.webhooks.successfulDeliveriesLast24h} />
+                  <JobRow label="Falhas 24h" value={ops.webhooks.failedDeliveriesLast24h} />
+                </div>
+                <p className="mt-4 text-xs text-slate-500">
+                  Ultima falha: {ops.webhooks.latestFailureAtUtc ? new Date(ops.webhooks.latestFailureAtUtc).toLocaleString() : 'nenhuma registrada'}
+                </p>
+              </div>
+            </div>
+          </>
+        )}
+      </section>
+
+      <div className="space-y-4 rounded-lg border border-white/10 bg-gradient-to-br from-slate-800/50 to-slate-700/30 p-6">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="text-lg font-bold text-white">Reports Overview</h2>
             <p className="text-sm text-slate-400">Daily, weekly and monthly report with sales, cancellations and cart behavior.</p>
@@ -195,7 +319,7 @@ export default function AdminOverviewPage() {
               <button
                 key={p}
                 onClick={() => setPeriod(p)}
-                className={`px-3 py-1.5 rounded text-sm border ${period === p ? 'bg-blue-600 border-blue-500 text-white' : 'bg-white/5 border-white/10 text-slate-300'}`}
+                className={`rounded border px-3 py-1.5 text-sm ${period === p ? 'border-blue-500 bg-blue-600 text-white' : 'border-white/10 bg-white/5 text-slate-300'}`}
               >
                 {p}
               </button>
@@ -204,11 +328,11 @@ export default function AdminOverviewPage() {
         </div>
 
         {isReportsLoading && <p className="text-slate-400">Loading reports...</p>}
-        {reportsError && <p className="text-red-400 text-sm">Failed to load report: {reportsError.message}</p>}
+        {reportsError && <p className="text-sm text-red-400">Failed to load report: {reportsError.message}</p>}
 
         {selectedReport && (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <MetricCard label="Sold Revenue" value={`$${selectedReport.soldRevenue.toFixed(2)}`} />
               <MetricCard label="Orders Sold" value={selectedReport.ordersSold} />
               <MetricCard label="Orders Cancelled" value={selectedReport.ordersCancelled} />
@@ -219,7 +343,7 @@ export default function AdminOverviewPage() {
               <MetricCard label="Signups" value={selectedReport.signups} />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <SimpleTopList title="Top Sold" items={selectedReport.topSoldProducts} />
               <SimpleTopList title="Top Added To Cart" items={selectedReport.topAddedToCartProducts} />
               <SimpleTopList title="Top Cancelled" items={selectedReport.topCancelledProducts} />
@@ -228,8 +352,8 @@ export default function AdminOverviewPage() {
 
             {selectedReport.insights.length > 0 && (
               <div className="rounded border border-amber-500/30 bg-amber-500/10 p-3">
-                <p className="text-amber-300 font-medium mb-1">Insights</p>
-                <ul className="text-sm text-amber-100 space-y-1">
+                <p className="mb-1 font-medium text-amber-300">Insights</p>
+                <ul className="space-y-1 text-sm text-amber-100">
                   {selectedReport.insights.map((insight, idx) => (
                     <li key={idx}>- {insight}</li>
                   ))}
@@ -239,16 +363,16 @@ export default function AdminOverviewPage() {
           </>
         )}
 
-        <div className="border-t border-white/10 pt-4 flex flex-col lg:flex-row gap-2 lg:items-center">
+        <div className="flex flex-col gap-2 border-t border-white/10 pt-4 lg:flex-row lg:items-center">
           <input
             type="email"
             value={reportEmail}
             onChange={(e) => setReportEmail(e.target.value)}
             placeholder="admin@empresa.com"
-            className="bg-slate-900/70 border border-white/10 rounded px-3 py-2 text-sm text-white flex-1"
+            className="flex-1 rounded border border-white/10 bg-slate-900/70 px-3 py-2 text-sm text-white"
           />
           <button
-            className="px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-sm disabled:opacity-60"
+            className="rounded bg-emerald-600 px-4 py-2 text-sm text-white hover:bg-emerald-500 disabled:opacity-60"
             disabled={!reportEmail || sendReportMutation.isPending}
             onClick={async () => {
               await sendReportMutation.mutateAsync({
@@ -260,7 +384,7 @@ export default function AdminOverviewPage() {
             {sendReportMutation.isPending ? 'Enviando...' : 'Enviar Relatorio por Email'}
           </button>
           <button
-            className="px-4 py-2 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm"
+            className="rounded border border-white/10 bg-white/5 px-4 py-2 text-sm text-white hover:bg-white/10"
             onClick={() => refetchReports()}
           >
             Atualizar
@@ -268,10 +392,10 @@ export default function AdminOverviewPage() {
         </div>
 
         {sendReportMutation.isSuccess && (
-          <p className="text-green-400 text-sm">Relatorio enviado com sucesso.</p>
+          <p className="text-sm text-green-400">Relatorio enviado com sucesso.</p>
         )}
         {sendReportMutation.isError && (
-          <p className="text-red-400 text-sm">Falha ao enviar relatorio.</p>
+          <p className="text-sm text-red-400">Falha ao enviar relatorio.</p>
         )}
       </div>
     </div>
@@ -296,15 +420,72 @@ function SimpleTopList({
 }) {
   return (
     <div className="rounded border border-white/10 bg-white/5 p-3">
-      <p className="text-sm font-semibold text-white mb-2">{title}</p>
+      <p className="mb-2 text-sm font-semibold text-white">{title}</p>
       <div className="space-y-2">
         {items.slice(0, 5).map((item, idx) => (
           <div key={`${item.productName}-${idx}`} className="flex items-center justify-between text-sm">
-            <span className="text-slate-200 truncate pr-3">{item.productName}</span>
+            <span className="truncate pr-3 text-slate-200">{item.productName}</span>
             <span className="text-slate-400">{item.quantity}</span>
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function OpsMetricCard({
+  label,
+  value,
+  detail,
+  tone,
+}: {
+  label: string;
+  value: string | number;
+  detail: string;
+  tone: 'ok' | 'warn' | 'danger';
+}) {
+  const toneClass = tone === 'danger'
+    ? 'border-red-500/30 bg-red-500/10'
+    : tone === 'warn'
+      ? 'border-amber-500/30 bg-amber-500/10'
+      : 'border-emerald-500/30 bg-emerald-500/10';
+
+  return (
+    <div className={`rounded border p-4 ${toneClass}`}>
+      <p className="text-xs uppercase tracking-wide text-slate-300">{label}</p>
+      <p className="mt-2 text-2xl font-semibold text-white">{value}</p>
+      <p className="mt-1 text-xs text-slate-300">{detail}</p>
+    </div>
+  );
+}
+
+function JobRow({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded border border-white/10 bg-slate-950/30 px-3 py-2">
+      <span className="text-slate-300">{label}</span>
+      <span className="font-semibold text-white">{value}</span>
+    </div>
+  );
+}
+
+function AlertRow({
+  title,
+  alert,
+}: {
+  title: string;
+  alert: { triggered: boolean; message: string };
+}) {
+  const toneClass = alert.triggered
+    ? 'border-red-500/30 bg-red-500/10 text-red-100'
+    : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100';
+
+  return (
+    <div className={['rounded border px-3 py-2', toneClass].join(' ')}>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs font-semibold uppercase tracking-wide">{title}</span>
+        <span className="text-[11px] font-medium">{alert.triggered ? 'acionado' : 'ok'}</span>
+      </div>
+      <p className="mt-2 text-xs opacity-90">{alert.message}</p>
     </div>
   );
 }

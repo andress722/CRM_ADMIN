@@ -1,0 +1,42 @@
+name: Branch Protection
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Target branch"
+        required: true
+        default: "main"
+        type: string
+      dry_run:
+        description: "Only print what would be applied"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  protect-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply branch protection
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.BRANCH_PROTECTION_GH_TOKEN }}
+        run: |
+          $args = @(
+            '-File', 'scripts/github/set-branch-protection.ps1',
+            '-Owner', '${{ github.repository_owner }}',
+            '-Repo', '${{ github.event.repository.name }}',
+            '-Branches', '${{ inputs.branch }}'
+          )
+
+          if ('${{ inputs.dry_run }}' -eq 'true') {
+            $args += '-DryRun'
+          }
+
+          & pwsh @args

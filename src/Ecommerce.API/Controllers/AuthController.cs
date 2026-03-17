@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using Ecommerce.API.Services;
 using Ecommerce.Application.Repositories;
 using Ecommerce.Application.Services;
@@ -30,6 +31,9 @@ public class AuthController : ControllerBase
     private readonly IRequestThrottleService _throttle;
     private readonly TwoFactorService _twoFactorService;
     private readonly ILogger<AuthController> _logger;
+
+    private const string CsrfCookieName = "csrf_token";
+    private const string CsrfHeaderName = "X-CSRF-Token";
 
     public AuthController(
         UserService userService,
@@ -274,20 +278,12 @@ public class AuthController : ControllerBase
             await _refreshTokenRepository.AddAsync(refreshToken);
 
             // Set refresh token as HttpOnly cookie (rotating cookie strategy)
-            var cookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = Request.IsHttps, // secure in production, allow insecure in dev
-                SameSite = SameSiteMode.Lax,
-                Expires = refreshToken.ExpiresAt,
-                Path = "/"
-            };
-            Response.Cookies.Append("refresh_token", refreshTokenValue, cookieOptions);
+            Response.Cookies.Append("refresh_token", refreshTokenValue, BuildSessionCookieOptions(refreshToken.ExpiresAt, httpOnly: true));
+            EnsureCsrfCookie(refreshToken.ExpiresAt);
 
             return Ok(new
             {
                 accessToken = token,
-                refreshToken = refreshTokenValue,
                 user = new
                 {
                     id = user.Id,
@@ -299,7 +295,8 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "An error occurred during login", error = ex.Message });
+            _logger.LogError(ex, "Login failed unexpectedly.");
+            return StatusCode(500, new { message = "An error occurred during login" });
         }
     }
 
@@ -338,20 +335,12 @@ public class AuthController : ControllerBase
             await _refreshTokenRepository.AddAsync(refreshToken);
 
             // Set refresh token as HttpOnly cookie (rotating cookie strategy)
-            var cookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = Request.IsHttps, // secure in production, allow insecure in dev
-                SameSite = SameSiteMode.Lax,
-                Expires = refreshToken.ExpiresAt,
-                Path = "/"
-            };
-            Response.Cookies.Append("refresh_token", refreshTokenValue, cookieOptions);
+            Response.Cookies.Append("refresh_token", refreshTokenValue, BuildSessionCookieOptions(refreshToken.ExpiresAt, httpOnly: true));
+            EnsureCsrfCookie(refreshToken.ExpiresAt);
 
             return Ok(new
             {
                 accessToken = token,
-                refreshToken = refreshTokenValue,
                 user = new
                 {
                     id = user.Id,
@@ -367,7 +356,8 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "An error occurred during social login", error = ex.Message });
+            _logger.LogError(ex, "Social login failed unexpectedly for provider {Provider}.", provider);
+            return StatusCode(500, new { message = "An error occurred during social login" });
         }
     }
 
@@ -443,20 +433,12 @@ public class AuthController : ControllerBase
             await _refreshTokenRepository.AddAsync(refreshToken);
 
             // Set refresh token as HttpOnly cookie
-            var cookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = Request.IsHttps,
-                SameSite = SameSiteMode.Lax,
-                Expires = refreshToken.ExpiresAt,
-                Path = "/"
-            };
-            Response.Cookies.Append("refresh_token", refreshTokenValue, cookieOptions);
+            Response.Cookies.Append("refresh_token", refreshTokenValue, BuildSessionCookieOptions(refreshToken.ExpiresAt, httpOnly: true));
+            EnsureCsrfCookie(refreshToken.ExpiresAt);
 
             return CreatedAtAction(nameof(Register), new
             {
                 accessToken = token,
-                refreshToken = refreshTokenValue,
                 user = new
                 {
                     id = user.Id,
@@ -468,7 +450,8 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "An error occurred during registration", error = ex.Message });
+            _logger.LogError(ex, "Registration failed unexpectedly.");
+            return StatusCode(500, new { message = "An error occurred during registration" });
         }
     }
 
@@ -597,11 +580,17 @@ public class AuthController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> Refresh([FromBody] RefreshRequest? request)
     {
-        // Read refresh token from HttpOnly cookie
-        var refreshToken = request?.RefreshToken;
+        // Read refresh token from HttpOnly cookie (preferred).
+        var refreshToken = Request.Cookies["refresh_token"];
+
+        // Backward-compatibility fallback can be enabled explicitly.
         if (string.IsNullOrWhiteSpace(refreshToken))
         {
-            refreshToken = Request.Cookies["refresh_token"];
+            var allowRefreshTokenInBody = _configuration.GetValue("Auth:AllowRefreshTokenInBody", false);
+            if (allowRefreshTokenInBody)
+            {
+                refreshToken = request?.RefreshToken;
+            }
         }
 
         if (string.IsNullOrWhiteSpace(refreshToken))
@@ -624,6 +613,7 @@ public class AuthController : ControllerBase
                 // Possible token reuse detected: revoke all tokens for this user
                 await _refreshTokenRepository.RevokeAllForUserAsync(storedToken.UserId, DateTime.UtcNow);
                 Response.Cookies.Delete("refresh_token", new CookieOptions { Path = "/" });
+                Response.Cookies.Delete(CsrfCookieName, new CookieOptions { Path = "/" });
                 return Unauthorized(new { message = "Refresh token reuse detected. All sessions revoked." });
             }
 
@@ -638,6 +628,7 @@ public class AuthController : ControllerBase
                 storedToken.RevokedAt = DateTime.UtcNow;
                 await _refreshTokenRepository.UpdateAsync(storedToken);
                 Response.Cookies.Delete("refresh_token", new CookieOptions { Path = "/" });
+                Response.Cookies.Delete(CsrfCookieName, new CookieOptions { Path = "/" });
                 return StatusCode(403, new { message = "Account blocked" });
             }
 
@@ -660,20 +651,12 @@ public class AuthController : ControllerBase
             await _refreshTokenRepository.AddAsync(newRefreshTokenEntity);
 
             // Set new refresh token cookie
-            var cookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = Request.IsHttps,
-                SameSite = SameSiteMode.Lax,
-                Expires = newRefreshTokenEntity.ExpiresAt,
-                Path = "/"
-            };
-            Response.Cookies.Append("refresh_token", newRefreshToken, cookieOptions);
+            Response.Cookies.Append("refresh_token", newRefreshToken, BuildSessionCookieOptions(newRefreshTokenEntity.ExpiresAt, httpOnly: true));
+            EnsureCsrfCookie(newRefreshTokenEntity.ExpiresAt);
 
             return Ok(new
             {
                 accessToken = newAccessToken,
-                refreshToken = newRefreshToken,
                 user = new
                 {
                     id = user.Id,
@@ -689,6 +672,33 @@ public class AuthController : ControllerBase
         }
     }
 
+
+    private CookieOptions BuildSessionCookieOptions(DateTimeOffset expiresAt, bool httpOnly)
+    {
+        var allowInsecureCookiesInDevelopment = _configuration.GetValue("Auth:AllowInsecureCookiesInDevelopment", true);
+        var secure = Request.IsHttps || !allowInsecureCookiesInDevelopment;
+
+        return new CookieOptions
+        {
+            HttpOnly = httpOnly,
+            Secure = secure,
+            SameSite = SameSiteMode.Lax,
+            Expires = expiresAt,
+            Path = "/"
+        };
+    }
+
+    private void EnsureCsrfCookie(DateTimeOffset expiresAt)
+    {
+        var csrfToken = Request.Cookies[CsrfCookieName];
+        if (string.IsNullOrWhiteSpace(csrfToken))
+        {
+            csrfToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+        }
+
+        Response.Cookies.Append(CsrfCookieName, csrfToken, BuildSessionCookieOptions(expiresAt, httpOnly: false));
+        Response.Headers[CsrfHeaderName] = csrfToken;
+    }
     private async Task TrySendEmailAsync(Func<Task> sendAction, string operation)
     {
         var timeoutSeconds = _configuration.GetValue("Email:SendTimeoutSeconds", 12);
@@ -767,6 +777,18 @@ public class ResetPasswordRequest
     public string? NewPassword { get; set; }
     public string? CaptchaToken { get; set; }
 }
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

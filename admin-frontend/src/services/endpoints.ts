@@ -4,7 +4,7 @@ import { ApiValue } from "@/types";
 
 const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5071";
 const API_BASE = RAW_API_URL.replace(/\/+$/, "");
-const API_URL = API_BASE.endsWith("/api/v1") ? API_BASE : `${API_BASE}/api/v1`;
+const API_URL = "/api/bff";
 
 export const ADMIN_API_URL = API_URL;
 export { API_BASE, API_URL };
@@ -21,6 +21,7 @@ export const endpoints = {
   // Admin
   admin: {
     overview: `${API_URL}/admin/overview`,
+    opsOverview: `${API_URL}/admin/ops/overview`,
     // Orders
     orders: `${API_URL}/admin/orders`,
     orderDetail: (id: string) => `${API_URL}/admin/orders/${id}`,
@@ -107,4 +108,8 @@ export const getApiUrl = (
   }
   return url;
 };
+
+
+
+
 

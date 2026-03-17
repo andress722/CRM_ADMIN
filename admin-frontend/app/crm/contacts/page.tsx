@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { endpoints } from '@/services/endpoints';
-import { AuthService } from '@/services/auth';
 import { authFetch } from '@/services/auth-fetch';
 import Link from 'next/link';
 import BulkActionsBar from '@/components/BulkActionsBar';
@@ -86,12 +85,6 @@ export default function ContactsPage() {
   const [bulkLifecycleUpdating, setBulkLifecycleUpdating] = useState(false);
 
   const loadContacts = async () => {
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setLoading(false);
-      return;
-    }
 
     try {
       const res = await authFetch(endpoints.admin.crmContacts);
@@ -126,11 +119,6 @@ export default function ContactsPage() {
   }, [contacts, search, segmentFilter, lifecycleFilter]);
 
   const handleCreateContact = async () => {
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      return;
-    }
 
     const validationError = validateNewContactForm(newContact);
     if (validationError) {
@@ -214,11 +202,6 @@ export default function ContactsPage() {
 
   const handleBulkAction = async (type: 'Email' | 'Task') => {
     if (selectedIds.size === 0) return;
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      return;
-    }
 
     if (type === 'Email') setBulkEmailing(true);
     else setBulkTasking(true);
@@ -240,7 +223,7 @@ export default function ContactsPage() {
           notes: [contact.email, contact.company].filter(Boolean).join(' • '),
         },
       }));
-      await runBulkRequests(requests, token);
+      await runBulkRequests(requests);
       setSelectedIds(new Set());
       setBulkTaskDueDate('');
     } catch (err) {
@@ -253,11 +236,6 @@ export default function ContactsPage() {
 
   const handleBulkOwner = async () => {
     if (selectedIds.size === 0 || !bulkOwner.trim()) return;
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      return;
-    }
 
     setBulkReassigning(true);
     setError(null);
@@ -272,7 +250,7 @@ export default function ContactsPage() {
         method: 'PATCH' as const,
         body: { owner: bulkOwner.trim() },
       }));
-      await runBulkRequests(requests, token);
+      await runBulkRequests(requests);
       setSelectedIds(new Set());
       setBulkOwner('');
     } catch (err) {
@@ -284,11 +262,6 @@ export default function ContactsPage() {
 
   const handleBulkSegment = async () => {
     if (selectedIds.size === 0 || !bulkSegment) return;
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      return;
-    }
 
     setBulkSegmentUpdating(true);
     setError(null);
@@ -301,7 +274,7 @@ export default function ContactsPage() {
         method: 'PATCH' as const,
         body: { segment: bulkSegment },
       }));
-      await runBulkRequests(requests, token);
+      await runBulkRequests(requests);
       setSelectedIds(new Set());
       setBulkSegment('');
     } catch (err) {
@@ -313,11 +286,6 @@ export default function ContactsPage() {
 
   const handleBulkLifecycle = async () => {
     if (selectedIds.size === 0 || !bulkLifecycle) return;
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      return;
-    }
 
     setBulkLifecycleUpdating(true);
     setError(null);
@@ -332,7 +300,7 @@ export default function ContactsPage() {
         method: 'PATCH' as const,
         body: { lifecycle: bulkLifecycle },
       }));
-      await runBulkRequests(requests, token);
+      await runBulkRequests(requests);
       setSelectedIds(new Set());
       setBulkLifecycle('');
     } catch (err) {
@@ -571,3 +539,4 @@ export default function ContactsPage() {
     </div>
   );
 }
+

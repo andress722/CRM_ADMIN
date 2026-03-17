@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { endpoints } from '@/services/endpoints';
-import { AuthService } from '@/services/auth';
 import { authFetch } from '@/services/auth-fetch';
 import Link from 'next/link';
 import BulkActionsBar from '@/components/BulkActionsBar';
@@ -42,14 +41,7 @@ export default function ActivitiesPage() {
   const [bulkDueDate, setBulkDueDate] = useState('');
   const [bulkDateUpdating, setBulkDateUpdating] = useState(false);
 
-  useEffect(() => {
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setLoading(false);
-      return;
-    }
-    authFetch(endpoints.admin.crmActivities, {
+  useEffect(() => {    authFetch(endpoints.admin.crmActivities, {
       headers: {},
     })
       .then((res) => res.json())
@@ -83,10 +75,7 @@ export default function ActivitiesPage() {
           ? { ...activity, status: activity.status === 'Done' ? 'Open' : 'Done' }
           : activity
       )
-    );
-    const token = AuthService.getToken();
-    if (!token) return;
-    const current = activities.find((activity) => activity.id === id);
+    );    const current = activities.find((activity) => activity.id === id);
     const nextStatus = current?.status === 'Done' ? 'Open' : 'Done';
     try {
       const res = await authFetch(endpoints.admin.crmActivityDetail(id), {
@@ -127,13 +116,7 @@ export default function ActivitiesPage() {
   };
 
   const handleBulkStatus = async (status: Activity['status']) => {
-    if (selectedIds.size === 0) return;
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      return;
-    }
-    setBulkUpdating(true);
+    if (selectedIds.size === 0) return;    setBulkUpdating(true);
     setError(null);
     setActivities((prev) =>
       prev.map((activity) => (selectedIds.has(activity.id) ? { ...activity, status } : activity))
@@ -145,7 +128,7 @@ export default function ActivitiesPage() {
         method: 'PATCH' as const,
         body: { status },
       }));
-      await runBulkRequests(requests, token);
+      await runBulkRequests(requests);
       setSelectedIds(new Set());
     } catch (err) {
       setError(getErrorMessage(err, 'Erro ao atualizar atividades em massa.'));
@@ -155,13 +138,7 @@ export default function ActivitiesPage() {
   };
 
   const handleBulkOwner = async () => {
-    if (selectedIds.size === 0 || !bulkOwner.trim()) return;
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      return;
-    }
-    setBulkReassigning(true);
+    if (selectedIds.size === 0 || !bulkOwner.trim()) return;    setBulkReassigning(true);
     setError(null);
     setActivities((prev) =>
       prev.map((activity) =>
@@ -175,7 +152,7 @@ export default function ActivitiesPage() {
         method: 'PATCH' as const,
         body: { owner: bulkOwner.trim() },
       }));
-      await runBulkRequests(requests, token);
+      await runBulkRequests(requests);
       setSelectedIds(new Set());
       setBulkOwner('');
     } catch (err) {
@@ -186,13 +163,7 @@ export default function ActivitiesPage() {
   };
 
   const handleBulkDueDate = async () => {
-    if (selectedIds.size === 0 || !bulkDueDate) return;
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      return;
-    }
-    setBulkDateUpdating(true);
+    if (selectedIds.size === 0 || !bulkDueDate) return;    setBulkDateUpdating(true);
     setError(null);
     setActivities((prev) =>
       prev.map((activity) =>
@@ -206,7 +177,7 @@ export default function ActivitiesPage() {
         method: 'PATCH' as const,
         body: { dueDate: bulkDueDate },
       }));
-      await runBulkRequests(requests, token);
+      await runBulkRequests(requests);
       setSelectedIds(new Set());
       setBulkDueDate('');
     } catch (err) {
@@ -358,6 +329,7 @@ export default function ActivitiesPage() {
     </div>
   );
 }
+
 
 
 

@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { LoadingState, ErrorState } from '@/components/ui/AsyncState';
 import { useParams, useRouter } from 'next/navigation';
-import { AuthService } from '@/services/auth';
 import { authFetch } from '@/services/auth-fetch';
 import { endpoints } from '@/services/endpoints';
 import BackButton from '@/components/BackButton';
@@ -81,14 +80,7 @@ export default function LeadDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!id) return;
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setLoading(false);
-      return;
-    }
-    authFetch(endpoints.admin.crmLeadDetail(id), {
+    if (!id) return;    authFetch(endpoints.admin.crmLeadDetail(id), {
       headers: {},
     })
       .then((res) => res.json())
@@ -114,14 +106,7 @@ export default function LeadDetailPage() {
       return;
     }
     setSaving(true);
-    setError(null);
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setSaving(false);
-      return;
-    }
-    try {
+    setError(null);    try {
       const res = await authFetch(endpoints.admin.crmLeadDetail(id), {
         method: 'PUT',
         headers: {
@@ -144,14 +129,7 @@ export default function LeadDetailPage() {
     if (!id) return;
     if (!confirm('Tem certeza que deseja excluir este lead?')) return;
     setDeleting(true);
-    setError(null);
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setDeleting(false);
-      return;
-    }
-    try {
+    setError(null);    try {
       const res = await authFetch(endpoints.admin.crmLeadDetail(id), {
         method: 'DELETE',
         headers: {},
@@ -168,14 +146,7 @@ export default function LeadDetailPage() {
   const handleCreateActivity = async () => {
     if (!form) return;
     setCreatingActivity(true);
-    setError(null);
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setCreatingActivity(false);
-      return;
-    }
-    const payload = {
+    setError(null);    const payload = {
       subject: activitySubject || `Follow-up ${form.name}`,
       owner: 'Equipe CRM',
       contact: form.name,
@@ -207,14 +178,7 @@ export default function LeadDetailPage() {
   const handleSendEmail = async () => {
     if (!form) return;
     setSendingEmail(true);
-    setError(null);
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setSendingEmail(false);
-      return;
-    }
-    const payload = {
+    setError(null);    const payload = {
       subject: `Email para ${form.name}`,
       owner: 'Equipe CRM',
       contact: form.name,
@@ -242,14 +206,7 @@ export default function LeadDetailPage() {
   const handleCreateTask = async () => {
     if (!form) return;
     setCreatingTask(true);
-    setError(null);
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setCreatingTask(false);
-      return;
-    }
-    const dueDate = new Date();
+    setError(null);    const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 3);
     const payload = {
       subject: `Tarefa: follow-up ${form.name}`,
@@ -279,14 +236,7 @@ export default function LeadDetailPage() {
   const handleConvertLead = async () => {
     if (!form) return;
     setConverting(true);
-    setError(null);
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setConverting(false);
-      return;
-    }
-    const payload = {
+    setError(null);    const payload = {
       title: dealTitle || `${form.name} - ${form.company}`.trim(),
       company: form.company,
       owner: 'Equipe CRM',

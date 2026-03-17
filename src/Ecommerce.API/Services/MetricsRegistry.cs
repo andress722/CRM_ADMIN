@@ -5,6 +5,27 @@ namespace Ecommerce.API.Services;
 
 public class MetricsRegistry
 {
+    public sealed record MetricsSnapshot(
+        long TotalRequests,
+        long TotalResponses,
+        long Total4xx,
+        long Total5xx,
+        double AvgLatencyMs,
+        double P95LatencyMs,
+        double ErrorRate,
+        IReadOnlyDictionary<string, long> ResponseClasses,
+        IReadOnlyList<EndpointSnapshot> TopEndpoints);
+
+    public sealed record EndpointSnapshot(
+        string Method,
+        string Path,
+        long RequestCount,
+        long Total4xx,
+        long Total5xx,
+        double AvgLatencyMs,
+        double P95LatencyMs,
+        double ErrorRate);
+
     private static readonly double[] LatencyBuckets = { 25, 50, 100, 250, 500, 1000, 2500, 5000 };
     private readonly ConcurrentDictionary<string, long> _requests = new();
     private readonly ConcurrentDictionary<string, long> _responses = new();
@@ -30,38 +51,62 @@ public class MetricsRegistry
         _latencySums.AddOrUpdate(key, elapsedMs, (_, current) => current + elapsedMs);
     }
 
-    public object Snapshot()
+    public MetricsSnapshot Snapshot()
     {
         var totalRequests = _requests.Values.Sum();
         var totalResponses = _responses.Values.Sum();
-        var total5xx = _responses
-            .Where(x =>
-            {
-                var parts = x.Key.Split(':');
-                if (parts.Length < 3)
-                {
-                    return false;
-                }
-
-                return int.TryParse(parts[^1], out var code) && code >= 500 && code < 600;
-            })
-            .Sum(x => x.Value);
-
+        var total4xx = SumStatusRange(400, 499);
+        var total5xx = SumStatusRange(500, 599);
         var avgLatency = _latencyCounts.Values.Sum() > 0
             ? _latencySums.Values.Sum() / _latencyCounts.Values.Sum()
             : 0;
-
         var errorRate = totalResponses > 0 ? (double)total5xx / totalResponses : 0;
 
-        return new
-        {
+        var responseClasses = _responseClasses
+            .GroupBy(entry =>
+            {
+                var parts = entry.Key.Split(':');
+                return parts.Length > 2 ? parts[^1] : "unknown";
+            })
+            .ToDictionary(group => group.Key, group => group.Sum(entry => entry.Value));
+
+        var topEndpoints = _requests
+            .OrderByDescending(entry => entry.Value)
+            .Take(5)
+            .Select(entry =>
+            {
+                var (method, path) = SplitKey(entry.Key);
+                _latencyCounts.TryGetValue(entry.Key, out var latencyCount);
+                _latencySums.TryGetValue(entry.Key, out var latencySum);
+                var endpoint4xx = SumStatusRangeForEndpoint(entry.Key, 400, 499);
+                var endpoint5xx = SumStatusRangeForEndpoint(entry.Key, 500, 599);
+                var endpointErrors = endpoint4xx + endpoint5xx;
+                var endpointErrorRate = entry.Value > 0 ? (double)endpointErrors / entry.Value : 0;
+
+                return new EndpointSnapshot(
+                    method,
+                    path,
+                    entry.Value,
+                    endpoint4xx,
+                    endpoint5xx,
+                    latencyCount > 0 ? Math.Round(latencySum / latencyCount, 2) : 0,
+                    GetPercentileLatencyMs(entry.Key, 0.95),
+                    endpointErrorRate);
+            })
+            .ToList();
+
+        return new MetricsSnapshot(
             totalRequests,
             totalResponses,
+            total4xx,
             total5xx,
-            avgLatencyMs = Math.Round(avgLatency, 2),
-            errorRate
-        };
+            Math.Round(avgLatency, 2),
+            GetPercentileLatencyMs(null, 0.95),
+            errorRate,
+            responseClasses,
+            topEndpoints);
     }
+
     public string ToPrometheus()
     {
         var sb = new StringBuilder();
@@ -124,6 +169,75 @@ public class MetricsRegistry
         return sb.ToString();
     }
 
+    private long SumStatusRange(int minInclusive, int maxInclusive)
+        => _responses
+            .Where(entry => TryGetStatusCode(entry.Key, out var code) && code >= minInclusive && code <= maxInclusive)
+            .Sum(entry => entry.Value);
+
+    private long SumStatusRangeForEndpoint(string endpointKey, int minInclusive, int maxInclusive)
+        => _responses
+            .Where(entry => entry.Key.StartsWith($"{endpointKey}:", StringComparison.Ordinal))
+            .Where(entry => TryGetStatusCode(entry.Key, out var code) && code >= minInclusive && code <= maxInclusive)
+            .Sum(entry => entry.Value);
+
+    private double GetPercentileLatencyMs(string? endpointKey, double percentile)
+    {
+        var totalCount = endpointKey == null
+            ? _latencyCounts.Values.Sum()
+            : _latencyCounts.TryGetValue(endpointKey, out var count) ? count : 0;
+
+        if (totalCount <= 0)
+        {
+            return 0;
+        }
+
+        var target = (long)Math.Ceiling(totalCount * percentile);
+        long cumulative = 0;
+
+        foreach (var bucket in LatencyBucketLabels())
+        {
+            cumulative += GetBucketCount(endpointKey, bucket);
+            if (cumulative >= target)
+            {
+                return ParseBucketUpperBound(bucket);
+            }
+        }
+
+        return ParseBucketUpperBound("+Inf");
+    }
+
+    private long GetBucketCount(string? endpointKey, string bucket)
+    {
+        if (endpointKey == null)
+        {
+            return _latencyBuckets
+                .Where(entry => entry.Key.EndsWith($":{bucket}", StringComparison.Ordinal))
+                .Sum(entry => entry.Value);
+        }
+
+        _latencyBuckets.TryGetValue($"{endpointKey}:{bucket}", out var count);
+        return count;
+    }
+
+    private static double ParseBucketUpperBound(string bucket)
+    {
+        if (bucket == "+Inf")
+        {
+            return 5000;
+        }
+
+        return double.TryParse(bucket, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : 0;
+    }
+
+    private static bool TryGetStatusCode(string key, out int code)
+    {
+        code = 0;
+        var parts = key.Split(':');
+        return parts.Length >= 3 && int.TryParse(parts[^1], out code);
+    }
+
     private static string NormalizePath(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -175,7 +289,3 @@ public class MetricsRegistry
         return ($"{method}:{path}", bucket);
     }
 }
-
-
-
-

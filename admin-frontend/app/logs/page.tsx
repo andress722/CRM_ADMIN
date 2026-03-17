@@ -1,5 +1,4 @@
 "use client";
-import { AuthService } from "@/services/auth";
 import { endpoints } from "@/services/endpoints";
 import { useEffect, useState } from "react";
 
@@ -12,22 +11,16 @@ type LogEntry = {
   date: string;
 };
 
-export default function LogsPage() {
-  const token = AuthService.getToken();
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [loading, setLoading] = useState(() => Boolean(token));
-  const [error, setError] = useState<string | null>(() =>
-    token ? null : "Usuário não autenticado.",
-  );
+export default function LogsPage() {  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [userFilter, setUserFilter] = useState("");
   const [actionFilter, setActionFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    if (!token) return;
-    fetch(endpoints.admin.logs, {
-      headers: { Authorization: `Bearer ${token}` },
+  useEffect(() => {    fetch(endpoints.admin.logs, {
+      
     })
       .then((res) => res.json())
       .then((data) => {
@@ -38,7 +31,7 @@ export default function LogsPage() {
         setError("Erro ao carregar logs.");
         setLoading(false);
       });
-  }, [token]);
+  }, []);
 
   const filteredLogs = logs.filter((log) => {
     const matchesUser = userFilter
@@ -119,3 +112,4 @@ export default function LogsPage() {
     </div>
   );
 }
+

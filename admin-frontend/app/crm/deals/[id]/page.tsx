@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { LoadingState, ErrorState } from '@/components/ui/AsyncState';
 import { useParams, useRouter } from 'next/navigation';
-import { AuthService } from '@/services/auth';
 import { authFetch } from '@/services/auth-fetch';
 import { endpoints } from '@/services/endpoints';
 import BackButton from '@/components/BackButton';
@@ -140,12 +139,6 @@ export default function DealDetailPage() {
 
   useEffect(() => {
     if (!id) return;
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setLoading(false);
-      return;
-    }
     authFetch(endpoints.admin.crmDealDetail(id), {
       headers: {},
     })
@@ -173,12 +166,6 @@ export default function DealDetailPage() {
     }
     setSaving(true);
     setError(null);
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setSaving(false);
-      return;
-    }
     try {
       const res = await authFetch(endpoints.admin.crmDealDetail(id), {
         method: 'PUT',
@@ -204,12 +191,6 @@ export default function DealDetailPage() {
     if (!confirm('Tem certeza que deseja excluir este negócio?')) return;
     setDeleting(true);
     setError(null);
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setDeleting(false);
-      return;
-    }
     try {
       const res = await authFetch(endpoints.admin.crmDealDetail(id), {
         method: 'DELETE',
@@ -228,12 +209,6 @@ export default function DealDetailPage() {
     if (!form) return;
     setCreatingActivity(true);
     setError(null);
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setCreatingActivity(false);
-      return;
-    }
     const payload = {
       subject: activitySubject || `Acompanhar ${form.title}`,
       owner: form.owner || 'Equipe CRM',
@@ -268,12 +243,6 @@ export default function DealDetailPage() {
     if (!form) return;
     setSendingEmail(true);
     setError(null);
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setSendingEmail(false);
-      return;
-    }
     const payload = {
       subject: `Email sobre ${form.title}`,
       owner: form.owner || 'Equipe CRM',
@@ -304,12 +273,6 @@ export default function DealDetailPage() {
     if (!form) return;
     setCreatingTask(true);
     setError(null);
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setCreatingTask(false);
-      return;
-    }
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 3);
     const payload = {

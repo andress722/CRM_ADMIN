@@ -10,9 +10,7 @@ const API_TIMEOUT = parseInt(
   process.env.NEXT_PUBLIC_API_TIMEOUT || "30000",
   10,
 );
-const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5071";
-const API_BASE = RAW_API_URL.replace(/\/+$/, "");
-const API_ROOT = API_BASE.endsWith("/api/v1") ? API_BASE : `${API_BASE}/api/v1`;
+const API_ROOT = "/api/bff";
 
 const AUTH_ENDPOINT_MARKERS = [
   "/auth/login",
@@ -30,6 +28,12 @@ const isAuthEndpoint = (url?: string): boolean => {
   return AUTH_ENDPOINT_MARKERS.some((marker) => url.includes(marker));
 };
 
+const getCookieValue = (name: string): string | null => {
+  if (typeof document === "undefined") return null;
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${escaped}=([^;]+)`));
+  return match ? decodeURIComponent(match[1]) : null;
+};
 // Create axios instance
 export const axiosInstance: AxiosInstance = axios.create({
   baseURL: API_ROOT,
@@ -41,20 +45,29 @@ export const axiosInstance: AxiosInstance = axios.create({
 
 // Flag to prevent infinite refresh token loops
 let isRefreshing = false;
-let failedQueue: ((token: string) => void)[] = [];
+let failedQueue: (() => void)[] = [];
 
-const processQueue = (token: string) => {
-  failedQueue.forEach((callback) => callback(token));
+const processQueue = () => {
+  failedQueue.forEach((callback) => callback());
   failedQueue = [];
 };
 
-// Request interceptor: Add auth token to headers
+// Request interceptor: session is handled by BFF cookies.
 axiosInstance.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    const token = AuthService.getToken();
-    if (token && !isAuthEndpoint(config.url)) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const method = (config.method || "get").toLowerCase();
+    const isStateChangingMethod = ["post", "put", "patch", "delete"].includes(method);
+    const isAuthSessionEndpoint =
+      !!config.url &&
+      (config.url.includes("/auth/refresh") || config.url.includes("/auth/logout"));
+
+    if (isStateChangingMethod && isAuthSessionEndpoint) {
+      const csrfToken = getCookieValue("csrf_token");
+      if (csrfToken) {
+        config.headers["X-CSRF-Token"] = csrfToken;
+      }
     }
+
     return config;
   },
   (error) => Promise.reject(error),
@@ -76,8 +89,7 @@ axiosInstance.interceptors.response.use(
       if (isRefreshing) {
         // Queue the request while token is being refreshed
         return new Promise((resolve) => {
-          failedQueue.push((token: string) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
+          failedQueue.push(() => {
             resolve(axiosInstance(originalRequest));
           });
         });
@@ -91,8 +103,7 @@ axiosInstance.interceptors.response.use(
         const newToken = await AuthService.refreshToken();
 
         if (newToken) {
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
-          processQueue(newToken);
+          processQueue();
           isRefreshing = false;
           return axiosInstance(originalRequest);
         }
@@ -156,3 +167,6 @@ export const ApiClient = {
 };
 
 export default ApiClient;
+
+
+

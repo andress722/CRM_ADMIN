@@ -8,7 +8,9 @@
     "start": "next start",
     "start:prod": "next start -p 3003",
     "test:e2e": "npx playwright test",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:bff-security": "playwright test tests/bff-security.spec.ts --project=chromium --workers=1",
+    "test:crm-critical": "playwright test tests/crm-critical.spec.ts --project=chromium --workers=1"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

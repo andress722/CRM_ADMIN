@@ -1,5 +1,3 @@
-import { AuthService } from './auth';
-
 const getCsrfTokenFromCookie = (): string | null => {
   if (typeof document === 'undefined') return null;
   const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
@@ -8,10 +6,6 @@ const getCsrfTokenFromCookie = (): string | null => {
 
 const buildHeaders = (headers?: HeadersInit): HeadersInit => {
   const resolved = new Headers(headers);
-  const token = AuthService.getToken();
-  if (token) {
-    resolved.set('Authorization', `Bearer ${token}`);
-  }
 
   const csrf = getCsrfTokenFromCookie();
   if (csrf) {

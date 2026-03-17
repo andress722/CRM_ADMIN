@@ -1,5 +1,4 @@
 "use client";
-import { AuthService } from "@/services/auth";
 import { endpoints } from "@/services/endpoints";
 import { useEffect, useState } from "react";
 
@@ -24,16 +23,9 @@ export default function NotificationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [marking, setMarking] = useState<string | null>(null);
 
-  useEffect(() => {
-    const token = AuthService.getToken();
-    if (!token) {
-      setError("Usuário não autenticado.");
-      setLoading(false);
-      return;
-    }
-    // Fallback: carrega notificações iniciais
+  useEffect(() => {    // Fallback: carrega notificações iniciais
     fetch(endpoints.admin.notifications, {
-      headers: { Authorization: `Bearer ${token}` },
+      
     })
       .then((res) => res.json())
       .then((data) => {
@@ -51,7 +43,7 @@ export default function NotificationsPage() {
 
     // WebSocket para tempo real
     const wsUrl = endpoints.admin.notifications.replace(/^http/, "ws") + "/ws";
-    const ws = new WebSocket(wsUrl + `?token=${token}`);
+    const ws = new WebSocket(wsUrl);
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
@@ -75,12 +67,10 @@ export default function NotificationsPage() {
   }, []);
 
   const markAsRead = async (id: string) => {
-    setMarking(id);
-    const token = AuthService.getToken();
-    try {
+    setMarking(id);    try {
       await fetch(`${endpoints.admin.notifications}/${id}/read`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        
       });
       setNotifications((notifications) =>
         notifications.map((n) => (n.id === id ? { ...n, read: true } : n)),
@@ -129,3 +119,5 @@ export default function NotificationsPage() {
     </div>
   );
 }
+
+

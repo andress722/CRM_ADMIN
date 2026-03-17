@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { LoadingState, ErrorState } from '@/components/ui/AsyncState';
 import { useParams, useRouter } from 'next/navigation';
-import { AuthService } from '@/services/auth';
 import { authFetch } from '@/services/auth-fetch';
 import { endpoints } from '@/services/endpoints';
 import BackButton from '@/components/BackButton';
@@ -62,14 +61,7 @@ export default function ActivityDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!id) return;
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setLoading(false);
-      return;
-    }
-    authFetch(endpoints.admin.crmActivityDetail(id), {
+    if (!id) return;    authFetch(endpoints.admin.crmActivityDetail(id), {
       headers: {},
     })
       .then((res) => res.json())
@@ -94,14 +86,7 @@ export default function ActivityDetailPage() {
       return;
     }
     setSaving(true);
-    setError(null);
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setSaving(false);
-      return;
-    }
-    try {
+    setError(null);    try {
       const res = await authFetch(endpoints.admin.crmActivityDetail(id), {
         method: 'PUT',
         headers: {
@@ -124,14 +109,7 @@ export default function ActivityDetailPage() {
     if (!id) return;
     if (!confirm('Tem certeza que deseja excluir esta atividade?')) return;
     setDeleting(true);
-    setError(null);
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setDeleting(false);
-      return;
-    }
-    try {
+    setError(null);    try {
       const res = await authFetch(endpoints.admin.crmActivityDetail(id), {
         method: 'DELETE',
         headers: {},

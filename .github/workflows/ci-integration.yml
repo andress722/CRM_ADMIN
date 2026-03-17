@@ -103,6 +103,30 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
+      - name: Run BFF security tests (admin)
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          PLAYWRIGHT_HTML_REPORT: playwright-report-bff-security
+        run: |
+          cd admin-frontend
+          npx playwright test tests/bff-security.spec.ts --project=chromium --workers=1 --reporter=html --output=test-results-bff-security
+
+      - name: Run CRM critical Playwright tests (admin)
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          PLAYWRIGHT_HTML_REPORT: playwright-report-crm-critical
+        run: |
+          cd admin-frontend
+          npx playwright test tests/crm-critical.spec.ts --project=chromium --workers=1 --reporter=html --output=test-results-crm-critical
+
+      - name: Run BFF security tests (storefront)
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          PLAYWRIGHT_HTML_REPORT: playwright-report-bff-security
+        run: |
+          cd info-tech-gamer-storefront-build
+          npx playwright test tests/bff-security.spec.ts --project=chromium --workers=1 --reporter=html --output=test-results-bff-security
+
       - name: Run Playwright E2E (HTML report)
         env:
           FRONTEND_PORT: 3003
@@ -120,8 +144,15 @@ jobs:
           path: |
             admin-frontend/test-results
             admin-frontend/playwright-report
+            admin-frontend/test-results-bff-security
+            admin-frontend/playwright-report-bff-security
+            admin-frontend/test-results-crm-critical
+            admin-frontend/playwright-report-crm-critical
+            info-tech-gamer-storefront-build/test-results-bff-security
+            info-tech-gamer-storefront-build/playwright-report-bff-security
             /tmp/api.log
             /tmp/frontend.log
+
 
 
 

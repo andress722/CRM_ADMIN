@@ -52,3 +52,39 @@ groups:
         annotations:
           summary: "Health endpoint instability"
           description: "Health endpoint produced 5xx, which may indicate worker/runtime failure."
+      - alert: EcommerceApiAuth429Spike
+        expr: |
+          sum(rate(http_responses_total{status="429",path="/api/v1/auth/login"}[10m])) > 0
+        for: 10m
+        labels:
+          severity: warning
+          service: ecommerce-api
+          component: anti-abuse
+        annotations:
+          summary: "Auth route hitting 429"
+          description: "Login/auth routes are throttling requests and may indicate brute-force or abusive traffic."
+
+      - alert: EcommerceApiCheckout429Spike
+        expr: |
+          sum(rate(http_responses_total{status="429",path=~"/api/v1/payments/checkout|/api/v1/payments/transparent|/api/v1/orders/from-cart"}[10m])) > 0
+        for: 10m
+        labels:
+          severity: warning
+          service: ecommerce-api
+          component: anti-abuse
+        annotations:
+          summary: "Checkout route hitting 429"
+          description: "Checkout/payment routes are throttling requests and may indicate abusive automation or retry storms."
+
+      - alert: EcommerceApiWebhook429Spike
+        expr: |
+          sum(rate(http_responses_total{status="429",path=~"/api/webhooks/mercadopago|/api/webhooks/email|/api/webhooks/shipping|/api/v1/subscriptions/webhooks/billing"}[10m])) > 0
+        for: 10m
+        labels:
+          severity: warning
+          service: ecommerce-api
+          component: anti-abuse
+        annotations:
+          summary: "Webhook route hitting 429"
+          description: "Webhook endpoints are throttling requests and may be overloaded or receiving abusive retries."
+

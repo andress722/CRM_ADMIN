@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { endpoints } from '@/services/endpoints';
-import { AuthService } from '@/services/auth';
 import { authFetch } from '@/services/auth-fetch';
 import Link from 'next/link';
 import BulkActionsBar from '@/components/BulkActionsBar';
@@ -48,14 +47,7 @@ export default function DealsPage() {
   const [bulkStage, setBulkStage] = useState<Stage | ''>('');
   const [bulkStageUpdating, setBulkStageUpdating] = useState(false);
 
-  useEffect(() => {
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setLoading(false);
-      return;
-    }
-    authFetch(endpoints.admin.crmDeals, {
+  useEffect(() => {    authFetch(endpoints.admin.crmDeals, {
       headers: {},
     })
       .then((res) => res.json())
@@ -85,10 +77,7 @@ export default function DealsPage() {
   }, [deals, filter]);
 
   const moveDeal = async (id: string, stage: Stage) => {
-    setDeals((prev) => prev.map((deal) => (deal.id === id ? { ...deal, stage } : deal)));
-    const token = AuthService.getToken();
-    if (!token) return;
-    try {
+    setDeals((prev) => prev.map((deal) => (deal.id === id ? { ...deal, stage } : deal)));    try {
       await authFetch(endpoints.admin.crmDealDetail(id), {
         method: 'PATCH',
         headers: {
@@ -114,13 +103,7 @@ export default function DealsPage() {
   };
 
   const handleBulkAction = async (type: 'Email' | 'Task') => {
-    if (selectedIds.size === 0) return;
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      return;
-    }
-    if (type === 'Email') {
+    if (selectedIds.size === 0) return;    if (type === 'Email') {
       setBulkEmailing(true);
     } else {
       setBulkTasking(true);
@@ -142,7 +125,7 @@ export default function DealsPage() {
           notes: `Negócio: ${deal.title}`,
         },
       }));
-      await runBulkRequests(requests, token);
+      await runBulkRequests(requests);
       setSelectedIds(new Set());
       setBulkTaskDueDate('');
     } catch (err) {
@@ -154,13 +137,7 @@ export default function DealsPage() {
   };
 
   const handleBulkOwner = async () => {
-    if (selectedIds.size === 0 || !bulkOwner.trim()) return;
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      return;
-    }
-    setBulkReassigning(true);
+    if (selectedIds.size === 0 || !bulkOwner.trim()) return;    setBulkReassigning(true);
     setError(null);
     setDeals((prev) =>
       prev.map((deal) => (selectedIds.has(deal.id) ? { ...deal, owner: bulkOwner.trim() } : deal))
@@ -172,7 +149,7 @@ export default function DealsPage() {
         method: 'PATCH' as const,
         body: { owner: bulkOwner.trim() },
       }));
-      await runBulkRequests(requests, token);
+      await runBulkRequests(requests);
       setSelectedIds(new Set());
       setBulkOwner('');
     } catch (err) {
@@ -183,13 +160,7 @@ export default function DealsPage() {
   };
 
   const handleBulkStage = async () => {
-    if (selectedIds.size === 0 || !bulkStage) return;
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      return;
-    }
-    setBulkStageUpdating(true);
+    if (selectedIds.size === 0 || !bulkStage) return;    setBulkStageUpdating(true);
     setError(null);
     setDeals((prev) =>
       prev.map((deal) => (selectedIds.has(deal.id) ? { ...deal, stage: bulkStage } : deal))
@@ -201,7 +172,7 @@ export default function DealsPage() {
         method: 'PATCH' as const,
         body: { stage: bulkStage },
       }));
-      await runBulkRequests(requests, token);
+      await runBulkRequests(requests);
       setSelectedIds(new Set());
       setBulkStage('');
     } catch (err) {
@@ -351,6 +322,7 @@ export default function DealsPage() {
     </div>
   );
 }
+
 
 
 

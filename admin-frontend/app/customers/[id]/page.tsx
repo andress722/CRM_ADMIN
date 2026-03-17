@@ -1,5 +1,4 @@
 "use client";
-import { AuthService } from "@/services/auth";
 import { endpoints } from "@/services/endpoints";
 import { useParams, useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
@@ -15,15 +14,8 @@ export default function EditCustomerPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!id) return;
-    const token = AuthService.getToken();
-    if (!token) {
-      setError("Usuário não autenticado.");
-      setLoading(false);
-      return;
-    }
-    fetch(endpoints.admin.customerDetail(id as string), {
-      headers: { Authorization: `Bearer ${token}` },
+    if (!id) return;    fetch(endpoints.admin.customerDetail(id as string), {
+      
     })
       .then((res) => res.json())
       .then((data) => {
@@ -41,19 +33,12 @@ export default function EditCustomerPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError(null);
-    const token = AuthService.getToken();
-    if (!token) {
-      setError("Usuário não autenticado.");
-      setLoading(false);
-      return;
-    }
-    try {
+    setError(null);    try {
       const res = await fetch(endpoints.admin.customerDetail(id as string), {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+
         },
         body: JSON.stringify({ name, email, blocked }),
       });
@@ -68,19 +53,12 @@ export default function EditCustomerPage() {
 
   const handleBlockToggle = async () => {
     setLoading(true);
-    setError(null);
-    const token = AuthService.getToken();
-    if (!token) {
-      setError("Usuário não autenticado.");
-      setLoading(false);
-      return;
-    }
-    try {
+    setError(null);    try {
       const res = await fetch(endpoints.admin.customerDetail(id as string), {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+
         },
         body: JSON.stringify({ blocked: !blocked }),
       });
@@ -138,3 +116,5 @@ export default function EditCustomerPage() {
     </div>
   );
 }
+
+

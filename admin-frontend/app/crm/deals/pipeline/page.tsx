@@ -4,7 +4,6 @@ import BackButton from "@/components/BackButton";
 import BulkActionsBar from "@/components/BulkActionsBar";
 import DateInput from "@/components/DateInput";
 import Select from "@/components/Select";
-import { AuthService } from "@/services/auth";
 import { runBulkRequests } from "@/services/bulk";
 import { endpoints } from "@/services/endpoints";
 import Link from "next/link";
@@ -44,15 +43,8 @@ export default function DealsPipelinePage() {
   const [bulkCloseDate, setBulkCloseDate] = useState("");
   const [bulkCloseUpdating, setBulkCloseUpdating] = useState(false);
 
-  useEffect(() => {
-    const token = AuthService.getToken();
-    if (!token) {
-      setError("Usuário não autenticado.");
-      setLoading(false);
-      return;
-    }
-    fetch(endpoints.admin.crmDeals, {
-      headers: { Authorization: `Bearer ${token}` },
+  useEffect(() => {    fetch(endpoints.admin.crmDeals, {
+      
     })
       .then((res) => res.json())
       .then((data) => {
@@ -82,15 +74,12 @@ export default function DealsPipelinePage() {
   const moveDeal = async (id: string, stage: Stage) => {
     setDeals((prev) =>
       prev.map((deal) => (deal.id === id ? { ...deal, stage } : deal)),
-    );
-    const token = AuthService.getToken();
-    if (!token) return;
-    try {
+    );    try {
       await fetch(endpoints.admin.crmDealDetail(id), {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+
         },
         body: JSON.stringify({ stage }),
       });
@@ -112,13 +101,7 @@ export default function DealsPipelinePage() {
   };
 
   const handleBulkOwner = async () => {
-    if (selectedIds.size === 0 || !bulkOwner.trim()) return;
-    const token = AuthService.getToken();
-    if (!token) {
-      setError("Usuário não autenticado.");
-      return;
-    }
-    setBulkReassigning(true);
+    if (selectedIds.size === 0 || !bulkOwner.trim()) return;    setBulkReassigning(true);
     setError(null);
     setDeals((prev) =>
       prev.map((deal) =>
@@ -132,7 +115,7 @@ export default function DealsPipelinePage() {
         method: "PATCH" as const,
         body: { owner: bulkOwner.trim() },
       }));
-      await runBulkRequests(requests, token);
+      await runBulkRequests(requests);
       setSelectedIds(new Set());
       setBulkOwner("");
     } catch {
@@ -143,13 +126,7 @@ export default function DealsPipelinePage() {
   };
 
   const handleBulkStage = async () => {
-    if (selectedIds.size === 0 || !bulkStage) return;
-    const token = AuthService.getToken();
-    if (!token) {
-      setError("Usuário não autenticado.");
-      return;
-    }
-    setBulkStageUpdating(true);
+    if (selectedIds.size === 0 || !bulkStage) return;    setBulkStageUpdating(true);
     setError(null);
     setDeals((prev) =>
       prev.map((deal) =>
@@ -163,7 +140,7 @@ export default function DealsPipelinePage() {
         method: "PATCH" as const,
         body: { stage: bulkStage },
       }));
-      await runBulkRequests(requests, token);
+      await runBulkRequests(requests);
       setSelectedIds(new Set());
       setBulkStage("");
     } catch {
@@ -174,13 +151,7 @@ export default function DealsPipelinePage() {
   };
 
   const handleBulkCloseDate = async () => {
-    if (selectedIds.size === 0 || !bulkCloseDate) return;
-    const token = AuthService.getToken();
-    if (!token) {
-      setError("Usuário não autenticado.");
-      return;
-    }
-    setBulkCloseUpdating(true);
+    if (selectedIds.size === 0 || !bulkCloseDate) return;    setBulkCloseUpdating(true);
     setError(null);
     setDeals((prev) =>
       prev.map((deal) =>
@@ -196,7 +167,7 @@ export default function DealsPipelinePage() {
         method: "PATCH" as const,
         body: { expectedClose: bulkCloseDate },
       }));
-      await runBulkRequests(requests, token);
+      await runBulkRequests(requests);
       setSelectedIds(new Set());
       setBulkCloseDate("");
     } catch {
@@ -357,3 +328,6 @@ export default function DealsPipelinePage() {
     </div>
   );
 }
+
+
+

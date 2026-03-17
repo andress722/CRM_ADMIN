@@ -8,6 +8,8 @@ using Ecommerce.Application.Repositories;
 using Ecommerce.Domain.Entities;
 using Ecommerce.Infrastructure.Data;
 using Microsoft.Extensions.Logging;
+using AspNetCoreRateLimit;
+using Microsoft.Extensions.Options;
 
 namespace Ecommerce.API.Controllers;
 
@@ -26,6 +28,7 @@ public class AdminExtrasController : ControllerBase
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<AdminExtrasController> _logger;
     private readonly IConfiguration _configuration;
+    private readonly IpRateLimitOptions _rateLimitOptions;
 
     public AdminExtrasController(
         IWebhookRepository webhooks,
@@ -36,6 +39,7 @@ public class AdminExtrasController : ControllerBase
         EcommerceDbContext db,
         IHttpClientFactory httpClientFactory,
         IConfiguration configuration,
+        IOptions<IpRateLimitOptions> rateLimitOptions,
         ILogger<AdminExtrasController> logger)
     {
         _webhooks = webhooks;
@@ -46,11 +50,12 @@ public class AdminExtrasController : ControllerBase
         _db = db;
         _httpClientFactory = httpClientFactory;
         _configuration = configuration;
+        _rateLimitOptions = rateLimitOptions.Value;
         _logger = logger;
     }
 
-    #region Webhooks
 
+    #region Webhooks
     [HttpGet("webhooks")]
     public async Task<IActionResult> GetWebhooks()
     {
@@ -309,7 +314,6 @@ public class AdminExtrasController : ControllerBase
 
         _db.AdminSettings.Update(settings);
         await _db.SaveChangesAsync();
-
         return Ok(new EmailTemplateDto
         {
             Template = settings.EmailTemplate
@@ -342,6 +346,8 @@ public class AdminExtrasController : ControllerBase
             userExists = user != null;
         }
 
+        var antiAbuseRouteClasses = BuildAntiAbuseRouteClasses();
+        var antiAbuseAlerts = LoadAlertNames();
         var warnings = new List<string>();
 
         if (string.IsNullOrWhiteSpace(provider))
@@ -375,6 +381,11 @@ public class AdminExtrasController : ControllerBase
             warnings.Add("Authenticated token user was not found in database.");
         }
 
+        foreach (var routeClass in antiAbuseRouteClasses.Where(x => x.ExpectedAlertCoverage && x.CoupledAlerts.Count == 0))
+        {
+            warnings.Add($"Route class '{routeClass.Key}' has rate-limit rules but no coupled alert coverage.");
+        }
+
         return Ok(new
         {
             correlationId,
@@ -397,6 +408,12 @@ public class AdminExtrasController : ControllerBase
             {
                 enabled = captchaEnabled,
                 secretConfigured = captchaSecretConfigured
+            },
+            antiAbuse = new
+            {
+                routeClasses = antiAbuseRouteClasses,
+                alerts = antiAbuseAlerts,
+                rateLimitRulesVersioned = _rateLimitOptions.GeneralRules?.Any() == true
             },
             warnings,
             healthy = warnings.Count == 0
@@ -426,6 +443,110 @@ public class AdminExtrasController : ControllerBase
         }
 
         return $"****{trimmed[^4..]}";
+    }
+    private List<AntiAbuseRouteClassDto> BuildAntiAbuseRouteClasses()
+    {
+        var rules = _rateLimitOptions.GeneralRules ?? new List<RateLimitRule>();
+        var alertNames = LoadAlertNames();
+
+        return rules
+            .GroupBy(rule => ClassifyRouteClass(rule.Endpoint))
+            .Select(group =>
+            {
+                var endpoints = group
+                    .Select(rule => rule.Endpoint)
+                    .Where(endpoint => !string.IsNullOrWhiteSpace(endpoint))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Take(4)
+                    .ToList();
+
+                var coupledAlerts = ResolveCoupledAlerts(group.Key, alertNames);
+                var limits = group.Select(rule => (int)rule.Limit).ToList();
+
+                return new AntiAbuseRouteClassDto(
+                    group.Key,
+                    LabelForRouteClass(group.Key),
+                    group.Count(),
+                    limits.Count == 0 ? 0 : limits.Min(),
+                    limits.Count == 0 ? 0 : limits.Max(),
+                    endpoints,
+                    coupledAlerts,
+                    ExpectedAlertCoverageForRouteClass(group.Key));
+            })
+            .OrderBy(x => x.Key)
+            .ToList();
+    }
+
+    private List<string> LoadAlertNames()
+    {
+        var path = FindUpwards("docs", "observability", "alert-rules.prometheus.yml");
+        if (path == null || !System.IO.File.Exists(path))
+        {
+            return new List<string>();
+        }
+
+        return System.IO.File.ReadAllLines(path)
+            .Select(line => line.Trim())
+            .Where(line => line.StartsWith("- alert:", StringComparison.Ordinal))
+            .Select(line => line[8..].Trim())
+            .Where(line => !string.IsNullOrWhiteSpace(line))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x)
+            .ToList();
+    }
+    private static string? FindUpwards(params string[] relativeParts)
+    {
+        var current = new DirectoryInfo(Directory.GetCurrentDirectory());
+        while (current != null)
+        {
+            var candidate = Path.Combine(new[] { current.FullName }.Concat(relativeParts).ToArray());
+            if (System.IO.File.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            current = current.Parent;
+        }
+
+        return null;
+    }
+
+    private static string ClassifyRouteClass(string? endpoint)
+    {
+        var value = endpoint?.Trim().ToLowerInvariant() ?? string.Empty;
+        if (value.Contains("/api/v1/auth/")) return "auth";
+        if (value.Contains("/api/webhooks/") || value.Contains("/subscriptions/webhooks/")) return "webhook";
+        if (value.Contains("/api/v1/payments/") || value.Contains("/api/v1/orders/from-cart") || value.Contains("/api/v1/subscriptions/")) return "checkout";
+        if (value.Contains("/api/v1/admin/") || value.Contains("/api/v1/lgpd/")) return "admin_sensitive";
+        return "default";
+    }
+
+    private static string LabelForRouteClass(string key)
+        => key switch
+        {
+            "auth" => "Auth",
+            "checkout" => "Checkout/Payments",
+            "webhook" => "Webhooks",
+            "admin_sensitive" => "Admin Sensitive",
+            _ => "Default"
+        };
+
+    private static bool ExpectedAlertCoverageForRouteClass(string key)
+        => key is "auth" or "checkout" or "webhook";
+
+    private static List<string> ResolveCoupledAlerts(string routeClass, IReadOnlyCollection<string> alertNames)
+    {
+        var expected = routeClass switch
+        {
+            "auth" => new[] { "EcommerceApiAuth429Spike" },
+            "checkout" => new[] { "EcommerceApiCheckout429Spike", "EcommerceApiHighP95Latency" },
+            "webhook" => new[] { "EcommerceApiWebhook429Spike", "MercadoPagoWebhook5xxSpike" },
+            _ => Array.Empty<string>()
+        };
+
+        return expected
+            .Where(alert => alertNames.Contains(alert, StringComparer.OrdinalIgnoreCase))
+            .ToList();
     }
     private async Task<AdminSetting> GetOrCreateSettingsAsync()
     {
@@ -1217,6 +1338,11 @@ public record ProfileDto
     public string Avatar { get; init; } = string.Empty;
     public Dictionary<string, object> Preferences { get; init; } = new();
 }
+
+
+
+
+public record AntiAbuseRouteClassDto(string Key, string Label, int RulesCount, int MinLimit, int MaxLimit, List<string> Endpoints, List<string> CoupledAlerts, bool ExpectedAlertCoverage);
 
 
 

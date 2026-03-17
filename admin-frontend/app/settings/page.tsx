@@ -1,6 +1,5 @@
 "use client";
 
-import { AuthService } from "@/services/auth";
 import { endpoints } from "@/services/endpoints";
 import { ApiRecord } from "@/types";
 import React, { useEffect, useState } from "react";
@@ -18,15 +17,8 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    const token = AuthService.getToken();
-    if (!token) {
-      setError("Usuário não autenticado.");
-      setLoading(false);
-      return;
-    }
-    fetch(endpoints.admin.settings, {
-      headers: { Authorization: `Bearer ${token}` },
+  useEffect(() => {    fetch(endpoints.admin.settings, {
+      
     })
       .then((res) => res.json())
       .then((data) => {
@@ -49,14 +41,12 @@ export default function SettingsPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
-    const token = AuthService.getToken();
-    try {
+    setSaving(true);    try {
       await fetch(endpoints.admin.settings, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+
         },
         body: JSON.stringify(settings),
       });
@@ -127,3 +117,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+

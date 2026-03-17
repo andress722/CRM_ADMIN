@@ -5,9 +5,16 @@ import { LoginResponse } from "@/types/api";
 import ApiClient from "./api-client";
 import { endpoints } from "./endpoints";
 
-const TOKEN_KEY = "accessToken";
 const USER_ROLE_KEY = "userRole";
 const USER_EMAIL_KEY = "userEmail";
+
+let inMemoryAccessToken: string | null = null;
+const SESSION_AUTH_PLACEHOLDER = "session";
+
+const hasSessionHint = (): boolean => {
+  if (typeof document === "undefined") return false;
+  return /(?:^|;\s*)csrf_token=/.test(document.cookie);
+};
 
 type JwtPayload = {
   exp?: number;
@@ -102,9 +109,6 @@ const mapAuthError = (error: unknown): string => {
 };
 
 export const AuthService = {
-  /**
-   * Login user with email and password
-   */
   async login(payload: LoginPayload): Promise<LoginResult> {
     try {
       const response = await ApiClient.post<LoginResponse>(
@@ -137,7 +141,6 @@ export const AuthService = {
           };
         }
 
-        // Treat any 428 auth response as a 2FA/setup precondition, not invalid credentials.
         return {
           status: "requires_two_factor_setup",
           message,
@@ -148,9 +151,6 @@ export const AuthService = {
     }
   },
 
-  /**
-   * Logout user and clear tokens
-   */
   async logout(): Promise<void> {
     try {
       await ApiClient.post(endpoints.auth.logout, undefined, {
@@ -158,47 +158,29 @@ export const AuthService = {
       }).catch(() => {});
     } catch {}
 
+    inMemoryAccessToken = null;
     if (typeof window !== "undefined") {
-      localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_ROLE_KEY);
       localStorage.removeItem(USER_EMAIL_KEY);
     }
   },
 
-  /**
-   * Get stored access token
-   */
   getToken(): string | null {
-    if (typeof window === "undefined") return null;
-    return localStorage.getItem(TOKEN_KEY);
+    return inMemoryAccessToken || hasSessionHint() ? SESSION_AUTH_PLACEHOLDER : null;
   },
 
-  /**
-   * Set access token
-   */
   setToken(token: string): void {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(TOKEN_KEY, token);
-    }
+    inMemoryAccessToken = token;
   },
 
-  /**
-   * Get stored refresh token
-   */
   getRefreshToken(): string | null {
     return null;
   },
 
-  /**
-   * Set refresh token
-   */
   setRefreshToken(_token: string): void {
     void _token;
   },
 
-  /**
-   * Refresh access token using refresh token
-   */
   async refreshToken(): Promise<string | null> {
     try {
       const response = await ApiClient.post<LoginResponse>(
@@ -215,26 +197,28 @@ export const AuthService = {
 
       return null;
     } catch {
-      AuthService.logout();
+      inMemoryAccessToken = null;
       return null;
     }
   },
 
-  /**
-   * Check if user is authenticated
-   */
-  isAuthenticated(): boolean {
-    const token = AuthService.getToken();
+  async bootstrapSession(): Promise<boolean> {
+    if (inMemoryAccessToken) {
+      return true;
+    }
+
+    const token = await AuthService.refreshToken();
     return !!token;
   },
 
-  /**
-   * Decode JWT token to get payload (without verification)
-   * Note: This is NOT secure - only use for reading non-sensitive data from client
-   */
+  isAuthenticated(): boolean {
+    return !!inMemoryAccessToken || hasSessionHint();
+  },
+
   decodeToken(token?: string): JwtPayload | null {
     try {
-      const t = token || AuthService.getToken();
+      const fromArg = token && token !== SESSION_AUTH_PLACEHOLDER ? token : null;
+      const t = fromArg || inMemoryAccessToken;
       if (!t) return null;
 
       const parts = t.split(".");
@@ -249,9 +233,6 @@ export const AuthService = {
     }
   },
 
-  /**
-   * Check if token is expired
-   */
   isTokenExpired(token?: string): boolean {
     try {
       const decoded = AuthService.decodeToken(token);
@@ -264,4 +245,5 @@ export const AuthService = {
     }
   },
 };
+
 

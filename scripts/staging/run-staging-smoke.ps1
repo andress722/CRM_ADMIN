@@ -106,6 +106,35 @@ function Invoke-HttpCheck {
   return New-CheckResult -Name $Name -Passed $request.passed -StatusCode $request.statusCode -Details $request.details
 }
 
+function Invoke-HttpCheckWithRetry {
+  param(
+    [string]$Name,
+    [string]$Url,
+    [string]$Method = "GET",
+    [hashtable]$Headers = @{},
+    [object]$Body = $null,
+    [int[]]$AcceptedStatusCodes = @(200),
+    [int]$MaxAttempts = 3,
+    [int]$DelaySeconds = 2
+  )
+
+  $lastResult = $null
+  for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+    $lastResult = Invoke-HttpCheck -Name $Name -Url $Url -Method $Method -Headers $Headers -Body $Body -AcceptedStatusCodes $AcceptedStatusCodes
+    if ($lastResult.passed) {
+      if ($attempt -gt 1) {
+        $lastResult.details = "$($lastResult.details); recovered on retry $attempt/$MaxAttempts"
+      }
+      return $lastResult
+    }
+
+    if ($attempt -lt $MaxAttempts -and $lastResult.statusCode -eq 0) {
+      Start-Sleep -Seconds $DelaySeconds
+    }
+  }
+
+  return $lastResult
+}
 function Normalize-BaseUrl {
   param([string]$Url)
   return $Url.Trim().TrimEnd('/')
@@ -118,7 +147,7 @@ $store = Normalize-BaseUrl -Url $StorefrontBaseUrl
 $results = New-Object System.Collections.Generic.List[object]
 $token = ""
 
-$results.Add((Invoke-HttpCheck -Name "API health" -Url "$api/health" -AcceptedStatusCodes @(200)))
+$results.Add((Invoke-HttpCheckWithRetry -Name "API health" -Url "$api/health" -AcceptedStatusCodes @(200) -MaxAttempts 3 -DelaySeconds 2))
 $results.Add((Invoke-HttpCheck -Name "API root" -Url "$api/" -AcceptedStatusCodes @(200)))
 $results.Add((Invoke-HttpCheck -Name "API metrics endpoint reachable" -Url "$api/metrics" -AcceptedStatusCodes @(200,401,403)))
 
@@ -142,6 +171,35 @@ if ($hasAuthInput) {
       $authHeaders = @{ Authorization = "Bearer $token" }
       $leadListResult = Invoke-ApiRequest -Url "$api/api/v1/admin/crm/leads" -Headers $authHeaders -AcceptedStatusCodes @(200)
       $results.Add((New-CheckResult -Name "Admin CRM leads list" -Passed $leadListResult.passed -StatusCode $leadListResult.statusCode -Details $leadListResult.details))
+
+      $opsEndpoint = "$api/api/v1/admin/ops/overview"
+      $opsEndpointLabel = "api/v1/admin/ops/overview"
+      $opsResult = Invoke-ApiRequest -Url $opsEndpoint -Headers $authHeaders -AcceptedStatusCodes @(200)
+      if (-not $opsResult.passed -and $opsResult.statusCode -eq 404) {
+        $legacyOpsEndpoint = "$api/api/v1/admin/overview"
+        $legacyOpsResult = Invoke-ApiRequest -Url $legacyOpsEndpoint -Headers $authHeaders -AcceptedStatusCodes @(200)
+        if ($legacyOpsResult.passed) {
+          $opsResult = $legacyOpsResult
+          $opsEndpointLabel = "api/v1/admin/overview"
+        }
+      }
+
+      $opsDetails = $opsResult.details
+      if ($opsResult.passed -and $null -ne $opsResult.body) {
+        $slo = $opsResult.body.slo
+        $alerts = $opsResult.body.alerts
+        if ($null -ne $slo -and $null -ne $alerts) {
+          $opsDetails = "HTTP $($opsResult.statusCode); endpoint=$opsEndpointLabel; p95Ms=$($slo.p95LatencyMs); high5xx=$($alerts.high5xx.status); deployFailure=$($alerts.deployFailure.status)"
+        }
+        else {
+          $opsDetails = "HTTP $($opsResult.statusCode); endpoint=$opsEndpointLabel"
+        }
+      }
+      elseif ($opsResult.passed) {
+        $opsDetails = "$($opsResult.details); endpoint=$opsEndpointLabel"
+      }
+
+      $results.Add((New-CheckResult -Name "Admin ops overview" -Passed $opsResult.passed -StatusCode $opsResult.statusCode -Details $opsDetails))
 
       if ($RunCrmCrud.IsPresent) {
         $createdLeadId = $null
@@ -192,6 +250,7 @@ if ($hasAuthInput) {
 
     $detail = if ($statusCode -eq 0) { $_.Exception.Message } else { "HTTP $statusCode" }
     $results.Add((New-CheckResult -Name "Admin API login" -Passed $false -StatusCode $statusCode -Details $detail))
+    $results.Add((New-CheckResult -Name "Admin ops overview" -Passed $false -StatusCode 0 -Details "Skipped because admin auth failed"))
 
     if ($RunCrmCrud.IsPresent) {
       $results.Add((New-CheckResult -Name "Admin CRM lead create" -Passed $false -StatusCode 0 -Details "Skipped because admin auth failed"))
@@ -204,6 +263,7 @@ else {
   $details = "AdminEmail/AdminPassword not provided; auth smoke skipped"
   $results.Add((New-CheckResult -Name "Admin API login" -Passed $AllowMissingAdminAuth.IsPresent -StatusCode 0 -Details $details))
   $results.Add((New-CheckResult -Name "Admin CRM leads list" -Passed $AllowMissingAdminAuth.IsPresent -StatusCode 0 -Details "Skipped because admin auth is missing"))
+  $results.Add((New-CheckResult -Name "Admin ops overview" -Passed $AllowMissingAdminAuth.IsPresent -StatusCode 0 -Details "Skipped because admin auth is missing"))
 
   if ($RunCrmCrud.IsPresent) {
     $results.Add((New-CheckResult -Name "Admin CRM lead create" -Passed $false -StatusCode 0 -Details "Skipped because admin auth is missing"))
@@ -248,3 +308,4 @@ foreach ($r in $results) {
 if ($failed.Count -gt 0) {
   Write-Error "Staging smoke failed with $($failed.Count) failing checks."
 }
+

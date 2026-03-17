@@ -1,6 +1,5 @@
 "use client";
 
-import { AuthService } from "@/services/auth";
 import { endpoints } from "@/services/endpoints";
 import React, { useEffect, useState } from "react";
 
@@ -28,15 +27,8 @@ export default function WebhooksPage() {
     enabled: true,
   });
 
-  useEffect(() => {
-    const token = AuthService.getToken();
-    if (!token) {
-      setError("Usuário não autenticado.");
-      setLoading(false);
-      return;
-    }
-    fetch(endpoints.admin.webhooks, {
-      headers: { Authorization: `Bearer ${token}` },
+  useEffect(() => {    fetch(endpoints.admin.webhooks, {
+      
     })
       .then((res) => res.json())
       .then((data) => {
@@ -60,14 +52,12 @@ export default function WebhooksPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
-    const token = AuthService.getToken();
-    try {
+    setSaving(true);    try {
       await fetch(endpoints.admin.webhooks, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+
         },
         body: JSON.stringify(form),
       });
@@ -156,3 +146,5 @@ export default function WebhooksPage() {
     </div>
   );
 }
+
+

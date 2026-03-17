@@ -32,9 +32,9 @@ export function useAuth(): UseAuthReturn {
   const [user, setUser] = useState<JwtPayload | null>(null);
 
   useEffect(() => {
-    const checkAuth = () => {
+    const checkAuth = async () => {
       try {
-        const authenticated = AuthService.isAuthenticated();
+        const authenticated = await AuthService.bootstrapSession();
         setIsAuthenticated(authenticated);
 
         if (authenticated) {
@@ -51,7 +51,7 @@ export function useAuth(): UseAuthReturn {
       }
     };
 
-    checkAuth();
+    void checkAuth();
   }, []);
 
   const login = useCallback(
@@ -126,4 +126,5 @@ export function useAuth(): UseAuthReturn {
     user,
   };
 }
+
 

@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { LoadingState, ErrorState } from '@/components/ui/AsyncState';
 import { useParams, useRouter } from 'next/navigation';
-import { AuthService } from '@/services/auth';
 import { authFetch } from '@/services/auth-fetch';
 import { endpoints } from '@/services/endpoints';
 import BackButton from '@/components/BackButton';
@@ -138,12 +137,6 @@ export default function ContactDetailPage() {
 
   useEffect(() => {
     if (!id) return;
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setLoading(false);
-      return;
-    }
     authFetch(endpoints.admin.crmContactDetail(id), {
       headers: {},
     })
@@ -171,12 +164,6 @@ export default function ContactDetailPage() {
     }
     setSaving(true);
     setError(null);
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setSaving(false);
-      return;
-    }
     try {
       const res = await authFetch(endpoints.admin.crmContactDetail(id), {
         method: 'PUT',
@@ -202,12 +189,6 @@ export default function ContactDetailPage() {
     if (!confirm('Tem certeza que deseja excluir este contato?')) return;
     setDeleting(true);
     setError(null);
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setDeleting(false);
-      return;
-    }
     try {
       const res = await authFetch(endpoints.admin.crmContactDetail(id), {
         method: 'DELETE',
@@ -226,12 +207,6 @@ export default function ContactDetailPage() {
     if (!form) return;
     setCreatingActivity(true);
     setError(null);
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setCreatingActivity(false);
-      return;
-    }
     const payload = {
       subject: activitySubject || `Contato ${form.name}`,
       owner: 'Equipe CRM',
@@ -266,12 +241,6 @@ export default function ContactDetailPage() {
     if (!form || !id || !noteDraft.trim()) return;
     setSavingNote(true);
     setError(null);
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setSavingNote(false);
-      return;
-    }
     const updatedNotes = [form.notes, noteDraft.trim()].filter(Boolean).join('\n\n');
     try {
       const res = await authFetch(endpoints.admin.crmContactDetail(id), {
@@ -297,12 +266,6 @@ export default function ContactDetailPage() {
     if (!form) return;
     setSendingEmail(true);
     setError(null);
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setSendingEmail(false);
-      return;
-    }
     const payload = {
       subject: `Email para ${form.name}`,
       owner: 'Equipe CRM',
@@ -333,13 +296,6 @@ export default function ContactDetailPage() {
     if (!id) return;
     setSendingSuggestions(true);
     setError(null);
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setSendingSuggestions(false);
-      return;
-    }
-
     try {
       const res = await authFetch(endpoints.admin.crmContactSendViewedSuggestions(id), {
         method: 'POST',
@@ -364,12 +320,6 @@ export default function ContactDetailPage() {
     if (!form) return;
     setCreatingTask(true);
     setError(null);
-    const token = AuthService.getToken();
-    if (!token) {
-      setError('Usuário não autenticado.');
-      setCreatingTask(false);
-      return;
-    }
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 2);
     const payload = {

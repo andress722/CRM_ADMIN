@@ -1,5 +1,4 @@
 "use client";
-import { AuthService } from "@/services/auth";
 import { endpoints } from "@/services/endpoints";
 import ExcelJS from "exceljs";
 import React, { useEffect, useState } from "react";
@@ -83,12 +82,10 @@ export default function IntegrationsPage() {
 
   const testConnection = async (id: string) => {
     setTestingId(id);
-    setTestResult(null);
-    const token = AuthService.getToken();
-    try {
+    setTestResult(null);    try {
       const res = await fetch(`${endpoints.admin.integrations}/${id}/test`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        
       });
       const data = await res.json();
       setTestResult(
@@ -109,15 +106,8 @@ export default function IntegrationsPage() {
     enabled: false,
   });
 
-  useEffect(() => {
-    const token = AuthService.getToken();
-    if (!token) {
-      setError("Usuário não autenticado.");
-      setLoading(false);
-      return;
-    }
-    fetch(endpoints.admin.integrations, {
-      headers: { Authorization: `Bearer ${token}` },
+  useEffect(() => {    fetch(endpoints.admin.integrations, {
+      
     })
       .then((res) => res.json())
       .then((data) => {
@@ -159,14 +149,12 @@ export default function IntegrationsPage() {
   };
 
   const saveEdit = async (id: string) => {
-    setSaving(true);
-    const token = AuthService.getToken();
-    try {
+    setSaving(true);    try {
       await fetch(`${endpoints.admin.integrations}/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+
         },
         body: JSON.stringify(editForm),
       });
@@ -182,12 +170,10 @@ export default function IntegrationsPage() {
   };
 
   const removeIntegration = async (id: string) => {
-    setSaving(true);
-    const token = AuthService.getToken();
-    try {
+    setSaving(true);    try {
       await fetch(`${endpoints.admin.integrations}/${id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+        
       });
       setIntegrations((list) => list.filter((i) => i.id !== id));
     } catch {
@@ -197,11 +183,9 @@ export default function IntegrationsPage() {
     }
   };
 
-  const fetchLogs = async (id: string) => {
-    const token = AuthService.getToken();
-    try {
+  const fetchLogs = async (id: string) => {    try {
       const res = await fetch(`${endpoints.admin.integrations}/${id}/logs`, {
-        headers: { Authorization: `Bearer ${token}` },
+        
       });
       const data = await res.json();
       setLogs(data);
@@ -213,14 +197,12 @@ export default function IntegrationsPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
-    const token = AuthService.getToken();
-    try {
+    setSaving(true);    try {
       await fetch(endpoints.admin.integrations, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+
         },
         body: JSON.stringify(form),
       });
@@ -448,3 +430,5 @@ export default function IntegrationsPage() {
     </div>
   );
 }
+
+

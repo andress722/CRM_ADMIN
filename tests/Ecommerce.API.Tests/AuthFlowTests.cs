@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Ecommerce.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -57,15 +58,41 @@ public class AuthFlowTests : IClassFixture<CustomWebAppFactory>
 
         Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
         var loginPayload = await loginResponse.Content.ReadFromJsonAsync<LoginPayload>();
-        Assert.False(string.IsNullOrWhiteSpace(loginPayload?.RefreshToken));
+        Assert.False(string.IsNullOrWhiteSpace(loginPayload?.AccessToken));
 
-        var refreshResponse = await client.PostAsJsonAsync("/api/v1/auth/refresh", new
-        {
-            refreshToken = loginPayload!.RefreshToken
-        });
+        var csrfToken = ExtractCookieValue(loginResponse.Headers, "csrf_token");
+        Assert.False(string.IsNullOrWhiteSpace(csrfToken));
+
+        using var refreshRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/refresh");
+        refreshRequest.Headers.Add("X-CSRF-Token", csrfToken);
+
+        var refreshResponse = await client.SendAsync(refreshRequest);
 
         Assert.Equal(HttpStatusCode.OK, refreshResponse.StatusCode);
     }
 
-    private record LoginPayload(string AccessToken, string RefreshToken);
+    private static string? ExtractCookieValue(HttpResponseHeaders headers, string cookieName)
+    {
+        if (!headers.TryGetValues("Set-Cookie", out var values))
+        {
+            return null;
+        }
+
+        var prefix = cookieName + "=";
+        foreach (var cookie in values)
+        {
+            if (!cookie.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var end = cookie.IndexOf(';');
+            var value = end >= 0 ? cookie[prefix.Length..end] : cookie[prefix.Length..];
+            return Uri.UnescapeDataString(value);
+        }
+
+        return null;
+    }
+
+    private record LoginPayload(string AccessToken);
 }

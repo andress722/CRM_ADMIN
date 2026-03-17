@@ -16,7 +16,7 @@ const RAW_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   (process.env.NODE_ENV === "development" ? "http://localhost:5071" : "")
 const API_BASE = RAW_BASE_URL.replace(/\/+$/, "")
-const API = API_BASE.endsWith("/api/v1") ? API_BASE : `${API_BASE}/api/v1`
+const API = "/api/bff"
 const API_ORIGIN = API_BASE.endsWith("/api/v1") ? API_BASE.slice(0, -7) : API_BASE
 const ORDER_STATUS_LABELS: Record<number, string> = {
   0: "Pending",
@@ -38,13 +38,19 @@ class ApiRequestError extends Error {
   }
 }
 
+let inMemoryAccessToken: string | null = null
+
+function hasSessionHint(): boolean {
+  if (typeof document === "undefined") return false
+  return /(?:^|;\s*)csrf_token=/.test(document.cookie)
+}
+
 function getAccessToken(): string | null {
-  if (typeof window === "undefined") return null
-  return localStorage.getItem("accessToken")
+  return inMemoryAccessToken
 }
 
 export function hasAccessToken(): boolean {
-  return !!getAccessToken()
+  return !!inMemoryAccessToken || hasSessionHint()
 }
 
 function getCsrfToken(): string | null {
@@ -53,14 +59,24 @@ function getCsrfToken(): string | null {
   return match ? decodeURIComponent(match[1]) : null
 }
 
-function getRefreshToken(): string | null {
-  if (typeof window === "undefined") return null
-  return localStorage.getItem("refreshToken")
+function requiresActionNoncePath(path: string, method: string): boolean {
+  const m = method.toUpperCase()
+  if (!(m === "POST" || m === "PUT" || m === "PATCH" || m === "DELETE")) return false
+
+  if (path === "/payments/checkout" || path === "/payments/transparent" || path === "/orders/from-cart") {
+    return true
+  }
+
+  if (path === "/subscriptions/billing/run") return true
+  if (path.startsWith("/subscriptions/") && (path.endsWith("/cancel") || path.endsWith("/retry"))) {
+    return true
+  }
+
+  return false
 }
 
-function setTokens(access: string, refresh?: string) {
-  localStorage.setItem("accessToken", access)
-  if (refresh) localStorage.setItem("refreshToken", refresh)
+function setTokens(access: string) {
+  inMemoryAccessToken = access
 }
 
 function setUserId(userId: string) {
@@ -73,9 +89,9 @@ function getUserId(): string | null {
 }
 
 export function clearTokens() {
-  localStorage.removeItem("accessToken")
+  inMemoryAccessToken = null
   localStorage.removeItem("userId")
-  localStorage.removeItem("refreshToken")
+
 }
 
 function normalizeStatus(value: unknown): string {
@@ -143,18 +159,15 @@ async function refreshAccessToken(): Promise<boolean> {
       headers["X-CSRF-Token"] = csrfToken
     }
 
-    const refreshToken = getRefreshToken()
-
     const res = await fetch(`${API}/auth/refresh`, {
       method: "POST",
       headers,
-      body: refreshToken ? JSON.stringify({ refreshToken }) : undefined,
       credentials: "include",
     })
     if (!res.ok) return false
-    const data = (await res.json()) as { accessToken?: string; refreshToken?: string; user?: any }
+    const data = (await res.json()) as { accessToken?: string; user?: any }
     if (!data.accessToken) return false
-    setTokens(data.accessToken, data.refreshToken)
+    setTokens(data.accessToken)
     if (data.user?.id) setUserId(String(data.user.id))
     return true
   } catch {
@@ -186,9 +199,13 @@ async function apiFetch<T>(
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
   }
+  const method = (options.method || "GET").toString().toUpperCase()
   const csrfToken = getCsrfToken()
   if (csrfToken) {
     headers["X-CSRF-Token"] = csrfToken
+    if (requiresActionNoncePath(path, method)) {
+      headers["X-Action-Nonce"] = csrfToken
+    }
   }
   if (token && !isPublicAuthPath) {
     headers["Authorization"] = `Bearer ${token}`
@@ -243,20 +260,20 @@ async function apiFetch<T>(
 // --- Auth ---
 
 export async function login(email: string, password: string) {
-  const data = await apiFetch<{ accessToken: string; refreshToken?: string; user?: any }>(
+  const data = await apiFetch<{ accessToken: string; user?: any }>(
     "/auth/login",
     {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }
   )
-  setTokens(data.accessToken, data.refreshToken)
+  setTokens(data.accessToken)
   if (data.user?.id) setUserId(String(data.user.id))
   return data
 }
 
 export async function register(name: string, email: string, password: string) {
-  const data = await apiFetch<{ accessToken?: string; refreshToken?: string; user?: any; message?: string }>(
+  const data = await apiFetch<{ accessToken?: string; user?: any; message?: string }>(
     "/auth/register",
     {
       method: "POST",
@@ -264,7 +281,7 @@ export async function register(name: string, email: string, password: string) {
     }
   )
   if (data.accessToken) {
-    setTokens(data.accessToken, data.refreshToken)
+    setTokens(data.accessToken)
   }
   if (data.user?.id) setUserId(String(data.user.id))
   return data
@@ -733,6 +750,14 @@ export async function trackEvent(data: {
     // Analytics failures are silent
   }
 }
+
+
+
+
+
+
+
+
 
 
 

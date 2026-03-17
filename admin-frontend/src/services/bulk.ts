@@ -4,16 +4,16 @@ export type BulkRequest = {
   body?: unknown;
 };
 
-export async function runBulkRequests(requests: BulkRequest[], token: string) {
+export async function runBulkRequests(requests: BulkRequest[]) {
   const headers = {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
   };
 
   await Promise.all(
     requests.map(({ url, method, body }) =>
       fetch(url, {
         method,
+        credentials: "include",
         headers,
         body: body ? JSON.stringify(body) : undefined,
       }),

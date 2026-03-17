@@ -12,6 +12,8 @@ namespace Ecommerce.API.Tests;
 
 public class CustomWebAppFactory : WebApplicationFactory<Program>
 {
+    private readonly string _databaseName = $"EcommerceTestDb-{Guid.NewGuid():N}";
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.ConfigureAppConfiguration((_, config) =>
@@ -29,8 +31,12 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
                 ["Payments:Provider"] = "Stub",
                 ["Payments:MercadoPago:WebhookSecret"] = "test_webhook_secret",
                 ["Payments:MercadoPago:WebhookSignatureFormat"] = "ts_requestid_body",
+                ["Subscriptions:Billing:WebhookSecret"] = "test_subscriptions_webhook_secret",
+                ["Subscriptions:Billing:WebhookSignatureFormat"] = "ts_requestid_body",
                 ["Email:Provider"] = "Console",
-                ["Security:RequireAdmin2FA"] = "false"
+                ["Security:RequireAdmin2FA"] = "false",
+                ["DeploySignals:SharedSecret"] = "test-deploy-signal-secret",
+                ["DeploySignals:FreshnessHours"] = "24"
             });
         });
 
@@ -39,7 +45,7 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
             services.RemoveAll(typeof(DbContextOptions<EcommerceDbContext>));
             services.AddDbContext<EcommerceDbContext>(options =>
             {
-                options.UseInMemoryDatabase("EcommerceTestDb");
+                options.UseInMemoryDatabase(_databaseName);
             });
 
             services.RemoveAll(typeof(IPaymentGateway));
@@ -47,4 +53,3 @@ public class CustomWebAppFactory : WebApplicationFactory<Program>
         });
     }
 }
-

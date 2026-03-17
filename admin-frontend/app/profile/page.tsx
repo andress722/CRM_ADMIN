@@ -1,6 +1,5 @@
 "use client";
 
-import { AuthService } from "@/services/auth";
 import { endpoints } from "@/services/endpoints";
 import Image from "next/image";
 import React, { useEffect, useRef, useState } from "react";
@@ -49,15 +48,8 @@ export default function ProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    const token = AuthService.getToken();
-    if (!token) {
-      setError("Usuário não autenticado.");
-      setLoading(false);
-      return;
-    }
-    fetch(endpoints.admin.profile, {
-      headers: { Authorization: `Bearer ${token}` },
+  useEffect(() => {    fetch(endpoints.admin.profile, {
+      
     })
       .then((res) => res.json())
       .then((data) => {
@@ -100,12 +92,10 @@ export default function ProfilePage() {
     setUploading(true);
     const file = e.target.files[0];
     const formData = new FormData();
-    formData.append("file", file);
-    const token = AuthService.getToken();
-    try {
+    formData.append("file", file);    try {
       const res = await fetch(endpoints.admin.profile + "/avatar", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        
         body: formData,
       });
       const data = await res.json();
@@ -122,14 +112,12 @@ export default function ProfilePage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
-    const token = AuthService.getToken();
-    try {
+    setSaving(true);    try {
       await fetch(endpoints.admin.profile, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+
         },
         body: JSON.stringify(form),
       });
@@ -289,3 +277,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+

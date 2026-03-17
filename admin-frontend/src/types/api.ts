@@ -10,7 +10,6 @@ export interface LoginRequest {
 
 export interface LoginResponse {
   accessToken: string;
-  refreshToken?: string;
   token?: string;
   user: {
     id: string;
@@ -185,3 +184,70 @@ export interface ReportsOverview {
   weekly: PeriodReport;
   monthly: PeriodReport;
 }
+
+export interface OpsTopEndpoint {
+  method: string;
+  path: string;
+  requestCount: number;
+  total4xx: number;
+  total5xx: number;
+  avgLatencyMs: number;
+  p95LatencyMs: number;
+  errorRate: number;
+}
+
+export interface OpsSloSnapshot {
+  totalRequests: number;
+  totalResponses: number;
+  total4xx: number;
+  total5xx: number;
+  avgLatencyMs: number;
+  p95LatencyMs: number;
+  errorRate: number;
+  responseClasses: Record<string, number>;
+  topEndpoints: OpsTopEndpoint[];
+}
+
+export interface OpsBackupHealth {
+  healthy: boolean;
+  message: string;
+}
+
+export interface OpsWebhookHealth {
+  activeEndpoints: number;
+  pendingDeliveries: number;
+  failedDeliveriesLast24h: number;
+  successfulDeliveriesLast24h: number;
+  latestFailureAtUtc?: string | null;
+}
+
+export interface OpsJobQueueHealth {
+  dueSubscriptions: number;
+  retryingSubscriptions: number;
+  staleCartUsers: number;
+  failedEmailsLast24h: number;
+}
+
+export interface OpsAlertStatus {
+  key: string;
+  triggered: boolean;
+  message: string;
+}
+
+export interface OpsAlertSummary {
+  api5xx: OpsAlertStatus;
+  apiP95Latency: OpsAlertStatus;
+  webhookBacklog: OpsAlertStatus;
+  backupHealth: OpsAlertStatus;
+  deployFailure: OpsAlertStatus;
+}
+
+export interface AdminOpsOverview {
+  slo: OpsSloSnapshot;
+  backup: OpsBackupHealth;
+  webhooks: OpsWebhookHealth;
+  jobs: OpsJobQueueHealth;
+  alerts: OpsAlertSummary;
+}
+
+

@@ -1,0 +1,79 @@
+name: Deploy Signal
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+      - CI Integration
+      - Staging Release Gate
+      - Deploy VPS
+      - Release
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      status:
+        description: "Override status (success|failed). Empty = derive from workflow conclusion"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish-signal:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve deploy status
+        id: status
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.status }}" ]; then
+            status="${{ inputs.status }}"
+          else
+            conclusion="${{ github.event.workflow_run.conclusion }}"
+            case "$conclusion" in
+              success) status="success" ;;
+              *) status="failed" ;;
+            esac
+          fi
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+      - name: Send deploy signal to staging API
+        if: ${{ secrets.STAGING_API_URL != '' && secrets.STAGING_DEPLOY_SIGNAL_SECRET != '' }}
+        shell: pwsh
+        run: |
+          $api = "${{ secrets.STAGING_API_URL }}".TrimEnd('/')
+          $url = "$api/api/v1/admin/ops/deploy-signal"
+          $body = @{
+            status = "${{ steps.status.outputs.status }}"
+            source = "github-actions"
+            workflow = if ("${{ github.event_name }}" -eq "workflow_run") { "${{ github.event.workflow_run.name }}" } else { "manual-dispatch" }
+            branch = if ("${{ github.event_name }}" -eq "workflow_run") { "${{ github.event.workflow_run.head_branch }}" } else { "${{ github.ref_name }}" }
+            commitSha = if ("${{ github.event_name }}" -eq "workflow_run") { "${{ github.event.workflow_run.head_sha }}" } else { "${{ github.sha }}" }
+            runId = if ("${{ github.event_name }}" -eq "workflow_run") { "${{ github.event.workflow_run.id }}" } else { "${{ github.run_id }}" }
+            runUrl = if ("${{ github.event_name }}" -eq "workflow_run") { "${{ github.event.workflow_run.html_url }}" } else { "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" }
+            environment = "staging"
+            message = if ("${{ github.event_name }}" -eq "workflow_run") { "workflow_run conclusion=${{ github.event.workflow_run.conclusion }}" } else { "manual dispatch" }
+            occurredAtUtc = (Get-Date).ToUniversalTime().ToString("o")
+          } | ConvertTo-Json -Depth 6
+
+          $headers = @{
+            "X-Deploy-Signal-Secret" = "${{ secrets.STAGING_DEPLOY_SIGNAL_SECRET }}"
+          }
+
+          $response = Invoke-WebRequest -Method Post -Uri $url -Headers $headers -Body $body -ContentType "application/json" -SkipHttpErrorCheck
+          if ($response.StatusCode -lt 200 -or $response.StatusCode -ge 300) {
+            throw "Deploy signal request failed with status $($response.StatusCode)"
+          }
+
+      - name: Explain skipped signal
+        if: ${{ secrets.STAGING_API_URL == '' || secrets.STAGING_DEPLOY_SIGNAL_SECRET == '' }}
+        shell: bash
+        run: |
+          echo "Skipping deploy signal publish because STAGING_API_URL or STAGING_DEPLOY_SIGNAL_SECRET is not configured."

@@ -1,5 +1,4 @@
 "use client";
-import { AuthService } from "@/services/auth";
 import { endpoints } from "@/services/endpoints";
 import ExcelJS from "exceljs";
 import { useEffect, useState } from "react";
@@ -34,15 +33,8 @@ export default function AdminsPage() {
   const [accessLogs, setAccessLogs] = useState<AccessLog[]>([]);
   const [showLogsId, setShowLogsId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const token = AuthService.getToken();
-    if (!token) {
-      setError("Usuário não autenticado.");
-      setLoading(false);
-      return;
-    }
-    fetch(endpoints.admin.admins, {
-      headers: { Authorization: `Bearer ${token}` },
+  useEffect(() => {    fetch(endpoints.admin.admins, {
+      
     })
       .then((res) => res.json())
       .then((data) => {
@@ -55,11 +47,9 @@ export default function AdminsPage() {
       });
   }, []);
 
-  const fetchAccessLogs = async (id: string) => {
-    const token = AuthService.getToken();
-    try {
+  const fetchAccessLogs = async (id: string) => {    try {
       const res = await fetch(`${endpoints.admin.admins}/${id}/logs`, {
-        headers: { Authorization: `Bearer ${token}` },
+        
       });
       const data = await res.json();
       setAccessLogs(data);
@@ -71,14 +61,12 @@ export default function AdminsPage() {
 
   const inviteAdmin = async () => {
     if (!inviteEmail) return;
-    setInviting(true);
-    const token = AuthService.getToken();
-    try {
+    setInviting(true);    try {
       await fetch(endpoints.admin.admins + "/invite", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+
         },
         body: JSON.stringify({ email: inviteEmail }),
       });
@@ -93,14 +81,12 @@ export default function AdminsPage() {
   const inviteBatchAdmins = async () => {
     const emails = inviteBatch.split(/[,;\s]+/).filter((e) => e.includes("@"));
     if (!emails.length) return;
-    setInviting(true);
-    const token = AuthService.getToken();
-    try {
+    setInviting(true);    try {
       await fetch(endpoints.admin.admins + "/invite-batch", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+
         },
         body: JSON.stringify({ emails }),
       });
@@ -162,14 +148,12 @@ export default function AdminsPage() {
   };
 
   const toggleBlock = async (id: string, block: boolean) => {
-    setUpdating(id);
-    const token = AuthService.getToken();
-    try {
+    setUpdating(id);    try {
       await fetch(
         `${endpoints.admin.admins}/${id}/${block ? "block" : "unblock"}`,
         {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
+          
         },
       );
       setAdmins((admins) =>
@@ -188,14 +172,12 @@ export default function AdminsPage() {
 
   const saveRoleEdit = async () => {
     if (!roleEdit) return;
-    setUpdating(roleEdit.id);
-    const token = AuthService.getToken();
-    try {
+    setUpdating(roleEdit.id);    try {
       await fetch(`${endpoints.admin.admins}/${roleEdit.id}/role`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+
         },
         body: JSON.stringify({ role: roleEdit.role }),
       });
@@ -397,3 +379,5 @@ export default function AdminsPage() {
     </div>
   );
 }
+
+

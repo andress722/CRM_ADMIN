@@ -1,0 +1,46 @@
+{
+  "IpRateLimiting": {
+    "EnableEndpointRateLimiting": true,
+    "StackBlockedRequests": false,
+    "RealIpHeader": "X-Real-IP",
+    "ClientIdHeader": "X-ClientId",
+    "HttpStatusCode": 429,
+    "GeneralRules": [
+      { "Endpoint": "*", "Period": "1m", "Limit": 120 },
+
+      { "Endpoint": "*:/api/v1/auth/login", "Period": "1m", "Limit": 10 },
+      { "Endpoint": "*:/api/v1/auth/login", "Period": "15m", "Limit": 60 },
+      { "Endpoint": "*:/api/v1/auth/register", "Period": "5m", "Limit": 10 },
+      { "Endpoint": "*:/api/v1/auth/refresh", "Period": "1m", "Limit": 30 },
+      { "Endpoint": "*:/api/v1/auth/forgot-password", "Period": "5m", "Limit": 10 },
+      { "Endpoint": "*:/api/v1/auth/reset-password", "Period": "5m", "Limit": 15 },
+      { "Endpoint": "*:/api/v1/auth/verify-email", "Period": "5m", "Limit": 20 },
+      { "Endpoint": "*:/api/v1/auth/resend-verification", "Period": "5m", "Limit": 10 },
+      { "Endpoint": "*:/api/v1/auth/social/*", "Period": "1m", "Limit": 20 },
+      { "Endpoint": "*:/api/v1/auth/2fa/*", "Period": "1m", "Limit": 30 },
+
+      { "Endpoint": "*:/api/v1/payments/checkout", "Period": "1m", "Limit": 30 },
+      { "Endpoint": "*:/api/v1/payments/transparent", "Period": "1m", "Limit": 25 },
+      { "Endpoint": "*:/api/v1/orders/from-cart", "Period": "1m", "Limit": 30 },
+      { "Endpoint": "*:/api/v1/refunds/*/process", "Period": "1m", "Limit": 20 },
+      { "Endpoint": "*:/api/v1/subscriptions/*/cancel", "Period": "1m", "Limit": 20 },
+      { "Endpoint": "*:/api/v1/subscriptions/*/retry", "Period": "1m", "Limit": 20 },
+      { "Endpoint": "*:/api/v1/subscriptions/billing/run", "Period": "1m", "Limit": 10 },
+
+      { "Endpoint": "*:/api/webhooks/mercadopago", "Period": "1m", "Limit": 180 },
+      { "Endpoint": "*:/api/webhooks/email", "Period": "1m", "Limit": 180 },
+      { "Endpoint": "*:/api/webhooks/shipping", "Period": "1m", "Limit": 180 },
+      { "Endpoint": "*:/api/v1/subscriptions/webhooks/billing", "Period": "1m", "Limit": 180 },
+
+      { "Endpoint": "*:/api/v1/admin/integrations/*/test", "Period": "1m", "Limit": 20 },
+      { "Endpoint": "*:/api/v1/admin/admins/invite", "Period": "1m", "Limit": 10 },
+      { "Endpoint": "*:/api/v1/admin/admins/invite-batch", "Period": "1m", "Limit": 5 },
+      { "Endpoint": "*:/api/v1/lgpd/export", "Period": "1m", "Limit": 10 },
+      { "Endpoint": "*:/api/v1/lgpd/anonymize", "Period": "1m", "Limit": 5 }
+    ]
+  },
+  "IpRateLimitPolicies": {
+    "IpRules": [],
+    "ClientRules": []
+  }
+}

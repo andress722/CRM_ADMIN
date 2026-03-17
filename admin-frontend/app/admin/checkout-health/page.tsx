@@ -5,6 +5,17 @@ import { AlertTriangle, CheckCircle2, RefreshCcw, ShieldCheck } from 'lucide-rea
 import { useApiQuery } from '@/hooks/useApi';
 import { endpoints } from '@/services/endpoints';
 
+type AntiAbuseRouteClass = {
+  key: string;
+  label: string;
+  rulesCount: number;
+  minLimit: number;
+  maxLimit: number;
+  endpoints: string[];
+  coupledAlerts: string[];
+  expectedAlertCoverage: boolean;
+};
+
 type CheckoutHealthResponse = {
   correlationId: string;
   environment: string;
@@ -23,6 +34,11 @@ type CheckoutHealthResponse = {
   captcha: {
     enabled: boolean;
     secretConfigured: boolean;
+  };
+  antiAbuse: {
+    routeClasses: AntiAbuseRouteClass[];
+    alerts: string[];
+    rateLimitRulesVersioned: boolean;
   };
   warnings: string[];
   healthy: boolean;
@@ -52,13 +68,14 @@ export default function CheckoutHealthPage() {
   );
 
   const warningCount = useMemo(() => data?.warnings?.length ?? 0, [data]);
+  const antiAbuseCount = useMemo(() => data?.antiAbuse.routeClasses.length ?? 0, [data]);
 
   return (
     <div className="space-y-6">
       <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Checkout Health</h1>
-          <p className="text-sm text-slate-400">Diagnóstico de autenticação, pagamento e captcha para checkout.</p>
+          <p className="text-sm text-slate-400">Diagnóstico de autenticação, pagamento, captcha e antiabuso por classe de rota.</p>
         </div>
         <button
           type="button"
@@ -106,12 +123,11 @@ export default function CheckoutHealthPage() {
             </div>
 
             <div className="rounded border border-slate-700 bg-slate-900 p-4">
-              <p className="text-xs text-slate-400">Pagamento</p>
-              <p className="mt-2 text-sm font-semibold text-white">Provider: {data.checkout.paymentProvider}</p>
+              <p className="text-xs text-slate-400">Antiabuso</p>
               <div className="mt-2 flex flex-wrap gap-2">
-                <StatusBadge ok={data.checkout.mercadoPagoTokenConfigured} label="MP token" />
-                <StatusBadge ok={data.checkout.mercadoPagoWebhookUrlConfigured} label="Webhook" />
+                <StatusBadge ok={data.antiAbuse.rateLimitRulesVersioned} label="Rules versioned" />
               </div>
+              <p className="mt-2 text-xs text-slate-500">Classes mapeadas: {antiAbuseCount}</p>
             </div>
           </section>
 
@@ -127,7 +143,6 @@ export default function CheckoutHealthPage() {
                   {String(data.checkout.allowStubOutsideDevelopment)}
                 </p>
                 <p>
-                  <span className="text-slate-400">MercadoPago token preview:</span>{' '}
                   <code className="rounded bg-slate-800 px-1 py-0.5 text-xs">{data.checkout.mercadoPagoTokenPreview}</code>
                 </p>
               </div>
@@ -145,6 +160,49 @@ export default function CheckoutHealthPage() {
             </div>
           </section>
 
+          <section className="rounded border border-slate-700 bg-slate-900 p-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-slate-300" />
+              <h2 className="text-sm font-semibold text-white">Antiabuso por classe de rota</h2>
+            </div>
+            <div className="grid gap-3 lg:grid-cols-2">
+              {data.antiAbuse.routeClasses.map((routeClass) => (
+                <div key={routeClass.key} className="rounded border border-slate-800 bg-slate-950/70 p-3 text-sm text-slate-300">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-semibold text-white">{routeClass.label}</p>
+                    <StatusBadge
+                      ok={!routeClass.expectedAlertCoverage || routeClass.coupledAlerts.length > 0}
+                      label={routeClass.coupledAlerts.length > 0 ? 'Alert coupled' : 'No alert'}
+                    />
+                  </div>
+                  <p className="mt-2 text-xs text-slate-500">
+                    {routeClass.rulesCount} regras, limite min {routeClass.minLimit}/janela, max {routeClass.maxLimit}/janela
+                  </p>
+                  <p className="mt-2 text-xs text-slate-400">Endpoints:</p>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {routeClass.endpoints.map((endpoint) => (
+                      <code key={endpoint} className="rounded bg-slate-800 px-2 py-1 text-[11px] text-slate-300">{endpoint}</code>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-xs text-slate-400">Alertas acoplados:</p>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {routeClass.coupledAlerts.length > 0 ? routeClass.coupledAlerts.map((alert) => (
+                      <code key={alert} className="rounded bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-300">{alert}</code>
+                    )) : <span className="text-xs text-slate-500">Nenhum alerta específico encontrado.</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div>
+              <p className="mb-2 text-xs text-slate-400">Alertas disponíveis no pacote de observabilidade</p>
+              <div className="flex flex-wrap gap-2">
+                {data.antiAbuse.alerts.map((alert) => (
+                  <code key={alert} className="rounded bg-slate-800 px-2 py-1 text-[11px] text-slate-300">{alert}</code>
+                ))}
+              </div>
+            </div>
+          </section>
+
           <section className="rounded border border-slate-700 bg-slate-900 p-4">
             <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
               <ShieldCheck className="h-4 w-4" />
@@ -152,7 +210,7 @@ export default function CheckoutHealthPage() {
             </h2>
             {warningCount === 0 ? (
               <div className="rounded border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
-                Nenhum warning. Ambiente consistente para checkout.
+                Nenhum warning. Ambiente consistente para checkout e antiabuso.
               </div>
             ) : (
               <ul className="space-y-2 text-sm text-amber-300">

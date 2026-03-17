@@ -1,7 +1,11 @@
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Ecommerce.Application.Services;
 using Microsoft.Extensions.Configuration;
+using Ecommerce.API.Services;
 
 namespace Ecommerce.API.Controllers;
 
@@ -11,11 +15,16 @@ public class SubscriptionsController : ControllerBase
 {
     private readonly SubscriptionService _service;
     private readonly IConfiguration _configuration;
+    private readonly IIdempotencyService _idempotencyService;
 
-    public SubscriptionsController(SubscriptionService service, IConfiguration configuration)
+    public SubscriptionsController(
+        SubscriptionService service,
+        IConfiguration configuration,
+        IIdempotencyService idempotencyService)
     {
         _service = service;
         _configuration = configuration;
+        _idempotencyService = idempotencyService;
     }
 
     [HttpGet("plans")]
@@ -141,14 +150,44 @@ public class SubscriptionsController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> BillingWebhook([FromBody] BillingWebhookRequest request)
     {
+        if (request.SubscriptionId == Guid.Empty || string.IsNullOrWhiteSpace(request.Event))
+        {
+            return BadRequest(new { message = "subscriptionId and event are required" });
+        }
+
         var secret = _configuration["Subscriptions:Billing:WebhookSecret"];
         if (!string.IsNullOrWhiteSpace(secret))
         {
-            var provided = Request.Headers["x-subscription-webhook-secret"].FirstOrDefault();
-            if (!string.Equals(secret, provided, StringComparison.Ordinal))
+            var payload = await ReadBodyAsync();
+            if (string.IsNullOrWhiteSpace(payload))
             {
-                return Unauthorized(new { message = "Invalid webhook secret" });
+                payload = JsonSerializer.Serialize(request);
             }
+
+            var hasLegacySecret = IsLegacySecretValid(secret);
+            var hasSignature = IsSignatureValid(secret, payload);
+            if (!hasLegacySecret && !hasSignature)
+            {
+                return Unauthorized(new { message = "Invalid webhook signature" });
+            }
+        }
+
+        var webhookKey = Request.Headers["x-request-id"].FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(webhookKey))
+        {
+            webhookKey = $"{request.SubscriptionId:N}:{request.Event}:{request.TransactionId}:{request.OccurredAt?.ToUniversalTime().ToString("O")}";
+        }
+
+        var requestHash = _idempotencyService.ComputeRequestHash(request);
+        var existing = await _idempotencyService.GetAsync("subscriptions:webhook", webhookKey, HttpContext.RequestAborted);
+        if (existing != null)
+        {
+            if (!string.Equals(existing.RequestHash, requestHash, StringComparison.Ordinal))
+            {
+                return Conflict(new { message = "Idempotency key reuse with different payload" });
+            }
+
+            return StatusCode(existing.ResponseStatusCode, new { message = "Duplicate webhook ignored" });
         }
 
         var handled = await _service.HandleBillingWebhookAsync(
@@ -164,7 +203,109 @@ public class SubscriptionsController : ControllerBase
             return NotFound(new { message = "Subscription not found or unsupported event" });
         }
 
-        return Ok(new { success = true });
+        var responsePayload = new { success = true };
+        await _idempotencyService.SaveAsync(
+            "subscriptions:webhook",
+            webhookKey,
+            requestHash,
+            StatusCodes.Status200OK,
+            responsePayload,
+            TimeSpan.FromHours(24),
+            HttpContext.RequestAborted);
+
+        return Ok(responsePayload);
+    }
+
+    private async Task<string> ReadBodyAsync()
+    {
+        Request.EnableBuffering();
+        if (Request.Body.CanSeek)
+        {
+            Request.Body.Position = 0;
+        }
+
+        using var reader = new StreamReader(Request.Body, Encoding.UTF8, leaveOpen: true);
+        var body = await reader.ReadToEndAsync();
+
+        if (Request.Body.CanSeek)
+        {
+            Request.Body.Position = 0;
+        }
+
+        return body;
+    }
+
+    private bool IsLegacySecretValid(string secret)
+    {
+        var provided = Request.Headers["x-subscription-webhook-secret"].FirstOrDefault();
+        return string.Equals(secret, provided, StringComparison.Ordinal);
+    }
+
+    private bool IsSignatureValid(string secret, string payload)
+    {
+        var signature = Request.Headers["x-signature"].FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(signature))
+        {
+            return false;
+        }
+
+        var requestId = Request.Headers["x-request-id"].FirstOrDefault() ?? string.Empty;
+        var parts = signature.Split(',', ';', StringSplitOptions.RemoveEmptyEntries)
+            .Select(p => p.Split('=', 2, StringSplitOptions.RemoveEmptyEntries))
+            .Where(p => p.Length == 2)
+            .ToDictionary(p => p[0].Trim(), p => p[1].Trim(), StringComparer.OrdinalIgnoreCase);
+
+        parts.TryGetValue("ts", out var ts);
+        parts.TryGetValue("v1", out var v1);
+        if (string.IsNullOrWhiteSpace(v1))
+        {
+            parts.TryGetValue("signature", out v1);
+        }
+
+        if (string.IsNullOrWhiteSpace(v1))
+        {
+            return false;
+        }
+
+        var format = _configuration["Subscriptions:Billing:WebhookSignatureFormat"];
+        var candidates = BuildCandidates(format, ts ?? string.Empty, requestId, payload);
+        return candidates.Any(candidate => string.Equals(
+            ComputeHmacSha256(secret, candidate),
+            v1,
+            StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static IEnumerable<string> BuildCandidates(string? format, string ts, string requestId, string payload)
+    {
+        if (!string.IsNullOrWhiteSpace(format))
+        {
+            return format switch
+            {
+                "ts_requestid_body" => new[] { $"{ts}.{requestId}.{payload}" },
+                "ts_body" => new[] { $"{ts}.{payload}" },
+                "body" => new[] { payload },
+                _ => new[] { $"{ts}.{requestId}.{payload}" }
+            };
+        }
+
+        return new[]
+        {
+            $"{ts}.{requestId}.{payload}",
+            $"{ts}.{payload}",
+            payload
+        };
+    }
+
+    private static string ComputeHmacSha256(string secret, string payload)
+    {
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
+        var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(payload));
+        var sb = new StringBuilder(hash.Length * 2);
+        foreach (var b in hash)
+        {
+            sb.Append(b.ToString("x2"));
+        }
+        return sb.ToString();
     }
 
     public record SubscriptionRequest(string Plan, string Email);

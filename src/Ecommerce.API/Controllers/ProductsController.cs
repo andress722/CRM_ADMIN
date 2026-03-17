@@ -14,11 +14,13 @@ namespace Ecommerce.API.Controllers;
 public class ProductsController : ControllerBase
 {
     private readonly ProductService _service;
+    private readonly ProductSearchService _productSearchService;
     private readonly AnalyticsService _analyticsService;
 
-    public ProductsController(ProductService service, AnalyticsService analyticsService)
+    public ProductsController(ProductService service, ProductSearchService productSearchService, AnalyticsService analyticsService)
     {
         _service = service;
+        _productSearchService = productSearchService;
         _analyticsService = analyticsService;
     }
 
@@ -87,13 +89,14 @@ public class ProductsController : ControllerBase
         [FromQuery] decimal? minPrice,
         [FromQuery] decimal? maxPrice,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20)
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
     {
         page = page <= 0 ? 1 : page;
         pageSize = pageSize <= 0 ? 20 : Math.Min(pageSize, 100);
 
-        var (items, total) = await _service.SearchProductsAsync(query, category, minPrice, maxPrice, page, pageSize);
-        return Ok(new SearchProductsResponse(items, total, page, pageSize));
+        var result = await _productSearchService.SearchAsync(query, category, minPrice, maxPrice, page, pageSize, cancellationToken);
+        return Ok(new SearchProductsResponse(result.Items, result.Total, result.Page, result.PageSize, result.Engine, result.Facets, result.Suggestions));
     }
 
     /// <summary>
@@ -193,8 +196,11 @@ public record UpdateProductRequest(
 
 /// <summary>Resposta paginada de busca</summary>
 public record SearchProductsResponse(
-    IEnumerable<Ecommerce.Domain.Entities.Product> Items,
+    IReadOnlyList<Ecommerce.Domain.Entities.Product> Items,
     int Total,
     int Page,
-    int PageSize
+    int PageSize,
+    string Engine,
+    IReadOnlyList<SearchFacetBucket> Facets,
+    IReadOnlyList<string> Suggestions
 );
