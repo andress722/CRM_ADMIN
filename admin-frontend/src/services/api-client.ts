@@ -10,7 +10,7 @@ const API_TIMEOUT = parseInt(
   process.env.NEXT_PUBLIC_API_TIMEOUT || "30000",
   10,
 );
-const API_ROOT = "/api/bff";
+const API_ROOT = "";
 
 const AUTH_ENDPOINT_MARKERS = [
   "/auth/login",
@@ -167,6 +167,7 @@ export const ApiClient = {
 };
 
 export default ApiClient;
+
 
 
 

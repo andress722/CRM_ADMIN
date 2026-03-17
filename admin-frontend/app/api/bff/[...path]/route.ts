@@ -212,7 +212,12 @@ async function handle(request: NextRequest, path: string[]): Promise<NextRespons
     return NextResponse.json({ message: "Cross-site mutation blocked" }, { status: 403 });
   }
 
-  const joinedPath = path.join("/");
+  let joinedPath = path.join("/");
+  if (joinedPath.startsWith("api/bff/")) {
+    joinedPath = joinedPath.slice("api/bff/".length);
+  } else if (joinedPath === "api/bff") {
+    joinedPath = "";
+  }
   const search = request.nextUrl.search || "";
   const cookieAccessToken = request.cookies.get(ACCESS_COOKIE)?.value;
   const requestMethod = request.method.toUpperCase();
@@ -309,3 +314,5 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
   const { path } = await context.params;
   return handle(request, path || []);
 }
+
+
